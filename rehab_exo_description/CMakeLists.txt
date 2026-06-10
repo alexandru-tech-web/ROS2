@@ -16,6 +16,10 @@ install(
   PROGRAMS
     scripts/exercise_controller.py
     scripts/exercise_core.py
+    scripts/sensor_recorder.py
+    scripts/operator_panel.py
+    scripts/telemetry_display.py
+    scripts/plot_recording.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

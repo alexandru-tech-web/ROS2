@@ -1,0 +1,10 @@
+// Config Zenoh pentru rmw_zenoh (optional — implicit functioneaza fara el).
+// Folosire: export ZENOH_SESSION_CONFIG_URI=$PWD/config/zenoh_session_config.json5
+// Routerul (obligatoriu pt rmw_zenoh): ros2 run rmw_zenoh_cpp rmw_zenohd
+{
+  mode: "client",                      // nodurile = clienti ai routerului
+  connect: { endpoints: ["tcp/127.0.0.1:7447"] },  // routerul local
+  scouting: { multicast: { enabled: true } },      // descoperire in LAN
+  // Pentru 2 masini (GCS + laptop drone): pune aici IP-ul routerului GCS:
+  // connect: { endpoints: ["tcp/192.168.1.10:7447"] },
+}

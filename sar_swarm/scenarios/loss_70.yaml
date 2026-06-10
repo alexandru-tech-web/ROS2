@@ -1,0 +1,7 @@
+# Caz 2: pierdere severa 70% (limita de functionare)
+name: loss_70
+duration_s: 150
+store_and_forward: true
+default_link: {base_ms: 80, jitter_ms: 25, loss: 0.70}
+link_overrides: {}
+events: []

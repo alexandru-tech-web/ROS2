@@ -1,0 +1,126 @@
+{
+ "scenario": "loss_30",
+ "mission_time_s": 129.29999999999694,
+ "completed": true,
+ "coverage_final": 0.9509,
+ "victims_found": 5,
+ "victims_total": 5,
+ "cohesion_mean": 0.594,
+ "disconnected_total_s": 0.0,
+ "recovery_time_mean_s": 0.0,
+ "loss_measured_gcs": 0.306,
+ "rtt_p95_ms": 151.4,
+ "probe_timeouts": 468,
+ "links": {
+  "d1-gcs": {
+   "sent": 1419,
+   "lost": 438,
+   "delivered": 981,
+   "buffered": 0,
+   "lat_mean_ms": 60.14139054430488,
+   "lat_p95_ms": 85.10715989226014,
+   "loss_measured": 0.3086680761099366,
+   "down_total_s": 0.0,
+   "recovery_times_s": []
+  },
+  "d2-gcs": {
+   "sent": 1396,
+   "lost": 469,
+   "delivered": 927,
+   "buffered": 0,
+   "lat_mean_ms": 60.063962827667225,
+   "lat_p95_ms": 85.56482601193238,
+   "loss_measured": 0.3359598853868195,
+   "down_total_s": 0.0,
+   "recovery_times_s": []
+  },
+  "d3-gcs": {
+   "sent": 1425,
+   "lost": 421,
+   "delivered": 1004,
+   "buffered": 0,
+   "lat_mean_ms": 60.469724805896504,
+   "lat_p95_ms": 85.34313678100602,
+   "loss_measured": 0.29543859649122806,
+   "down_total_s": 0.0,
+   "recovery_times_s": []
+  },
+  "d4-gcs": {
+   "sent": 1445,
+   "lost": 414,
+   "delivered": 1030,
+   "buffered": 0,
+   "lat_mean_ms": 60.027264373350974,
+   "lat_p95_ms": 85.30137868273258,
+   "loss_measured": 0.2865051903114187,
+   "down_total_s": 0.0,
+   "recovery_times_s": []
+  },
+  "d1-d2": {
+   "sent": 0,
+   "lost": 0,
+   "delivered": 0,
+   "buffered": 0,
+   "lat_mean_ms": 0.0,
+   "lat_p95_ms": 0.0,
+   "loss_measured": 0.0,
+   "down_total_s": 0.0,
+   "recovery_times_s": []
+  },
+  "d1-d3": {
+   "sent": 0,
+   "lost": 0,
+   "delivered": 0,
+   "buffered": 0,
+   "lat_mean_ms": 0.0,
+   "lat_p95_ms": 0.0,
+   "loss_measured": 0.0,
+   "down_total_s": 0.0,
+   "recovery_times_s": []
+  },
+  "d1-d4": {
+   "sent": 0,
+   "lost": 0,
+   "delivered": 0,
+   "buffered": 0,
+   "lat_mean_ms": 0.0,
+   "lat_p95_ms": 0.0,
+   "loss_measured": 0.0,
+   "down_total_s": 0.0,
+   "recovery_times_s": []
+  },
+  "d2-d3": {
+   "sent": 0,
+   "lost": 0,
+   "delivered": 0,
+   "buffered": 0,
+   "lat_mean_ms": 0.0,
+   "lat_p95_ms": 0.0,
+   "loss_measured": 0.0,
+   "down_total_s": 0.0,
+   "recovery_times_s": []
+  },
+  "d2-d4": {
+   "sent": 0,
+   "lost": 0,
+   "delivered": 0,
+   "buffered": 0,
+   "lat_mean_ms": 0.0,
+   "lat_p95_ms": 0.0,
+   "loss_measured": 0.0,
+   "down_total_s": 0.0,
+   "recovery_times_s": []
+  },
+  "d3-d4": {
+   "sent": 0,
+   "lost": 0,
+   "delivered": 0,
+   "buffered": 0,
+   "lat_mean_ms": 0.0,
+   "lat_p95_ms": 0.0,
+   "loss_measured": 0.0,
+   "down_total_s": 0.0,
+   "recovery_times_s": []
+  }
+ }
+}

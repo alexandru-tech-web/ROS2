@@ -13,6 +13,10 @@ controller_manager:
     leg_trajectory_controller:
       type: joint_trajectory_controller/JointTrajectoryController
 
+    # v3: controller de pozitie pentru axele de ajustare (prismatice).
+    adjust_position_controller:
+      type: position_controllers/JointGroupPositionController
+
 joint_state_broadcaster:
   ros__parameters:
     use_local_topics: false
@@ -31,14 +35,20 @@ leg_trajectory_controller:
     state_interfaces:
       - position
       - velocity
-    # Constrangeri de siguranta — esential pentru un dispozitiv medical.
-    # Vitezele lente protejeaza pacientul; ajustati impreuna cu personalul clinic.
+    # Toleranta de urmarire DEZACTIVATA (0.0): in fizica reala, eroarea
+    # tranzitorie depaseste usor cativa sutimi de radian, iar o toleranta
+    # stransa face JTC sa ABORTEZE traiectoria imediat (simptom: robotul
+    # "misca putin apoi se opreste"). Pe hardware real, siguranta vine din
+    # limitarea de cuplu + oprirea de urgenta, nu din abort de traiectorie.
     constraints:
-      stopped_velocity_tolerance: 0.01
-      goal_time: 0.5
-      left_hip_joint:    { trajectory: 0.05, goal: 0.02 }
-      left_knee_joint:   { trajectory: 0.05, goal: 0.02 }
-      left_ankle_joint:  { trajectory: 0.05, goal: 0.02 }
-      right_hip_joint:   { trajectory: 0.05, goal: 0.02 }
-      right_knee_joint:  { trajectory: 0.05, goal: 0.02 }
-      right_ankle_joint: { trajectory: 0.05, goal: 0.02 }
+      stopped_velocity_tolerance: 0.0
+      goal_time: 0.0
+
+adjust_position_controller:
+  ros__parameters:
+    joints:
+      - seat_lift_joint
+      - left_thigh_ext_joint
+      - right_thigh_ext_joint
+      - left_shank_ext_joint
+      - right_shank_ext_joint

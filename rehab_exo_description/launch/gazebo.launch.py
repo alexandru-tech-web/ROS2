@@ -48,7 +48,16 @@ def generate_launch_description():
         package="robot_state_publisher",
         executable="robot_state_publisher",
         output="screen",
-        parameters=[{"robot_description": robot_description}],
+        parameters=[{"robot_description": robot_description,
+                     "use_sim_time": True}],
+    )
+
+    # Podul de ceas: nodurile ROS primesc timpul simularii (/clock) din Gazebo.
+    clock_bridge = Node(
+        package="ros_gz_bridge",
+        executable="parameter_bridge",
+        arguments=["/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock"],
+        output="screen",
     )
 
     spawn = Node(
@@ -66,9 +75,33 @@ def generate_launch_description():
         package="controller_manager", executable="spawner",
         arguments=["leg_trajectory_controller"], output="screen",
     )
+    adjust = Node(
+        package="controller_manager", executable="spawner",
+        arguments=["adjust_position_controller"], output="screen",
+    )
 
-    # Pornim controllerele dupa ce robotul a fost creat in simulare.
+    # v3: controlerul de exercitii (backend trajectory) + inregistratorul de senzori
+    exercise = Node(
+        package="rehab_exo_description", executable="exercise_controller.py",
+        output="screen",
+        parameters=[{"backend": "trajectory", "exercise": "neutral",
+                     "use_sim_time": True}],
+    )
+    recorder = Node(
+        package="rehab_exo_description", executable="sensor_recorder.py",
+        output="screen", parameters=[{"use_sim_time": True}],
+    )
+
+    # Lant: spawn -> joint_state_broadcaster -> leg_trajectory -> adjust
+    #       -> (controler exercitii + inregistrator)
     after_spawn = RegisterEventHandler(
-        OnProcessExit(target_action=spawn, on_exit=[jsb, traj]))
+        OnProcessExit(target_action=spawn, on_exit=[jsb]))
+    after_jsb = RegisterEventHandler(
+        OnProcessExit(target_action=jsb, on_exit=[traj]))
+    after_traj = RegisterEventHandler(
+        OnProcessExit(target_action=traj, on_exit=[adjust]))
+    after_adjust = RegisterEventHandler(
+        OnProcessExit(target_action=adjust, on_exit=[exercise, recorder]))
 
-    return LaunchDescription([gz_sim, rsp, spawn, after_spawn])
+    return LaunchDescription([gz_sim, rsp, clock_bridge, spawn,
+                              after_spawn, after_jsb, after_traj, after_adjust])

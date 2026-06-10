@@ -65,11 +65,15 @@ class Program:
     """Lista de segmente (durata_s, tinte_partiale). Tintele nespecificate
     isi pastreaza pozitia. Valideaza la constructie viteza de varf."""
 
-    def __init__(self, name: str, segments, reps: int = 1):
+    def __init__(self, name: str, segments, reps: int = 1, q_init=None):
         self.name = name
         self.reps = max(1, int(reps))
         self.timeline = []     # (t_start, t_end, q_start{6}, q_end{6})
         q = {j: 0.0 for j in JOINT_NAMES}
+        if q_init:
+            for j, v in q_init.items():
+                if j in q:
+                    q[j] = clamp(j, float(v))
         t = 0.0
         for _ in range(self.reps):
             for dur, targets in segments:
@@ -277,8 +281,8 @@ SESSIONS = {
 
 
 def _make_builder(name, default_reps):
-    def builder(reps=default_reps):
-        prog = Program(name, _FULL[name](int(reps)), 1)
+    def builder(reps=default_reps, q_init=None):
+        prog = Program(name, _FULL[name](int(reps)), 1, q_init=q_init)
         prog.reps = int(reps)
         return prog
     return builder
@@ -293,18 +297,59 @@ _DEFAULT_REPS = {
 EXERCISES = {n: _make_builder(n, d) for n, d in _DEFAULT_REPS.items()}
 
 
-def build(name: str, reps: int) -> Program:
-    """Construieste un exercitiu atomic SAU o sesiune intreaga.
-    Pentru sesiuni, `reps` = de cate ori se repeta intreaga sesiune."""
+def build(name: str, reps: int, q_init=None) -> Program:
+    """Construieste un exercitiu atomic, o sesiune SAU `neutral` (revenire
+    lina la postura sezut din pozitia curenta — folosit ca STOP).
+    q_init = pozitia curenta a articulatiilor: traiectoria porneste de
+    acolo (comutare live fara salt). Pentru sesiuni, `reps` repeta sesiunea."""
+    if name == "neutral":
+        prog = Program("neutral", [(2.0, {j: 0.0 for j in JOINT_NAMES}), (0.5, {})],
+                       1, q_init=q_init)
+        prog.reps = 1
+        return prog
     if name in EXERCISES:
-        return EXERCISES[name](reps)
+        return EXERCISES[name](reps, q_init=q_init)
     if name in SESSIONS:
         segs = []
         for ex, r in SESSIONS[name]:
             segs += _FULL[ex](r)
-        prog = Program(name, segs, max(1, int(reps)))
+        prog = Program(name, segs, max(1, int(reps)), q_init=q_init)
         prog.reps = max(1, int(reps))
         return prog
     raise ValueError(
         f"necunoscut: {name}. Exercitii: {sorted(EXERCISES)}. "
         f"Sesiuni: {sorted(SESSIONS)}")
+
+
+# ============================================================
+# v3: AXELE DE AJUSTARE (prismatice) — scaun + segmente telescopice
+# ============================================================
+ADJUST_JOINT_NAMES = [
+    "seat_lift_joint",
+    "left_thigh_ext_joint", "right_thigh_ext_joint",
+    "left_shank_ext_joint", "right_shank_ext_joint",
+]
+ADJUST_LIMITS = {
+    "seat_lift_joint": (0.0, 0.15),
+    "left_thigh_ext_joint": (0.0, 0.08), "right_thigh_ext_joint": (0.0, 0.08),
+    "left_shank_ext_joint": (0.0, 0.08), "right_shank_ext_joint": (0.0, 0.08),
+}
+ADJUST_VEL = 0.03   # m/s — viteza de ajustare (axe lente, de reglaj)
+
+# Regula de cuplare (garda la sol, demonstrata prin FK): extensia gambei
+# coboara glezna, deci e permisa doar daca scaunul e ridicat suficient:
+#     shank_ext <= seat_lift + SHANK_EXT_MARGIN
+SHANK_EXT_MARGIN = 0.03
+
+
+def clamp_adjust(targets: dict) -> dict:
+    """Taie tintele de ajustare la limite SI impune regula de cuplare.
+    Returneaza dict complet (toate cele 5 axe) cu valori sigure."""
+    out = {}
+    for j in ADJUST_JOINT_NAMES:
+        lo, hi = ADJUST_LIMITS[j]
+        out[j] = max(lo, min(hi, float(targets.get(j, 0.0))))
+    cap = out["seat_lift_joint"] + SHANK_EXT_MARGIN
+    for j in ("left_shank_ext_joint", "right_shank_ext_joint"):
+        out[j] = min(out[j], cap)
+    return out

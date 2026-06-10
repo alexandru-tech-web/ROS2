@@ -1,0 +1,9 @@
+# Caz 3: varf de latenta la GCS: 50 ms -> 2000 ms intre t=40..80 s
+name: gcs_delay_spike
+duration_s: 150
+store_and_forward: true
+default_link: {base_ms: 50, jitter_ms: 10, loss: 0.02}
+link_overrides: {}
+events:
+  - {t: 40, type: set_all, base_ms: 2000, jitter_ms: 300}
+  - {t: 80, type: set_all, base_ms: 50, jitter_ms: 10}

@@ -42,9 +42,13 @@
     </collision>
   </link>
 
-  <joint name="base_to_seat" type="fixed">
+  <!-- v3: ridicarea/coborarea scaunului fata de baza (ajustare pacient) -->
+  <joint name="seat_lift_joint" type="prismatic">
     <parent link="base_link"/><child link="seat_link"/>
     <origin xyz="0 0 0.485" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="0.0" upper="0.15" effort="500.0" velocity="0.05"/>
+    <dynamics damping="50.0" friction="5.0"/>
   </joint>
   <link name="seat_link">
     <inertial>
@@ -210,11 +214,6 @@
       <material name="mech_left"/>
     </visual>
     <visual>
-      <origin xyz="0.4000 0.0400 0.0000" rpy="1.5708 0 0"/>
-      <geometry><cylinder radius="0.0600" length="0.0800"/></geometry>
-      <material name="frame_gri"/>
-    </visual>
-    <visual>
       <origin xyz="0.2000 -0.1150 0.0000" rpy="0 1.5708 0"/>
       <geometry><cylinder radius="0.0720" length="0.3800"/></geometry>
       <material name="pants"/>
@@ -224,9 +223,37 @@
       <geometry><box size="0.4000 0.0600 0.0800"/></geometry>
     </collision>
   </link>
-  <joint name="left_knee_joint" type="revolute">
-    <parent link="left_thigh"/><child link="left_shank"/>
+  <joint name="left_thigh_ext_joint" type="prismatic">
+    <parent link="left_thigh"/><child link="left_thigh_ext"/>
     <origin xyz="0.400 0 0" rpy="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit lower="0.0" upper="0.08" effort="300.0" velocity="0.03"/>
+    <dynamics damping="30.0" friction="3.0"/>
+  </joint>
+  <link name="left_thigh_ext">
+    <inertial>
+      <origin xyz="-0.0500 0.0000 0.0000" rpy="0 0 0"/>
+      <mass value="0.800"/>
+      <inertia ixx="0.000273" ixy="0" ixz="0" iyy="0.001873" iyz="0" izz="0.001813"/>
+    </inertial>
+    <visual>
+      <origin xyz="-0.0500 0.0000 0.0000" rpy="0 0 0"/>
+      <geometry><box size="0.1600 0.0380 0.0550"/></geometry>
+      <material name="frame_gri"/>
+    </visual>
+    <visual>
+      <origin xyz="0.0000 0.0400 0.0000" rpy="1.5708 0 0"/>
+      <geometry><cylinder radius="0.0600" length="0.0800"/></geometry>
+      <material name="frame_gri"/>
+    </visual>
+    <collision>
+      <origin xyz="-0.0500 0.0000 0.0000" rpy="0 0 0"/>
+      <geometry><box size="0.1600 0.0400 0.0600"/></geometry>
+    </collision>
+  </link>
+  <joint name="left_knee_joint" type="revolute">
+    <parent link="left_thigh_ext"/><child link="left_shank"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
     <axis xyz="0 -1 0"/>
     <limit lower="0.0" upper="1.75" effort="120.0" velocity="2.0"/>
     <dynamics damping="2.0" friction="1.0"/>
@@ -252,9 +279,32 @@
       <geometry><box size="0.0600 0.0500 0.4000"/></geometry>
     </collision>
   </link>
-  <joint name="left_ankle_joint" type="revolute">
-    <parent link="left_shank"/><child link="left_foot"/>
+  <joint name="left_shank_ext_joint" type="prismatic">
+    <parent link="left_shank"/><child link="left_shank_ext"/>
     <origin xyz="0 0 -0.400" rpy="0 0 0"/>
+    <axis xyz="0 0 -1"/>
+    <limit lower="0.0" upper="0.08" effort="300.0" velocity="0.03"/>
+    <dynamics damping="30.0" friction="3.0"/>
+  </joint>
+  <link name="left_shank_ext">
+    <inertial>
+      <origin xyz="0.0000 0.0000 0.0500" rpy="0 0 0"/>
+      <mass value="0.600"/>
+      <inertia ixx="0.001060" ixy="0" ixz="0" iyy="0.001060" iyz="0" izz="0.000160"/>
+    </inertial>
+    <visual>
+      <origin xyz="0.0000 0.0000 0.0500" rpy="0 0 0"/>
+      <geometry><box size="0.0380 0.0340 0.1400"/></geometry>
+      <material name="frame_gri"/>
+    </visual>
+    <collision>
+      <origin xyz="0.0000 0.0000 0.0500" rpy="0 0 0"/>
+      <geometry><box size="0.0400 0.0400 0.1400"/></geometry>
+    </collision>
+  </link>
+  <joint name="left_ankle_joint" type="revolute">
+    <parent link="left_shank_ext"/><child link="left_foot"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
     <axis xyz="0 -1 0"/>
     <limit lower="-0.6" upper="0.6" effort="120.0" velocity="2.0"/>
     <dynamics damping="2.0" friction="1.0"/>
@@ -306,11 +356,6 @@
       <material name="mech_right"/>
     </visual>
     <visual>
-      <origin xyz="0.4000 -0.0400 0.0000" rpy="1.5708 0 0"/>
-      <geometry><cylinder radius="0.0600" length="0.0800"/></geometry>
-      <material name="frame_gri"/>
-    </visual>
-    <visual>
       <origin xyz="0.2000 0.1150 0.0000" rpy="0 1.5708 0"/>
       <geometry><cylinder radius="0.0720" length="0.3800"/></geometry>
       <material name="pants"/>
@@ -320,9 +365,37 @@
       <geometry><box size="0.4000 0.0600 0.0800"/></geometry>
     </collision>
   </link>
-  <joint name="right_knee_joint" type="revolute">
-    <parent link="right_thigh"/><child link="right_shank"/>
+  <joint name="right_thigh_ext_joint" type="prismatic">
+    <parent link="right_thigh"/><child link="right_thigh_ext"/>
     <origin xyz="0.400 0 0" rpy="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit lower="0.0" upper="0.08" effort="300.0" velocity="0.03"/>
+    <dynamics damping="30.0" friction="3.0"/>
+  </joint>
+  <link name="right_thigh_ext">
+    <inertial>
+      <origin xyz="-0.0500 0.0000 0.0000" rpy="0 0 0"/>
+      <mass value="0.800"/>
+      <inertia ixx="0.000273" ixy="0" ixz="0" iyy="0.001873" iyz="0" izz="0.001813"/>
+    </inertial>
+    <visual>
+      <origin xyz="-0.0500 0.0000 0.0000" rpy="0 0 0"/>
+      <geometry><box size="0.1600 0.0380 0.0550"/></geometry>
+      <material name="frame_gri"/>
+    </visual>
+    <visual>
+      <origin xyz="0.0000 -0.0400 0.0000" rpy="1.5708 0 0"/>
+      <geometry><cylinder radius="0.0600" length="0.0800"/></geometry>
+      <material name="frame_gri"/>
+    </visual>
+    <collision>
+      <origin xyz="-0.0500 0.0000 0.0000" rpy="0 0 0"/>
+      <geometry><box size="0.1600 0.0400 0.0600"/></geometry>
+    </collision>
+  </link>
+  <joint name="right_knee_joint" type="revolute">
+    <parent link="right_thigh_ext"/><child link="right_shank"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
     <axis xyz="0 -1 0"/>
     <limit lower="0.0" upper="1.75" effort="120.0" velocity="2.0"/>
     <dynamics damping="2.0" friction="1.0"/>
@@ -348,9 +421,32 @@
       <geometry><box size="0.0600 0.0500 0.4000"/></geometry>
     </collision>
   </link>
-  <joint name="right_ankle_joint" type="revolute">
-    <parent link="right_shank"/><child link="right_foot"/>
+  <joint name="right_shank_ext_joint" type="prismatic">
+    <parent link="right_shank"/><child link="right_shank_ext"/>
     <origin xyz="0 0 -0.400" rpy="0 0 0"/>
+    <axis xyz="0 0 -1"/>
+    <limit lower="0.0" upper="0.08" effort="300.0" velocity="0.03"/>
+    <dynamics damping="30.0" friction="3.0"/>
+  </joint>
+  <link name="right_shank_ext">
+    <inertial>
+      <origin xyz="0.0000 0.0000 0.0500" rpy="0 0 0"/>
+      <mass value="0.600"/>
+      <inertia ixx="0.001060" ixy="0" ixz="0" iyy="0.001060" iyz="0" izz="0.000160"/>
+    </inertial>
+    <visual>
+      <origin xyz="0.0000 0.0000 0.0500" rpy="0 0 0"/>
+      <geometry><box size="0.0380 0.0340 0.1400"/></geometry>
+      <material name="frame_gri"/>
+    </visual>
+    <collision>
+      <origin xyz="0.0000 0.0000 0.0500" rpy="0 0 0"/>
+      <geometry><box size="0.0400 0.0400 0.1400"/></geometry>
+    </collision>
+  </link>
+  <joint name="right_ankle_joint" type="revolute">
+    <parent link="right_shank_ext"/><child link="right_foot"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
     <axis xyz="0 -1 0"/>
     <limit lower="-0.6" upper="0.6" effort="120.0" velocity="2.0"/>
     <dynamics damping="2.0" friction="1.0"/>
@@ -380,56 +476,134 @@
   <ros2_control name="RehabExoSystem" type="system">
     <hardware>
       <plugin>gz_ros2_control/GazeboSimSystem</plugin>
+      <!-- comanda de pozitie aplicata ca viteza = k * eroare; implicitul e prea mic -->
+      <param name="position_proportional_gain">15.0</param>
     </hardware>
+    <!-- left_hip: encoder absolut (position) + torque (effort); comanda pozitie+viteza -->
     <joint name="left_hip_joint">
       <command_interface name="position">
         <param name="min">-0.45</param>
         <param name="max">0.7</param>
       </command_interface>
+      <command_interface name="velocity">
+        <param name="min">-2.0</param>
+        <param name="max">2.0</param>
+      </command_interface>
       <state_interface name="position"/>
       <state_interface name="velocity"/>
       <state_interface name="effort"/>
     </joint>
+    <!-- left_knee: encoder absolut (position) + torque (effort); comanda pozitie+viteza -->
     <joint name="left_knee_joint">
       <command_interface name="position">
         <param name="min">0.0</param>
         <param name="max">1.75</param>
       </command_interface>
+      <command_interface name="velocity">
+        <param name="min">-2.0</param>
+        <param name="max">2.0</param>
+      </command_interface>
       <state_interface name="position"/>
       <state_interface name="velocity"/>
       <state_interface name="effort"/>
     </joint>
+    <!-- left_ankle: senzor de unghi (position) + torque (effort); comanda pozitie+viteza -->
     <joint name="left_ankle_joint">
       <command_interface name="position">
         <param name="min">-0.6</param>
         <param name="max">0.6</param>
       </command_interface>
+      <command_interface name="velocity">
+        <param name="min">-2.0</param>
+        <param name="max">2.0</param>
+      </command_interface>
       <state_interface name="position"/>
       <state_interface name="velocity"/>
       <state_interface name="effort"/>
     </joint>
+    <!-- right_hip: encoder absolut (position) + torque (effort); comanda pozitie+viteza -->
     <joint name="right_hip_joint">
       <command_interface name="position">
         <param name="min">-0.45</param>
         <param name="max">0.7</param>
       </command_interface>
-      <state_interface name="position"/>
-      <state_interface name="velocity"/>
-      <state_interface name="effort"/>
-    </joint>
-    <joint name="right_knee_joint">
-      <command_interface name="position">
-        <param name="min">0.0</param>
-        <param name="max">1.75</param>
+      <command_interface name="velocity">
+        <param name="min">-2.0</param>
+        <param name="max">2.0</param>
       </command_interface>
       <state_interface name="position"/>
       <state_interface name="velocity"/>
       <state_interface name="effort"/>
     </joint>
+    <!-- right_knee: encoder absolut (position) + torque (effort); comanda pozitie+viteza -->
+    <joint name="right_knee_joint">
+      <command_interface name="position">
+        <param name="min">0.0</param>
+        <param name="max">1.75</param>
+      </command_interface>
+      <command_interface name="velocity">
+        <param name="min">-2.0</param>
+        <param name="max">2.0</param>
+      </command_interface>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+      <state_interface name="effort"/>
+    </joint>
+    <!-- right_ankle: senzor de unghi (position) + torque (effort); comanda pozitie+viteza -->
     <joint name="right_ankle_joint">
       <command_interface name="position">
         <param name="min">-0.6</param>
         <param name="max">0.6</param>
+      </command_interface>
+      <command_interface name="velocity">
+        <param name="min">-2.0</param>
+        <param name="max">2.0</param>
+      </command_interface>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+      <state_interface name="effort"/>
+    </joint>
+    <!-- Axele de ajustare (prismatice): comanda pozitie, stare completa -->
+    <joint name="seat_lift_joint">
+      <command_interface name="position">
+        <param name="min">0.0</param>
+        <param name="max">0.15</param>
+      </command_interface>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+      <state_interface name="effort"/>
+    </joint>
+    <joint name="left_thigh_ext_joint">
+      <command_interface name="position">
+        <param name="min">0.0</param>
+        <param name="max">0.08</param>
+      </command_interface>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+      <state_interface name="effort"/>
+    </joint>
+    <joint name="right_thigh_ext_joint">
+      <command_interface name="position">
+        <param name="min">0.0</param>
+        <param name="max">0.08</param>
+      </command_interface>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+      <state_interface name="effort"/>
+    </joint>
+    <joint name="left_shank_ext_joint">
+      <command_interface name="position">
+        <param name="min">0.0</param>
+        <param name="max">0.08</param>
+      </command_interface>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+      <state_interface name="effort"/>
+    </joint>
+    <joint name="right_shank_ext_joint">
+      <command_interface name="position">
+        <param name="min">0.0</param>
+        <param name="max">0.08</param>
       </command_interface>
       <state_interface name="position"/>
       <state_interface name="velocity"/>
