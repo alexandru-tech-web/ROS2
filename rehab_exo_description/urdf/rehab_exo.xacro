@@ -1,0 +1,125 @@
+<?xml version="1.0"?>
+<!-- Varianta parametrica (xacro) a robotului de recuperare cu 6 GDL.
+     Expandati cu:  xacro rehab_exo.xacro > rehab_exo_generated.urdf
+     Echivalenta structural cu rehab_exo.urdf (verificat prin expandare). -->
+<robot name="rehab_exo" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- ===== Parametri ===== -->
+  <xacro:property name="hip_half_width" value="0.15"/>
+  <xacro:property name="thigh_len" value="0.42"/>
+  <xacro:property name="thigh_r"   value="0.055"/>
+  <xacro:property name="thigh_m"   value="4.0"/>
+  <xacro:property name="shank_len" value="0.42"/>
+  <xacro:property name="shank_r"   value="0.045"/>
+  <xacro:property name="shank_m"   value="3.0"/>
+  <xacro:property name="j_lower" value="0.0"/>
+  <xacro:property name="j_upper" value="3.14159"/>
+  <xacro:property name="j_eff"   value="120.0"/>
+  <xacro:property name="j_vel"   value="2.0"/>
+
+  <!-- ===== Macro: o articulatie revoluta sagitala ===== -->
+  <xacro:macro name="rev_joint" params="name parent child x y z">
+    <joint name="${name}" type="revolute">
+      <parent link="${parent}"/>
+      <child link="${child}"/>
+      <origin xyz="${x} ${y} ${z}" rpy="0 0 0"/>
+      <axis xyz="0 1 0"/>
+      <limit lower="${j_lower}" upper="${j_upper}" effort="${j_eff}" velocity="${j_vel}"/>
+      <dynamics damping="2.0" friction="1.0"/>
+    </joint>
+  </xacro:macro>
+
+  <!-- ===== Macro: un picior complet (coapsa+gamba+laba) ===== -->
+  <xacro:macro name="leg" params="side y_off col">
+    <xacro:rev_joint name="${side}_hip_joint" parent="base_link" child="${side}_thigh"
+                     x="0" y="${y_off}" z="-0.06"/>
+    <link name="${side}_thigh">
+      <inertial><origin xyz="0 0 ${-thigh_len/2}"/><mass value="${thigh_m}"/>
+        <inertia ixx="0.06" ixy="0" ixz="0" iyy="0.06" iyz="0" izz="0.006"/></inertial>
+      <visual><origin xyz="0 0 ${-thigh_len/2}"/>
+        <geometry><cylinder radius="${thigh_r}" length="${thigh_len}"/></geometry>
+        <material name="${col}_thigh"/></visual>
+      <collision><origin xyz="0 0 ${-thigh_len/2}"/>
+        <geometry><cylinder radius="${thigh_r}" length="${thigh_len}"/></geometry></collision>
+    </link>
+    <xacro:rev_joint name="${side}_knee_joint" parent="${side}_thigh" child="${side}_shank"
+                     x="0" y="0" z="${-thigh_len}"/>
+    <link name="${side}_shank">
+      <inertial><origin xyz="0 0 ${-shank_len/2}"/><mass value="${shank_m}"/>
+        <inertia ixx="0.045" ixy="0" ixz="0" iyy="0.045" iyz="0" izz="0.003"/></inertial>
+      <visual><origin xyz="0 0 ${-shank_len/2}"/>
+        <geometry><cylinder radius="${shank_r}" length="${shank_len}"/></geometry>
+        <material name="${col}_shank"/></visual>
+      <collision><origin xyz="0 0 ${-shank_len/2}"/>
+        <geometry><cylinder radius="${shank_r}" length="${shank_len}"/></geometry></collision>
+    </link>
+    <xacro:rev_joint name="${side}_ankle_joint" parent="${side}_shank" child="${side}_foot"
+                     x="0" y="0" z="${-shank_len}"/>
+    <link name="${side}_foot">
+      <inertial><origin xyz="0.06 0 -0.025"/><mass value="1.0"/>
+        <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.005" iyz="0" izz="0.005"/></inertial>
+      <visual><origin xyz="0.06 0 -0.025"/>
+        <geometry><box size="0.24 0.10 0.05"/></geometry>
+        <material name="${col}_foot"/></visual>
+      <collision><origin xyz="0.06 0 -0.025"/>
+        <geometry><box size="0.24 0.10 0.05"/></geometry></collision>
+    </link>
+  </xacro:macro>
+
+  <!-- ===== Materiale ===== -->
+  <material name="blue_thigh"><color rgba="0.20 0.45 0.80 1"/></material>
+  <material name="blue_shank"><color rgba="0.30 0.60 0.90 1"/></material>
+  <material name="blue_foot"><color rgba="0.15 0.30 0.55 1"/></material>
+  <material name="red_thigh"><color rgba="0.80 0.35 0.20 1"/></material>
+  <material name="red_shank"><color rgba="0.90 0.50 0.30 1"/></material>
+  <material name="red_foot"><color rgba="0.55 0.25 0.15 1"/></material>
+
+  <!-- ===== Structura ===== -->
+  <link name="world"/>
+  <joint name="world_to_base" type="fixed">
+    <parent link="world"/><child link="base_link"/>
+    <origin xyz="0 0 0.95" rpy="0 0 0"/>
+  </joint>
+
+  <link name="base_link">
+    <inertial><mass value="8.0"/>
+      <inertia ixx="0.10" ixy="0" ixz="0" iyy="0.07" iyz="0" izz="0.15"/></inertial>
+    <visual><geometry><box size="0.30 0.36 0.12"/></geometry></visual>
+    <collision><geometry><box size="0.30 0.36 0.12"/></geometry></collision>
+  </link>
+
+  <xacro:leg side="left"  y_off="${hip_half_width}"  col="blue"/>
+  <xacro:leg side="right" y_off="${-hip_half_width}" col="red"/>
+
+
+  <!-- ===== ros2_control + plugin Gazebo (gz) ===== -->
+  <ros2_control name="RehabExoSystem" type="system">
+    <hardware>
+      <plugin>gz_ros2_control/GazeboSimSystem</plugin>
+    </hardware>
+    <xacro:macro name="ctrl_joint" params="name">
+      <joint name="${name}">
+        <command_interface name="position">
+          <param name="min">${j_lower}</param>
+          <param name="max">${j_upper}</param>
+        </command_interface>
+        <state_interface name="position"/>
+        <state_interface name="velocity"/>
+        <state_interface name="effort"/>
+      </joint>
+    </xacro:macro>
+    <xacro:ctrl_joint name="left_hip_joint"/>
+    <xacro:ctrl_joint name="left_knee_joint"/>
+    <xacro:ctrl_joint name="left_ankle_joint"/>
+    <xacro:ctrl_joint name="right_hip_joint"/>
+    <xacro:ctrl_joint name="right_knee_joint"/>
+    <xacro:ctrl_joint name="right_ankle_joint"/>
+  </ros2_control>
+
+  <gazebo>
+    <plugin filename="gz_ros2_control-system" name="gz_ros2_control::GazeboSimROS2ControlPlugin">
+      <parameters>$(find rehab_exo_description)/config/controllers.yaml</parameters>
+    </plugin>
+  </gazebo>
+
+</robot>

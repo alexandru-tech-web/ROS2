@@ -1,0 +1,13 @@
+# artefacte de build colcon (se regenereaza)
+build/
+install/
+log/
+
+# Python
+__pycache__/
+*.pyc
+
+# editoare
+.vscode/
+.idea/
+*.swp

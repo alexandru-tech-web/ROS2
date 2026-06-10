@@ -1,0 +1,13 @@
+# artefacte de build colcon (daca depozitul e clonat ca workspace intreg)
+build/
+install/
+log/
+
+# Python
+__pycache__/
+*.pyc
+
+# editoare
+.vscode/
+.idea/
+*.swp

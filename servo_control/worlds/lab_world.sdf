@@ -1,0 +1,302 @@
+<?xml version="1.0" ?>
+<sdf version="1.9">
+  <world name="servo_lab">
+
+    <!-- ── Fizică ──────────────────────────────────────────── -->
+    <physics name="1ms" type="ignored">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+    </physics>
+
+    <!-- ── Plugin-uri obligatorii ──────────────────────────── -->
+    <plugin filename="gz-sim-physics-system"
+            name="gz::sim::systems::Physics"/>
+    <plugin filename="gz-sim-scene-broadcaster-system"
+            name="gz::sim::systems::SceneBroadcaster"/>
+    <plugin filename="gz-sim-user-commands-system"
+            name="gz::sim::systems::UserCommands"/>
+
+    <!-- ── Lumina principala (tavan) ───────────────────────── -->
+    <light type="directional" name="ceiling_light">
+      <pose>0 0 4 0 0 0</pose>
+      <cast_shadows>true</cast_shadows>
+      <diffuse>0.9 0.9 0.85 1</diffuse>
+      <specular>0.3 0.3 0.3 1</specular>
+      <direction>0.1 0.1 -1</direction>
+    </light>
+
+    <!-- Lumina secundara laterala (umbre mai moi) -->
+    <light type="point" name="side_light">
+      <pose>-3 2 2.5 0 0 0</pose>
+      <cast_shadows>false</cast_shadows>
+      <diffuse>0.4 0.4 0.5 1</diffuse>
+      <specular>0.1 0.1 0.1 1</specular>
+      <attenuation>
+        <range>10</range>
+        <linear>0.1</linear>
+        <quadratic>0.05</quadratic>
+      </attenuation>
+    </light>
+
+    <!-- ── Podea ────────────────────────────────────────────── -->
+    <model name="floor">
+      <static>true</static>
+      <link name="link">
+        <collision name="col">
+          <geometry><plane>
+            <normal>0 0 1</normal>
+            <size>10 10</size>
+          </plane></geometry>
+        </collision>
+        <visual name="vis">
+          <geometry><plane>
+            <normal>0 0 1</normal>
+            <size>10 10</size>
+          </plane></geometry>
+          <material>
+            <ambient>0.55 0.55 0.55 1</ambient>
+            <diffuse>0.6 0.6 0.6 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- ── Pereti camera 6x5m ───────────────────────────────── -->
+
+    <!-- Perete spate (nord) -->
+    <model name="wall_north">
+      <static>true</static>
+      <pose>0 3.0 1.5 0 0 0</pose>
+      <link name="link">
+        <collision name="col">
+          <geometry><box><size>6 0.15 3</size></box></geometry>
+        </collision>
+        <visual name="vis">
+          <geometry><box><size>6 0.15 3</size></box></geometry>
+          <material>
+            <ambient>0.82 0.82 0.78 1</ambient>
+            <diffuse>0.85 0.85 0.80 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Perete fata (sud) -->
+    <model name="wall_south">
+      <static>true</static>
+      <pose>0 -3.0 1.5 0 0 0</pose>
+      <link name="link">
+        <collision name="col">
+          <geometry><box><size>6 0.15 3</size></box></geometry>
+        </collision>
+        <visual name="vis">
+          <geometry><box><size>6 0.15 3</size></box></geometry>
+          <material>
+            <ambient>0.82 0.82 0.78 1</ambient>
+            <diffuse>0.85 0.85 0.80 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Perete stanga (vest) -->
+    <model name="wall_west">
+      <static>true</static>
+      <pose>-3.0 0 1.5 0 0 0</pose>
+      <link name="link">
+        <collision name="col">
+          <geometry><box><size>0.15 6 3</size></box></geometry>
+        </collision>
+        <visual name="vis">
+          <geometry><box><size>0.15 6 3</size></box></geometry>
+          <material>
+            <ambient>0.78 0.78 0.75 1</ambient>
+            <diffuse>0.80 0.80 0.76 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Perete dreapta (est) -->
+    <model name="wall_east">
+      <static>true</static>
+      <pose>3.0 0 1.5 0 0 0</pose>
+      <link name="link">
+        <collision name="col">
+          <geometry><box><size>0.15 6 3</size></box></geometry>
+        </collision>
+        <visual name="vis">
+          <geometry><box><size>0.15 6 3</size></box></geometry>
+          <material>
+            <ambient>0.78 0.78 0.75 1</ambient>
+            <diffuse>0.80 0.80 0.76 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Tavan -->
+    <model name="ceiling">
+      <static>true</static>
+      <pose>0 0 3.0 0 0 0</pose>
+      <link name="link">
+        <visual name="vis">
+          <geometry><box><size>6 6 0.1</size></box></geometry>
+          <material>
+            <ambient>0.9 0.9 0.9 1</ambient>
+            <diffuse>0.9 0.9 0.9 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- ── Masa de laborator la (0,0,0) ─────────────────────── -->
+    <!-- Blatul mesei — suprafata la Z=0.75m -->
+    <model name="table_top">
+      <static>true</static>
+      <pose>0 0 0.725 0 0 0</pose>
+      <link name="link">
+        <collision name="col">
+          <geometry><box><size>1.4 0.8 0.05</size></box></geometry>
+        </collision>
+        <visual name="vis">
+          <geometry><box><size>1.4 0.8 0.05</size></box></geometry>
+          <material>
+            <ambient>0.45 0.32 0.18 1</ambient>
+            <diffuse>0.50 0.35 0.20 1</diffuse>
+            <specular>0.1 0.1 0.1 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Picior 1 -->
+    <model name="leg_fl">
+      <static>true</static>
+      <pose>-0.65 -0.35 0.35 0 0 0</pose>
+      <link name="link">
+        <collision name="col">
+          <geometry><box><size>0.06 0.06 0.70</size></box></geometry>
+        </collision>
+        <visual name="vis">
+          <geometry><box><size>0.06 0.06 0.70</size></box></geometry>
+          <material><ambient>0.25 0.18 0.10 1</ambient></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Picior 2 -->
+    <model name="leg_fr">
+      <static>true</static>
+      <pose>0.65 -0.35 0.35 0 0 0</pose>
+      <link name="link">
+        <collision name="col">
+          <geometry><box><size>0.06 0.06 0.70</size></box></geometry>
+        </collision>
+        <visual name="vis">
+          <geometry><box><size>0.06 0.06 0.70</size></box></geometry>
+          <material><ambient>0.25 0.18 0.10 1</ambient></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Picior 3 -->
+    <model name="leg_bl">
+      <static>true</static>
+      <pose>-0.65 0.35 0.35 0 0 0</pose>
+      <link name="link">
+        <collision name="col">
+          <geometry><box><size>0.06 0.06 0.70</size></box></geometry>
+        </collision>
+        <visual name="vis">
+          <geometry><box><size>0.06 0.06 0.70</size></box></geometry>
+          <material><ambient>0.25 0.18 0.10 1</ambient></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Picior 4 -->
+    <model name="leg_br">
+      <static>true</static>
+      <pose>0.65 0.35 0.35 0 0 0</pose>
+      <link name="link">
+        <collision name="col">
+          <geometry><box><size>0.06 0.06 0.70</size></box></geometry>
+        </collision>
+        <visual name="vis">
+          <geometry><box><size>0.06 0.06 0.70</size></box></geometry>
+          <material><ambient>0.25 0.18 0.10 1</ambient></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- ── Servomotor pe masă ────────────────────────────────── -->
+    <!-- Z = 0.75 (blat) + 0.04 (jumatate din model) = 0.79     -->
+    <include>
+      <uri>model://Servomotor</uri>
+      <name>servo1</name>
+      <pose>0 0 0.79  1.5707963 0 0</pose>
+    </include>
+    <!-- Lumina de tavan centrala (neon de laborator) -->
+    <light type="point" name="lamp_center">
+        <pose>0 0 2.8 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <diffuse>1.0 1.0 0.95 1</diffuse>
+        <specular>0.5 0.5 0.5 1</specular>
+        <attenuation>
+            <range>8</range>
+            <constant>0.3</constant>
+            <linear>0.1</linear>
+            <quadratic>0.02</quadratic>
+        </attenuation>
+    </light>
+
+    <!-- Lumina stanga -->
+    <light type="point" name="lamp_left">
+        <pose>-2 0 2.8 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <diffuse>0.9 0.9 0.85 1</diffuse>
+        <specular>0.2 0.2 0.2 1</specular>
+        <attenuation>
+            <range>5</range>
+            <constant>0.4</constant>
+            <linear>0.15</linear>
+            <quadratic>0.03</quadratic>
+        </attenuation>
+    </light>
+
+    <!-- Lumina dreapta -->
+    <light type="point" name="lamp_right">
+        <pose>2 0 2.8 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <diffuse>0.9 0.9 0.85 1</diffuse>
+        <specular>0.2 0.2 0.2 1</specular>
+        <attenuation>
+            <range>5</range>
+            <constant>0.4</constant>
+            <linear>0.15</linear>
+            <quadratic>0.03</quadratic>
+        </attenuation>
+    </light>
+
+    <!-- Lumina spot pe masa (accent pe servomotor) -->
+    <light type="spot" name="spot_table">
+        <pose>0 0 2.5 0 0 0</pose>
+        <cast_shadows>true</cast_shadows>
+        <diffuse>1.0 0.98 0.90 1</diffuse>
+        <specular>0.6 0.6 0.6 1</specular>
+        <attenuation>
+            <range>4</range>
+            <constant>0.1</constant>
+            <linear>0.05</linear>
+            <quadratic>0.01</quadratic>
+        </attenuation>
+        <direction>0 0 -1</direction>
+        <spot>
+            <inner_angle>0.5</inner_angle>
+            <outer_angle>1.0</outer_angle>
+            <falloff>1.0</falloff>
+        </spot>
+    </light>
+  </world>
+</sdf>
