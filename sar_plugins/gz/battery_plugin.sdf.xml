@@ -1,0 +1,30 @@
+<!-- battery_plugin.sdf.xml — baterie SIMULATA DE GAZEBO, per model.
+
+  Alternativa "de fizica" la battery_node.py: in loc sa integram consumul
+  in ROS, lasam Gazebo sa descarce o baterie liniara. Se lipeste in
+  interiorul <model> (rover sau drona). Starea apare pe topicul gz:
+      /model/<nume_model>/battery/linear_battery/state
+  si se aduce in ROS prin ros_gz_bridge (vezi bridge_rover.yaml) ca
+  sensor_msgs/BatteryState.
+
+  Parametrii de mai jos ~ 4S Li-Po 4000 mAh (14.8 V nominal, ~59 Wh),
+  consum constant 120 W => autonomie ~30 min, ca BatteryModel implicit.
+  <power_load> e in W; <capacity> in Ah.
+
+  Verificare rapida pe masina ta:
+      gz topic -l | grep battery
+      gz topic -e -t /model/rover/battery/linear_battery/state
+-->
+<plugin filename="gz-sim-linearbatteryplugin-system"
+        name="gz::sim::systems::LinearBatteryPlugin">
+  <battery_name>linear_battery</battery_name>
+  <voltage>16.8</voltage>
+  <open_circuit_voltage_constant_coef>16.8</open_circuit_voltage_constant_coef>
+  <open_circuit_voltage_linear_coef>-3.0</open_circuit_voltage_linear_coef>
+  <initial_charge>4.0</initial_charge>
+  <capacity>4.0</capacity>
+  <resistance>0.06</resistance>
+  <smooth_current_tau>1.0</smooth_current_tau>
+  <power_load>120.0</power_load>
+  <start_draining>true</start_draining>
+</plugin>
