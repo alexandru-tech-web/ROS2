@@ -6,10 +6,10 @@ find_package(ament_cmake REQUIRED)
 # Pachet de descriere: instaleaza resursele (urdf, launch, config, rviz)
 # in share/, ca sa fie gasite cu get_package_share_directory / FindPackageShare.
 install(
-  DIRECTORY urdf launch config rviz
+  DIRECTORY urdf launch config rviz worlds
   DESTINATION share/${PROJECT_NAME}
 )
-
+install(DIRECTORY launch config urdf worlds DESTINATION share/${PROJECT_NAME})
 # Scripturile de control, instalate ca executabile (ros2 run / launch Node).
 # exercise_core.py merge alaturi, ca importul local sa functioneze.
 install(
@@ -20,6 +20,10 @@ install(
     scripts/operator_panel.py
     scripts/telemetry_display.py
     scripts/plot_recording.py
+    scripts/safety_supervisor.py
+    scripts/operator_heartbeat.py
+    scripts/patient_model.py
+    scripts/session_report.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
@@ -27,5 +31,15 @@ if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   ament_lint_auto_find_test_dependencies()
 endif()
+
+
+# --- REHAB_EXT: extensii telereabilitare ---
+install(PROGRAMS
+  scripts/safety_supervisor.py
+  scripts/operator_heartbeat.py
+  scripts/patient_model.py
+  scripts/session_report.py
+  DESTINATION lib/${PROJECT_NAME})
+install(DIRECTORY worlds DESTINATION share/${PROJECT_NAME})
 
 ament_package()

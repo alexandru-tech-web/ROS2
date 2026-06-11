@@ -1,0 +1,66 @@
+# gz_patient_bridge.yaml — Puntea ROS2 <-> Gazebo pentru modelul de pacient.
+# Plasati in:  rehab_exo_description/config/gz_patient_bridge.yaml
+#
+# patient_model.py publica Float64 pe /rehab/patient_force/<joint>; puntea
+# le traduce in gz.msgs.Double pe topicele consumate de plugin-ul
+# gz::sim::systems::ApplyJointForce (inserat in URDF de patch_urdf_extensions.py).
+# Numele modelului in Gazebo este "rehab_exo" (numele robotului din URDF).
+#
+# Pornire manuala (telerehab.launch.py o face automat):
+#   ros2 run ros_gz_bridge parameter_bridge --ros-args \
+#       -p config_file:=<cale>/gz_patient_bridge.yaml
+
+- ros_topic_name: "/rehab/patient_force/left_hip_joint"
+  gz_topic_name: "/model/rehab_exo/joint/left_hip_joint/cmd_force"
+  ros_type_name: "std_msgs/msg/Float64"
+  gz_type_name: "gz.msgs.Double"
+  direction: ROS_TO_GZ
+
+- ros_topic_name: "/rehab/patient_force/left_knee_joint"
+  gz_topic_name: "/model/rehab_exo/joint/left_knee_joint/cmd_force"
+  ros_type_name: "std_msgs/msg/Float64"
+  gz_type_name: "gz.msgs.Double"
+  direction: ROS_TO_GZ
+
+- ros_topic_name: "/rehab/patient_force/left_ankle_joint"
+  gz_topic_name: "/model/rehab_exo/joint/left_ankle_joint/cmd_force"
+  ros_type_name: "std_msgs/msg/Float64"
+  gz_type_name: "gz.msgs.Double"
+  direction: ROS_TO_GZ
+
+- ros_topic_name: "/rehab/patient_force/right_hip_joint"
+  gz_topic_name: "/model/rehab_exo/joint/right_hip_joint/cmd_force"
+  ros_type_name: "std_msgs/msg/Float64"
+  gz_type_name: "gz.msgs.Double"
+  direction: ROS_TO_GZ
+
+- ros_topic_name: "/rehab/patient_force/right_knee_joint"
+  gz_topic_name: "/model/rehab_exo/joint/right_knee_joint/cmd_force"
+  ros_type_name: "std_msgs/msg/Float64"
+  gz_type_name: "gz.msgs.Double"
+  direction: ROS_TO_GZ
+
+- ros_topic_name: "/rehab/patient_force/right_ankle_joint"
+  gz_topic_name: "/model/rehab_exo/joint/right_ankle_joint/cmd_force"
+  ros_type_name: "std_msgs/msg/Float64"
+  gz_type_name: "gz.msgs.Double"
+  direction: ROS_TO_GZ
+
+# IMU-urile inserate de patch (necesita lumea rehab_world.sdf):
+- ros_topic_name: "/rehab/imu/base_link"
+  gz_topic_name: "/rehab/imu/base_link"
+  ros_type_name: "sensor_msgs/msg/Imu"
+  gz_type_name: "gz.msgs.IMU"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "/rehab/imu/left_foot"
+  gz_topic_name: "/rehab/imu/left_foot"
+  ros_type_name: "sensor_msgs/msg/Imu"
+  gz_type_name: "gz.msgs.IMU"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "/rehab/imu/right_foot"
+  gz_topic_name: "/rehab/imu/right_foot"
+  ros_type_name: "sensor_msgs/msg/Imu"
+  gz_type_name: "gz.msgs.IMU"
+  direction: GZ_TO_ROS

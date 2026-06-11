@@ -1,0 +1,59 @@
+<?xml version="1.0" ?>
+<!-- rehab_world.sdf : Lume Gazebo (Harmonic) pentru robotul de recuperare.
+     Identica functional cu lumea goala implicita, dar incarca in plus
+     sistemele de senzori non-vizuali de care au nevoie extensiile:
+       * gz-sim-imu-system          -> senzorii IMU inserati de patch
+       * gz-sim-forcetorque-system  -> senzori forta/cuplu (extensie viitoare)
+       * gz-sim-contact-system      -> senzori de contact talpa (extensie viitoare)
+     Plasati in:  rehab_exo_description/worlds/rehab_world.sdf
+     Pornire:     gazebo.launch.py cu gz_args indicand acest fisier
+                  (vezi INSTALL_EXTENSII.md, sectiunea 4). -->
+<sdf version="1.9">
+  <world name="rehab_world">
+    <physics name="default_physics" type="ode">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+    </physics>
+
+    <plugin filename="gz-sim-physics-system"
+            name="gz::sim::systems::Physics"/>
+    <plugin filename="gz-sim-user-commands-system"
+            name="gz::sim::systems::UserCommands"/>
+    <plugin filename="gz-sim-scene-broadcaster-system"
+            name="gz::sim::systems::SceneBroadcaster"/>
+    <plugin filename="gz-sim-imu-system"
+            name="gz::sim::systems::Imu"/>
+    <plugin filename="gz-sim-forcetorque-system"
+            name="gz::sim::systems::ForceTorque"/>
+    <plugin filename="gz-sim-contact-system"
+            name="gz::sim::systems::Contact"/>
+
+    <light type="directional" name="sun">
+      <cast_shadows>true</cast_shadows>
+      <pose>0 0 10 0 0 0</pose>
+      <diffuse>0.8 0.8 0.8 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+      <direction>-0.5 0.1 -0.9</direction>
+    </light>
+
+    <model name="ground_plane">
+      <static>true</static>
+      <link name="ground_link">
+        <collision name="ground_collision">
+          <geometry>
+            <plane><normal>0 0 1</normal><size>20 20</size></plane>
+          </geometry>
+        </collision>
+        <visual name="ground_visual">
+          <geometry>
+            <plane><normal>0 0 1</normal><size>20 20</size></plane>
+          </geometry>
+          <material>
+            <ambient>0.75 0.75 0.78 1</ambient>
+            <diffuse>0.75 0.75 0.78 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+  </world>
+</sdf>

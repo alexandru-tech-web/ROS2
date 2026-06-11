@@ -1,0 +1,34 @@
+# patient_demo.yaml — Profil demonstrativ de pacient pentru patient_model.py
+# Plasati in:  rehab_exo_description/config/patient_demo.yaml
+#
+# Modelul per articulatie:  tau = -k*(q - q_rest) - b*q_punct  [+ tremor]
+#   k      [Nm/rad]   rigiditate elastica (rezistenta pasiva a membrului)
+#   b      [Nm·s/rad] amortizare vascoasa
+#   q_rest [rad]      pozitia de repaus a membrului (spre care "trage" arcul)
+#
+# tau_max [Nm] — limitator global de siguranta: niciun cuplu de pacient nu
+# depaseste aceasta valoare, indiferent de profil.
+#
+# Tremorul (optional) este sinusoidal, 4–6 Hz fiind plaja tipica parkinsoniana;
+# se aplica doar articulatiilor listate. Pentru un pacient "linistit", puneti
+# amp: 0.0 sau lasati lista goala.
+#
+# Profiluri per pacient: copiati fisierul (ex. pacient_ionescu.yaml), ajustati
+# valorile si porniti cu:
+#   ros2 run rehab_exo_description patient_model.py --ros-args \
+#       -p profile_file:=<cale>/pacient_ionescu.yaml
+
+tau_max: 15.0
+
+joints:
+  left_hip_joint:    { k: 6.0, b: 1.5, q_rest: 0.0 }
+  left_knee_joint:   { k: 5.0, b: 1.2, q_rest: 0.0 }
+  left_ankle_joint:  { k: 3.0, b: 0.8, q_rest: 0.0 }
+  right_hip_joint:   { k: 6.0, b: 1.5, q_rest: 0.0 }
+  right_knee_joint:  { k: 5.0, b: 1.2, q_rest: 0.0 }
+  right_ankle_joint: { k: 3.0, b: 0.8, q_rest: 0.0 }
+
+tremor:
+  amp: 0.8        # Nm; 0.0 dezactiveaza tremorul
+  freq: 5.0       # Hz
+  joints: [left_knee_joint, right_knee_joint]

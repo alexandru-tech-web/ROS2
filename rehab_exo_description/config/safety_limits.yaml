@@ -1,0 +1,18 @@
+# safety_limits.yaml — Limitele supravegheate de safety_supervisor.py
+# Plasati in:  rehab_exo_description/config/safety_limits.yaml
+#
+# effort_max   [Nm]    cuplu absolut maxim tolerat pe articulatie
+# velocity_max [rad/s] viteza absoluta maxima tolerata
+#
+# Valorile de mai jos sunt prudente pentru simulare (exercitiile ruleaza la
+# ~0.05–0.3 rad/s). Pe hardware real, stabiliti-le IMPREUNA cu personalul
+# clinic si cu fisele tehnice ale servomotoarelor — limita de aici trebuie sa
+# fie sub limita mecanica a motorului si sub pragul de siguranta al pacientului.
+
+joints:
+  left_hip_joint:    { effort_max: 60.0, velocity_max: 1.2 }
+  left_knee_joint:   { effort_max: 60.0, velocity_max: 1.2 }
+  left_ankle_joint:  { effort_max: 30.0, velocity_max: 1.5 }
+  right_hip_joint:   { effort_max: 60.0, velocity_max: 1.2 }
+  right_knee_joint:  { effort_max: 60.0, velocity_max: 1.2 }
+  right_ankle_joint: { effort_max: 30.0, velocity_max: 1.5 }
