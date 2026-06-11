@@ -55,7 +55,7 @@ python3 "$HERE/manifest.py" --out "$DIR/manifest.json" \
 TOPICS=(
   /teleop/cmd /teleop/cmd_safe /teleop/pose /teleop/pose_pred
   /teleop/linkstate /teleop/guard /teleop/video_stats
-  /swarm/telemetry /swarm/linkstate /swarm/battery
+  /sar/telemetry /sar/linkstate /sar/battery /sar/status /sar/probe/stats
   /mission/coverage /mission/victims /mission/victims_static
 )
 
