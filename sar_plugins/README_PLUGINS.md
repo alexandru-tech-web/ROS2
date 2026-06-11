@@ -1,87 +1,210 @@
 # sar_plugins — etajul de misiune si teleop avansat (Zenoh/ROS2/SAR)
 
-Pachet de plugin-uri pentru cele doua proiecte existente (roi de drone +
-rover teleoperat), construit pe acelasi principiu ca restul tezei:
-**logica pura, testabila fara ROS** + **noduri ROS2 subtiri** + **strat
-Gazebo optional**. Nimic de aici nu modifica codul existent — integrarea
-se face exclusiv prin topicuri si remapari in launch.
+Plugin-uri peste cele doua sisteme existente (roiul `sar_swarm` + roverul
+`teleop_rover`), pe principiul tezei: **logica pura testata** (55/55) →
+**noduri ROS2 subtiri** → **strat Gazebo optional**. Nimic de aici nu
+modifica pachetele existente: integrarea e exclusiv prin topicuri si
+remapari. Versiunea curenta e adaptata la generatia noua a roiului
+(namespace `/sar/*`, failsafe energetic legat de comanda reala `rth`).
 
-## Ce e verificat si unde
+## Pornire rapida — trei cai
 
-| Strat | Fisiere | Verificare |
+    # 1) FARA ROS (orice masina): verificare + demo cu figuri
+    python3 test_plugins.py          # 55/55
+    python3 demo_plugins_sim.py      # demo_*.png + bilant misiune
+
+    # 2) ROIUL (sar_swarm pornit in alt terminal):
+    ros2 launch ~/ros2_ws/src/sar_plugins/nodes/mission_sar.launch.py \
+        profile:=urban_rubble seed:=42
+
+    # 3) ROVERUL (Gazebo + teleop pornite; robotul cu remaparea cmd_safe):
+    ros2 launch ~/ros2_ws/src/sar_plugins/nodes/teleop_addons.launch.py
+
+---
+
+## FISELE APLICATIILOR
+Conventie: **persistent** = ruleaza pana il opresti (terminal separat sau
+in launch); **one-shot** = ruleaza si iese, nu tine terminal ocupat.
+Toate nodurile vorbesc JSON pe std_msgs/String. CSV-urile merg in
+`~/sar_data/`.
+
+### nodes/radio_link_node.py — linkul radio dependent de distanta
+- **Ce face:** transforma pozitia fiecarei drone (fata de GCS) in stare de
+  legatura {ms, jit, loss, down} dupa modelul log-distance (profile:
+  `open_field`, `urban_rubble`, `forest`). Inlocuieste scenariile statice
+  cu degradare FIZIC plauzibila: dronele departate au legatura proasta.
+- **Pornire:**
+      python3 nodes/radio_link_node.py --ros-args \
+        -p pose_topic:=/sar/telemetry -p linkstate_topic:=/sar/linkstate \
+        -p profile:=urban_rubble -p seed:=42
+- **Terminal separat:** DA (persistent). De obicei vine din mission_sar.launch.
+- **In → Out:** /sar/telemetry → /sar/linkstate (agregat {id:{...}});
+  pentru o singura tinta + `flat_compat:=true` publica schema plata
+  compatibila /teleop/linkstate.
+- **Verificare:** `ros2 topic echo /sar/linkstate --once`
+- **ATENTIE:** /sar/linkstate trebuie sa aiba UN SINGUR publisher.
+  Acest nod e ALTERNATIVA la fault_injector_node din sar_swarm — porneste
+  ori unul, ori celalalt, niciodata ambele.
+
+### nodes/coverage_node.py — acoperirea ariei
+- **Ce face:** grila de acoperire din pozele dronelor; procent + jaloanele
+  25/50/75/90/95/99% cu timpul atingerii. Metrica principala pentru A3.
+- **Pornire:**
+      python3 nodes/coverage_node.py --ros-args \
+        -p pose_topic:=/sar/telemetry -p sensor_r:=6.0 \
+        -p xmin:=-5.0 -p xmax:=65.0 -p ymin:=-5.0 -p ymax:=65.0
+- **Terminal separat:** DA (persistent; in launch).
+- **In → Out:** /sar/telemetry → /mission/coverage (1 Hz) + coverage.csv
+- **Verificare:** `ros2 topic echo /mission/coverage --once`
+
+### nodes/victim_node.py — victime si detectie
+- **Ce face:** plaseaza N victime reproducibil (seed, separare minima);
+  detectie probabilistica Poisson cand o drona e in raza senzorului.
+  Publica evenimente + pozitiile statice (latched, pentru dashboard).
+- **Pornire:**
+      python3 nodes/victim_node.py --ros-args \
+        -p pose_topic:=/sar/telemetry -p n:=6 -p seed:=42 -p sensor_r:=6.0 \
+        -p xmin:=0.0 -p xmax:=60.0 -p ymin:=0.0 -p ymax:=60.0
+- **Terminal separat:** DA (persistent; in launch).
+- **In → Out:** /sar/telemetry → /mission/victims (evenimente),
+  /mission/victims_static (latched) + victims.csv
+- **Verificare:** `ros2 topic echo /mission/victims_static --once`
+
+### nodes/battery_node.py — baterie + failsafe energetic REAL
+- **Ce face:** integreaza consumul P = P_hover + k_v*|v| din pozele
+  succesive; praguri RTL (static 30% + dinamic dupa distanta de casa) si
+  LAND (10%). La tranzitie publica O comanda pe topicul de failsafe —
+  in configuratia curenta, comanda `rth` pe care roiul o INTELEGE:
+  drona cu baterie mica pleaca singura acasa.
+- **Pornire:**
+      python3 nodes/battery_node.py --ros-args \
+        -p pose_topic:=/sar/telemetry -p state_topic:=/sar/battery \
+        -p failsafe_cmd_topic:=/sar/operator \
+        -p 'failsafe_template:={"type":"drone","id":"%ID%","action":"rth"}'
+- **Terminal separat:** DA (persistent; in launch).
+- **In → Out:** /sar/telemetry → /sar/battery (1 Hz), /sar/operator
+  (doar la tranzitii) + battery.csv
+- **Verificare:** `ros2 topic echo /sar/battery --once`; failsafe-ul se
+  vede in dashboard cand o drona intoarce spre casa sub 30%.
+
+### nodes/obstacle_guard_node.py — garda lidar (rover)
+- **Ce face:** PROXY de comanda: citeste /teleop/cmd + /scan, taie
+  inaintarea sub d_stop (0.6 m), franeaza progresiv intre d_stop si
+  d_slow (1.5 m), histerezis la eliberare; rotatia/mersul inapoi raman
+  permise. Robotul asculta IESIREA filtrata.
+- **Pornire:**
+      python3 nodes/obstacle_guard_node.py --ros-args -p msg:=json
+- **Terminal separat:** DA (persistent; vine din teleop_addons.launch).
+- **In → Out:** /teleop/cmd + /scan → /teleop/cmd_safe + /teleop/guard (5 Hz)
+- **CONDITIE:** robot_node trebuie pornit cu remaparea
+  `-r /teleop/cmd:=/teleop/cmd_safe` (o singura schimbare, in launch-ul tau).
+- **Verificare:** `ros2 topic echo /teleop/guard --once` (vezi distanta
+  minima frontala si daca blocheaza).
+
+### nodes/predictive_display_node.py — afisaj predictiv (operator)
+- **Ce face:** la operator, prezice poza CURENTA a roverului din ultima
+  poza primita + istoricul comenzilor (dead-reckoning pe arc), compensand
+  latenta. Logheaza eroarea predictiei vs naiv — METRICA articolului A2.
+- **Pornire:**
+      python3 nodes/predictive_display_node.py
+- **Terminal separat:** DA (persistent; in teleop_addons.launch).
+- **In → Out:** /teleop/pose + /teleop/cmd → /teleop/pose_pred (20 Hz)
+  + predict.csv (err_pred vs err_naiv la fiecare poza noua)
+- **Verificare:** `ros2 topic echo /teleop/pose_pred --once`
+
+### nodes/video_link_node.py — canal video degradat
+- **Ce face:** trece CompressedImage prin canalul degradat (intarziere/
+  jitter/pierdere/cadere din linkstate live); publica statistici
+  in_fps/out_fps/age_ms. Demonstreaza efectul retelei pe fluxul video.
+- **Pornire:**
+      python3 nodes/video_link_node.py --ros-args \
+        -p in_topic:=/camera/image/compressed -p out_topic:=/teleop/video
+- **Terminal separat:** DA (persistent; in teleop_addons.launch).
+- **In → Out:** camera + linkstate → /teleop/video + /teleop/video_stats (1 Hz)
+- **Verificare:** `ros2 topic echo /teleop/video_stats --once`
+
+### nodes/quad_adapter_node.py — adaptor multicopter (OPTIONAL)
+- **Ce face:** traduce comenzile JSON ale roiului in Twist pentru lumea
+  oficiala Gazebo `multicopter_velocity_control.sdf` (fizica reala de
+  cvadricopter). NU e necesar generatiei curente: drone_node publica
+  deja /model/{id}/cmd_vel cand use_gz e activ. Pastrat pentru pasul
+  spre fizica de multicopter / PX4.
+- **Pornire:** `python3 nodes/quad_adapter_node.py` (persistent)
+
+### Launch-uri (nodes/)
+- **mission_sar.launch.py** — CEL CURENT: radio_link + coverage + victims
+  + battery pe /sar/*, failsafe pe rth. Un singur terminal pentru tot etajul.
+      ros2 launch ~/ros2_ws/src/sar_plugins/nodes/mission_sar.launch.py \
+          profile:=urban_rubble seed:=42 n_victims:=6 sensor_r:=6.0
+- **teleop_addons.launch.py** — garda + predictiv + video pentru rover.
+- **mission_plugins.launch.py** — varianta veche pe /swarm/* (pentru
+  generatia drone_swarm de pe Desktop); NU o folosi cu sar_swarm.
+
+### gz/ — stratul Gazebo (toate one-shot sau fragmente)
+- **patch_world_sensors.py** (one-shot, nu tine terminal):
+      python3 gz/patch_world_sensors.py worlds/teleop_course.sdf \
+          worlds/teleop_sensors.sdf --model rover --link chassis --lidar --imu
+  Idempotent: rulat de doua ori nu dubleaza nimic.
+- **bridge_rover.yaml / bridge_swarm.yaml** — pentru ros_gz_bridge
+  (terminal separat, persistent):
+      ros2 run ros_gz_bridge parameter_bridge --ros-args \
+          -p config_file:=$HOME/ros2_ws/src/sar_plugins/gz/bridge_rover.yaml
+- **battery_plugin.sdf.xml / wind_world.sdf.xml** — fragmente de lipit
+  manual in SDF (baterie liniara Gazebo; vant). Instructiuni in fisiere.
+
+### tools/
+- **run_experiment.sh** (terminal separat, persistent cat inregistreaza):
+      ./tools/run_experiment.sh <scenariu> <rmw> [durata_s]
+      ./tools/run_experiment.sh baseline rmw_zenoh_cpp 120
+  Exporta RMW, porneste rmw_zenohd daca e cazul, scrie manifest JSON si
+  inregistreaza cu ros2 bag topicurile /teleop/* /sar/* /mission/*.
+  NODURILE le pornesti in alte terminale, cu ACELASI RMW exportat.
+- **manifest.py** (one-shot): manifestul reproducibilitatii unei rulari.
+
+---
+
+## Matricea de terminale
+
+**Workflow ROI (SAR cu etaj de misiune):**
+| T | Comanda | Rol |
 |---|---|---|
-| Logica pura | `channel.py, radio_link.py, coverage.py, victims.py, battery.py, guard.py, predictor.py` | `test_plugins.py` — **55/55 verificari trec** (rulat aici) |
-| Demo integrat | `demo_plugins_sim.py` | rulat aici; 4 figuri PNG + bilant; 4 asertii de sanatate trec |
-| Noduri ROS2 | `nodes/*.py` (9 noduri + 2 launch) | `py_compile` aici; rularea propriu-zisa cere masina ta cu ROS2 Jazzy |
-| Strat Gazebo | `gz/*` | `patch_world_sensors.py` testat pe o lume-mini (XML valid, idempotent); fragmentele SDF si bridge-urile YAML validate sintactic |
-| Tooling | `tools/manifest.py, tools/run_experiment.sh` | manifestul rulat aici; scriptul bash verificat cu `bash -n` |
+| T1 | `cd ~/ros2_ws/src/sar_swarm && python3 sar_launcher.py` (vezi README-ul lui pentru argumente/scenarii) | roiul insusi |
+| T2 | `ros2 launch .../mission_sar.launch.py profile:=urban_rubble seed:=42` | etajul de misiune |
+| T3 (opt) | `./tools/run_experiment.sh <scenariu> <rmw> 300` | inregistrare bag + manifest |
+In T1 NU porni fault_injector daca T2 ruleaza radio_link (un singur
+publisher pe /sar/linkstate).
 
-## Harta modulelor
+**Workflow ROVER (Gazebo cu senzori):**
+| T | Comanda | Rol |
+|---|---|---|
+| T1 | `gz sim -r worlds/teleop_sensors.sdf` | simulatorul |
+| T2 | `ros2 run ros_gz_bridge parameter_bridge --ros-args -p config_file:=.../bridge_rover.yaml` | puntea gz↔ROS |
+| T3 | `ros2 launch teleop_rover/launch/teleop_gazebo.launch.py` (robot_node cu `-r /teleop/cmd:=/teleop/cmd_safe`) | teleoperarea |
+| T4 | `ros2 launch .../teleop_addons.launch.py` | garda+predictiv+video |
+| T5 (opt) | `./tools/run_experiment.sh ...` | inregistrare |
 
-| Modul / nod | Rol | Topicuri (in -> out) | Articol |
-|---|---|---|---|
-| `radio_link.py` + `nodes/radio_link_node.py` | link radio log-distance: distanta -> {ms,jit,loss,down}; profile `open_field`/`urban_rubble`/`forest`; mod proxy optional | `/swarm/telemetry` -> `/swarm/linkstate` (sau schema plata compatibila `/teleop/linkstate`) | A1, A3 |
-| `coverage.py` + `nodes/coverage_node.py` | grila de acoperire, procent + jaloane 25/50/.../99% | `/swarm/telemetry` -> `/mission/coverage` (1 Hz) + `~/sar_data/coverage.csv` | A3 |
-| `victims.py` + `nodes/victim_node.py` | victime reproducibile (seed), detectie Poisson in raza senzorului | `/swarm/telemetry` -> `/mission/victims` (evenimente) + `/mission/victims_static` (latched) + CSV | A3 |
-| `battery.py` + `nodes/battery_node.py` | consum P=P_hover+k_v*|v|, praguri RTL static+dinamic, LAND | `/swarm/telemetry` -> `/swarm/battery` (1 Hz) + o comanda failsafe pe `failsafe_cmd_topic` (sablon cu `%ID%`/`%STATE%`) + CSV | A3 |
-| `guard.py` + `nodes/obstacle_guard_node.py` | oprire/franare la obstacol din lidar, histerezis; **proxy** intre operator si rover | `/teleop/cmd` + `/scan` -> `/teleop/cmd_safe` + `/teleop/guard` | A2 |
-| `predictor.py` + `nodes/predictive_display_node.py` | afisaj predictiv dead-reckoning la operator; logheaza eroarea predictiei vs naiv | `/teleop/pose` + `/teleop/cmd` -> `/teleop/pose_pred` (20 Hz) + `~/sar_data/predict.csv` | A2 |
-| `channel.py` + `nodes/video_link_node.py` | canal video prin legatura degradata (drop/intarziere cadre) | `/camera/image/compressed` + linkstate -> `/teleop/video` + `/teleop/video_stats` | A2 |
-| `nodes/quad_adapter_node.py` | adaptor JSON roi -> Twist pentru MulticopterVelocityControl (lumea oficiala gz `multicopter_velocity_control.sdf`) | `/swarm/cmd_vel` -> `/%ID%/gazebo/command/twist` | A3 |
-| `gz/patch_world_sensors.py` | injecteaza idempotent in SDF: Sensors+gpu_lidar, Imu, NavSat+coordonate Bucuresti | `world.sdf -> world_patched.sdf` | A2, A3 |
-| `gz/battery_plugin.sdf.xml`, `gz/wind_world.sdf.xml` | fragmente gata de lipit: LinearBatteryPlugin, WindEffects | — | A3 |
-| `gz/bridge_rover.yaml`, `gz/bridge_swarm.yaml` | ros_gz_bridge: scan/imu/navsat/camera/cmd_vel/odometry; 5 drone d1..d5 | gz <-> ROS2 | A2, A3 |
-| `tools/run_experiment.sh` + `tools/manifest.py` | rulare reproductibila: export RMW, porneste `rmw_zenohd` daca e cazul, manifest JSON, `ros2 bag record` | — | A1 |
+**REGULA C1:** in timpul campaniei de benchmark NU rulezi NIMIC din cele
+de mai sus — masuratorile se otravesc. Intai campania, apoi joaca.
+
+---
 
 ## Schemele JSON (std_msgs/String)
-
-- linkstate plat (identic cu `/teleop/linkstate` existent):
-  `{"ms":120,"jit":40,"loss":0.15,"down":false}`
-- linkstate agregat roi: `{"d1":{...},"d2":{...}}` (+ diagnostic `snr,rssi,d`)
-- `/mission/coverage`: `{"t":..,"pct":..,"cells_covered":..,"cells_total":..,"milestones":{"25":t,...}}`
+- linkstate plat: `{"ms":120,"jit":40,"loss":0.15,"down":false}`
+- linkstate agregat: `{"d1":{...},"d2":{...}}` (+ diagnostic snr,rssi,d)
+- /mission/coverage: `{"t":..,"pct":..,"cells_covered":..,"cells_total":..,"milestones":{"25":t,...}}`
 - eveniment victima: `{"victim":i,"t":..,"by":"d2","x":..,"y":..}`
-- `/swarm/battery`: `{"d1":{"soc":0.42,"state":"NORMAL","used_wh":..},...}`
-- `/teleop/pose_pred`: `{"t":..,"x":..,"y":..,"th":..,"age":..,"extrap":bool}`
-- comanda prin garda: JSON-ul tau `{"v":..,"w":..}` nemodificat in chei,
-  cu `v` limitat la nevoie si campul `guard_blocked` adaugat.
+- /sar/battery: `{"d1":{"soc":0.42,"state":"NORMAL","used_wh":..},...}`
+- failsafe emis: `{"type":"drone","id":"d3","action":"rth"}` (schema operator_core)
+- /teleop/pose_pred: `{"t":..,"x":..,"y":..,"th":..,"age":..,"extrap":bool}`
 
-## Integrare fara modificari de cod (doar remapari)
+## Datele si figurile
+Toate CSV-urile in `~/sar_data/` (acelasi format ca restul proiectului):
+coverage.csv → curba acoperirii; victims.csv → timpii detectiei;
+battery.csv → SOC + momentele RTL; predict.csv → castigul predictiei (A2).
+Bag-urile + manifestele: `~/sar_data/bags/<scenariu>_<rmw>_<timestamp>/`.
 
-1) **Roi (etajul de misiune)** — porneste-ti sistemul existent, apoi:
-```
-ros2 launch nodes/mission_plugins.launch.py profile:=urban_rubble seed:=42
-```
-Totul asculta `/swarm/telemetry` pe care il publici deja. Pentru failsafe,
-seteaza `failsafe_cmd_topic`/`failsafe_template` pe schema ta de comanda.
-
-2) **Rover (garda + predictiv + video)** — singura schimbare: robotul
-asculta comanda FILTRATA. In launch-ul tau, la `robot_node.py` adaugi
-remaparea `-r /teleop/cmd:=/teleop/cmd_safe`, apoi:
-```
-ros2 launch nodes/teleop_addons.launch.py
-```
-
-3) **Gazebo cu senzori** — pe lumea ta existenta:
-```
-python3 gz/patch_world_sensors.py worlds/teleop_course.sdf worlds/teleop_sensors.sdf \
-        --model rover --link chassis --lidar --imu --navsat
-ros2 run ros_gz_bridge parameter_bridge --ros-args -p config_file:=gz/bridge_rover.yaml
-```
-Fragmentul de baterie/vant se lipeste manual in SDF unde indica comentariile.
-
-4) **Experiment A1 (Zenoh vs CycloneDDS)**:
-```
-./tools/run_experiment.sh loss_30 rmw_zenoh_cpp 120
-./tools/run_experiment.sh loss_30 rmw_cyclonedds_cpp 120
-```
-Fiecare rulare primeste manifest JSON + bag in `~/sar_data/bags/...`.
-
-## Demo fara ROS (verificare rapida oriunde)
-
-```
-python3 test_plugins.py        # 55/55
-python3 demo_plugins_sim.py    # figuri demo_*.png + bilant misiune
-```
-
-Toate CSV-urile merg in `~/sar_data/` — acelasi loc si format ca restul
-proiectului, deci analizoarele existente le pot citi direct.
+## [DE COMPLETAT DUPA SIMULARE]
+Aici intra, dupa primele rulari pe masina reala: pragurile masurate
+(distanta la care linkul cade pe fiecare profil), timpii reali 25/50/90%
+acoperire, momentul primului rth declansat de baterie si comparatia
+rmw_zenoh vs rmw_cyclonedds pe aceleasi metrici.
