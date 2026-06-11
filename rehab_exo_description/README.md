@@ -1,67 +1,68 @@
-# rehab_exo_description — Exoscheletul de reabilitare
+# rehab_exo_description — Documentatie tehnica
 
-Geamănul virtual al bancului cu 6 servomotoare ABB (`joint_emulator`): 3 articulații = șold / genunchi / gleznă pe un picior. Pachetul ROS2 complet cu URDF, launch-uri, failsafe și interfața de control.
+Descrierea ROS 2 a exoscheletului de reabilitare: modelul URDF, fisierele de
+lansare si lantul de tele-reabilitare. Pachet ament (construit de colcon).
+Versiunea curenta: eticheta `rehab-v0.3.0`.
 
-## Structura
+## 1. Pozitia in arhitectura
 
-```
-rehab_exo_description/
-├── urdf/
-│   └── rehab_exo.urdf          # modelul complet (3 articulații + senzori)
-├── launch/
-│   ├── display.launch.py       # RViz cu robot_state_publisher
-│   ├── telerehab.launch.py     # lansatorul de tele-reabilitare
-│   └── failsafe.launch.py      # monitorul de siguranță
-├── config/
-│   └── joint_limits.yaml       # limitele articulațiilor (grad/Nm)
-├── scripts/
-│   ├── joint_controller.py     # controlerul de impedanță per articulație
-│   ├── failsafe_node.py        # watchdog + limită cuplu + RTH
-│   └── teleop_bridge.py        # podul operator → articulații
-└── test/
-    └── test_failsafe.py        # testul 6a (pending)
+```mermaid
+graph LR
+    OPR[operator / terapeut] -- referinte K, th0 --> TL[telerehab.launch.py]
+    TL -- "/teleop/linkstate" --> CTRL[stratul de control]
+    CTRL -- impedanta --> EXO[articulatiile exo<br/>sold / genunchi / glezna]
+    JE[joint_emulator<br/>bancul ABB] -. geamanul fizic .- EXO
 ```
 
-## Articulațiile
+Relatia cu `joint_emulator`: cele trei articulatii ale exoscheletului corespund
+celor trei perechi de pe banc (sold / genunchi / glezna, un picior). Pe fierul real,
+fizica si bucla rapida traiesc in `joint_emulator` (Raspberry Pi langa drive-uri);
+`rehab_exo_description` ramane stratul de descriere si lansare de pe masina de
+comanda. Conventia de degradare a legaturii este comuna intregului depozit:
+`/teleop/linkstate` cu schema `{ms, jit, loss, down}`.
 
-| Articulație | Joint name | Limită unghi | Cuplu max |
-|---|---|---|---|
-| Șold | `hip_joint` | ±45° | 15 Nm |
-| Genunchi | `knee_joint` | 0°–120° | 12 Nm |
-| Gleznă | `ankle_joint` | ±30° | 8 Nm |
+## 2. Continut
 
-## Pornire
+| Element | Rol |
+|---------|-----|
+| `urdf/` | modelul exoscheletului (articulatii motorizate) |
+| `launch/telerehab.launch.py` | lantul complet de tele-reabilitare |
+| `package.xml`, `CMakeLists.txt` / `setup.py` | pachet ament, construit de colcon |
+| testul 6a (failsafe) | IN LUCRU — vezi sectiunea 5 |
+
+Inventarul exact al fisierelor evolueaza; pentru lista curenta:
+`find ~/ros2_ws/src/rehab_exo_description -type f | sort`.
+
+## 3. Compilare
 
 ```bash
-source /opt/ros/jazzy/setup.bash
 cd ~/ros2_ws
+source /opt/ros/jazzy/setup.bash
+colcon build --packages-select rehab_exo_description --symlink-install
+source install/setup.bash
+```
 
-# vizualizare URDF în RViz
-ros2 launch rehab_exo_description display.launch.py
+## 4. Sintaxe de pornire
 
-# tele-reabilitare completă
+```bash
+# lantul de tele-reabilitare
 ros2 launch rehab_exo_description telerehab.launch.py
 
-# doar failsafe-ul (monitorizare)
-ros2 launch rehab_exo_description failsafe.launch.py
+# degradarea legaturii in timpul sedintei (conventia comuna a depozitului)
+ros2 topic pub --once /teleop/linkstate std_msgs/String \
+  "data: '{\"ms\":60,\"jit\":10,\"loss\":0.05,\"down\":false}'"
+
+# inspectia modelului
+check_urdf $(ros2 pkg prefix rehab_exo_description)/share/rehab_exo_description/urdf/*.urdf
 ```
 
-## Topicuri principale
+## 5. Stare si pasi urmatori
 
-| Topic | Descriere |
-|---|---|
-| `/rehab/joint_cmd` | Comandă de impedanță `{joint, k, b, th0}` |
-| `/rehab/joint_state` | Starea articulațiilor (th, om, tau) |
-| `/rehab/failsafe` | Starea watchdog-ului (armed/tripped) |
-| `/teleop/linkstate` | Degradarea legăturii (același format ca sar_swarm) |
-
-## Legătura cu joint_emulator
-`rehab_exo_description` = **stratul de descriere ROS** (URDF, launch, topicuri).
-`joint_emulator` = **stratul de fizică și control** (impedanță, encodere, tele-impedanță).
-Pe fierul real (bancul ABB), `joint_emulator` rulează pe Raspberry Pi lângă drive-uri, iar `rehab_exo_description` rulează pe laptopul de comandă — exact arhitectura demonstrată de `figs/joint_sweep.png`.
-
-## Testul 6a (pending)
-```bash
-cd ~/ros2_ws/src/rehab_exo_description
-python3 test/test_failsafe.py    # de completat
-```
+1. Testul 6a (failsafe-ul exoscheletului) — de finalizat: scenariul in care
+   legatura cade (`down:=true`) trebuie sa duca articulatiile in regim sigur
+   (cuplu zero sau pozitie de repaus), analog cu `SafetyGate` din `joint_emulator`.
+2. Dupa identificarea drive-urilor ABB (vezi `joint_emulator/modbus_backend.py`),
+   exoscheletul primeste backend-ul real prin aceeasi interfata `drive_iface`.
+3. Rezultatul tinta (contributia C4 / articolul de tele-reabilitare A4):
+   impedanta adaptiva la calitatea legaturii, demonstrata pe banc si transferata
+   pe articulatiile exoscheletului.

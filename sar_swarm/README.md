@@ -1,83 +1,113 @@
-# sar_swarm — Roiul SAR cu middleware degradat
+# sar_swarm — Documentatie tehnica
 
-Roiul de drone pentru Search and Rescue: simulare completă cu 3 drone + GCS + injectare de defecte + probe de latență + dashboard. Stratul de aplicație al articolului A1 — misiunile rulează live peste `c1_benchmark`.
+Roiul SAR simulat: trei drone autonome, statie de control la sol (GCS), injector de
+defecte de legatura, sonda de latenta si dashboard. Stratul de aplicatie al
+benchmarkului C1: misiunile ruleaza identic peste `rmw_zenoh` si CycloneDDS.
 
-## Structura
+## 1. Graful de noduri si topicuri
 
+```mermaid
+graph LR
+    GCS[gcs_node_ros] -- "/sar/operator" --> D1[drone_node d1]
+    GCS -- "/sar/operator" --> D2[drone_node d2]
+    GCS -- "/sar/operator" --> D3[drone_node d3]
+    D1 -- "/sar/telemetry" --> GCS
+    D2 -- "/sar/telemetry" --> GCS
+    D3 -- "/sar/telemetry" --> GCS
+    D1 -- "/sar/telemetry" --> DB[dashboard_node]
+    FI[fault_injector_node] -- "/sar/linkstate" --> D1
+    FI -- "/sar/linkstate" --> D2
+    FI -- "/sar/linkstate" --> D3
+    LP[latency_probe ping] -- "/sar/probe/ping" --> LPP[latency_probe pong]
+    LPP -- "/sar/probe/pong" --> LP
+    LP -- "/sar/probe/stats" --> DB
+    GCS -- "/sar/status" --> DB
+    D1 -- "/model/d1/cmd_vel" --> GZ[Gazebo]
+    GZ -- "/sar/pose/d1" --> D1
 ```
-sar_swarm/
-├── drone_node.py          # drona autonomă (waypoints, telemetrie, failsafe baterie)
-├── gcs_node_ros.py        # Ground Control Station (comenzi operatori)
-├── sar_launcher.py        # lansatorul roiului (3 drone + GCS)
-├── fault_injector_node.py # injectare de defecte controlată pe /sar/linkstate
-├── latency_probe.py       # probe ping/pong pe /sar/probe/*
-├── netem_core.py          # wrapper tc netem pentru roiu
-├── dashboard_node.py      # dashboard text în terminal
-├── sil_run.py             # simulare Software-in-the-Loop (fără ROS)
-├── gen_world.py           # generator lume Gazebo pentru scenarii SAR
-├── worlds/apocalypse.sdf  # lumea de test
-├── scenarios/             # YAML-uri: ideal, loss_5, loss_15, loss_30, lat200_*
-├── config/zenoh_session_config.json5
-└── launch/
-    ├── sar_ros.launch.py    # roiul complet (fără Gazebo)
-    └── sar_gazebo.launch.py # roiul + Gazebo
+
+Regula de exclusivitate: pe `/sar/linkstate` publica UN SINGUR nod — injectorul de
+defecte SAU `radio_link_node` din `sar_plugins`, niciodata ambele simultan.
+
+## 2. Schema mesajelor (JSON pe std_msgs/String)
+
+```json
+// /sar/operator — comanda individuala
+{"type": "drone", "id": "d2", "action": "goto|hold|resume|rth"}
+
+// /sar/operator — comanda de misiune
+{"type": "mission", "action": "start|pause|resume|abort"}
+
+// /sar/linkstate — starea legaturii
+{"ms": 200, "jit": 50, "loss": 0.15, "down": false}
 ```
 
-## Topicuri ROS2
+Telemetria (`/sar/telemetry`) si starea misiunii (`/sar/status`) sunt obiecte JSON
+cu pozitie, baterie, faza misiunii si acoperire; campurile exacte sunt definite in
+`drone_node.py`, respectiv `gcs_node_ros.py`.
 
-| Topic | Tip | Descriere |
-|---|---|---|
-| `/sar/telemetry` | String (JSON) | Telemetria dronelor (poziție, baterie, stare) |
-| `/sar/linkstate` | String (JSON) | Starea legăturii `{ms, jit, loss, down}` |
-| `/sar/operator` | String (JSON) | Comenzi operator `{type, id, action}` |
-| `/sar/status` | String (JSON) | Starea misiunii (acoperire, victime, timp) |
-| `/sar/probe/ping` | String | Ping pentru măsurarea latenței |
-| `/sar/probe/pong` | String | Pong (răspuns la ping) |
-| `/sar/probe/stats` | String | Statistici RTT live |
-| `/sar/cmd/{id}` | String | Comandă individuală per dronă |
-| `/sar/pose/{id}` | String | Poza dronei în Gazebo |
+## 3. Inventarul fisierelor
 
-## Pornire rapidă
+| Fisier | Rol |
+|--------|-----|
+| `drone_node.py` | drona autonoma: waypoints, telemetrie, failsafe de baterie |
+| `gcs_node_ros.py` | GCS: comenzile operatorului, starea misiunii |
+| `sar_launcher.py` | lansatorul roiului (procese, fara ROS launch) |
+| `fault_injector_node.py` | publica degradarea simulata pe `/sar/linkstate` |
+| `latency_probe.py` | sonda ping/pong + statistici RTT live |
+| `netem_core.py` | wrapper tc netem |
+| `dashboard_node.py` | tablou de bord text in terminal |
+| `sil_run.py` | simulare Software-in-the-Loop completa, fara ROS |
+| `gen_world.py`, `worlds/apocalypse.sdf` | generatorul si lumea Gazebo |
+| `scenarios/*.yaml` | conditiile: `none`, `ideal`, `loss_*`, `lat200_*` |
+| `config/zenoh_session_config.json5` | configurarea sesiunii Zenoh |
+| `launch/sar_ros.launch.py` | roiul complet, fara Gazebo (L1) |
+| `launch/sar_gazebo.launch.py` | roiul + Gazebo (L2) |
+
+Verificari automate: trei suite (drone/GCS, injector/probe, SIL) — peste 100 de
+asertii; rulate integral de `~/ros2_ws/src/smoke_all.sh`.
+
+## 4. Sintaxe de pornire
 
 ```bash
 source /opt/ros/jazzy/setup.bash
 cd ~/ros2_ws/src/sar_swarm
 
-# L1 — roiul fără Gazebo (scenariul implicit = ideal)
-ros2 launch launch/sar_ros.launch.py scenario:=ideal.yaml
+# L0 — fara ROS (instant, sigur oricand)
+python3 sil_run.py
 
-# L1 — cu degradare
+# L1 — roiul fara Gazebo
+ros2 launch launch/sar_ros.launch.py scenario:=ideal.yaml
 ros2 launch launch/sar_ros.launch.py scenario:=loss_30.yaml
 
-# L2 — cu Gazebo
+# L2 — roiul cu Gazebo
 ros2 launch launch/sar_gazebo.launch.py scenario:=ideal.yaml
-
-# Zenoh (două terminale)
-# T1: ros2 run rmw_zenoh_cpp rmw_zenohd
-# T2: export RMW_IMPLEMENTATION=rmw_zenoh_cpp && ros2 launch ...
 ```
 
-## Comenzi operator
+Rulare peste Zenoh (doua terminale):
 
 ```bash
-# trimite drona 2 la o pozitie
-ros2 topic pub --once /sar/operator std_msgs/String \
-  "data: '{\"type\":\"drone\",\"id\":\"d2\",\"action\":\"goto\"}'"
+# T1 — routerul Zenoh
+ros2 run rmw_zenoh_cpp rmw_zenohd
 
-# pauza misiune
+# T2 — roiul peste Zenoh
+export RMW_IMPLEMENTATION=rmw_zenoh_cpp
+ros2 launch launch/sar_ros.launch.py scenario:=ideal.yaml
+```
+
+Comenzi operator din terminal:
+
+```bash
+ros2 topic pub --once /sar/operator std_msgs/String \
+  "data: '{\"type\":\"drone\",\"id\":\"d2\",\"action\":\"rth\"}'"
 ros2 topic pub --once /sar/operator std_msgs/String \
   "data: '{\"type\":\"mission\",\"action\":\"pause\"}'"
-
-# RTH manual (Return to Home)
-ros2 topic pub --once /sar/operator std_msgs/String \
-  "data: '{\"type\":\"drone\",\"id\":\"d1\",\"action\":\"rth\"}'"
 ```
 
-## Failsafe baterie
-Drona cu baterie < 30% publică automat comanda RTH pe `/sar/operator`. Pragul și topicul sunt configurabile din `sar_plugins/launch/mission_sar.launch.py`.
+## 5. Note de utilizare
 
-## Teste
-```bash
-cd ~/ros2_ws/src/sar_swarm
-python3 sil_run.py          # SIL complet (toate scenariile, fără ROS)
-```
+1. In campaniile C1, scenariul ramane `none.yaml`: degradarea este exclusiv fizica
+   (tc netem), pentru ca diferentele masurate sa apartina middleware-ului.
+2. Failsafe-ul de baterie publica automat `rth` pe `/sar/operator` sub pragul
+   configurat (legarea reala se face din `sar_plugins/launch/mission_sar.launch.py`).
+3. Pachet sub INGHET DE COD pana la submisia articolului.

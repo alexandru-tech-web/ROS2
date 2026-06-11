@@ -1,32 +1,145 @@
-# Repo principal — `~/ros2_ws/src/`
-## Harta pachetelor
+# Contributii la dezvoltarea sistemelor robotice prin controlul de la distanta in timp real
 
-| Pachet | Rol | Stare |
-|---|---|---|
-| `c1_benchmark` | Benchmarking rmw_zenoh vs CycloneDDS sub degradare tc netem — articolul A1 (SSRR 2026) | ✅ date colectate |
-| `sar_swarm` | Roiul SAR: drone + GCS + fault injector + latency probe + dashboard | ✅ complet |
-| `sar_plugins` | Plugin-uri de canal radio, baterie, acoperire, victime, predictor SAR | ✅ complet |
-| `joint_emulator` | Bancul cu 6 servomotoare ABB — impedanță, tele-impedanță, encodere, vizualizare | ✅ complet |
-| `rehab_exo_description` | Exoscheletul de reabilitare — URDF, launch-uri, failsafe | ✅ complet |
-| `servo_control` | Motorul din Gazebo cu control tastatură (demonstrator) | ✅ complet |
-| `curs_ros2` / `curs_ros2_interfaces` | Exerciții de curs ROS2 | arhiva |
+Depozit de cercetare doctorala — IMSAR. Cod, protocoale experimentale si date sintetice
+pentru evaluarea middleware-ului ROS 2 (`rmw_zenoh` vs. `rmw_cyclonedds_cpp`) in conditii
+de retea degradata, cu aplicatie in robotica Search and Rescue (SAR) si tele-reabilitare.
 
-## Reguli de aur (nu le încălca niciodată)
-1. **Nu construi peste o campanie în mers** — `pgrep -af "run_campaign|bench_|rmw_zenohd"` înainte de orice `colcon build`
-2. **Rezultatele brute NU intră în git** — merg în `~/c1_archive/`; în repo doar sumarele CSV și figurile
-3. **`./smoke_all.sh` înainte de orice push** — rulează din `~/ros2_ws/src/`
-4. **Motorul B al bancului NUMAI în mod cuplu** — niciodată poziție-contra-poziție pe ax rigid
-5. **Îngheț de cod pe `c1_benchmark` + `sar_swarm`** până la submisia articolului (18 iunie 2026)
+---
 
-## Comenzi de bază
+## Rezumat
+
+Studiile comparative existente asupra protocoalelor pub/sub (Zenoh, DDS, MQTT, Kafka)
+raporteaza performanta exclusiv in conditii ideale de retea [1]. Prezentul depozit
+operationalizeaza evaluarea in regimuri degradate realiste pentru misiuni SAR
+(pierdere de pachete, latenta, jitter, combinatii), pe doua straturi de masura:
+(i) stratul de transport — microbenchmark RTT pe ecou; (ii) stratul de misiune —
+roi de drone simulat cu metrici operationale (timp de finalizare, acoperire).
+Suplimentar, depozitul contine emulatorul software al unui banc fizic cu sase
+servomotoare ABB cuplate in perechi (trei articulatii), destinat validarii hardware
+a controlului de impedanta prin legaturi degradate (tele-impedanta adaptiva).
+
+## 1. Obiective
+
+| ID | Obiectiv | Pachet principal |
+|----|----------|------------------|
+| O1 | Cuantificarea degradarii transportului ROS 2 (RTT, pierdere) sub conditii netem | `c1_benchmark` |
+| O2 | Masurarea impactului la nivel de misiune SAR (timp, acoperire, finalizare) | `sar_swarm`, `sar_plugins` |
+| O3 | Validarea hardware a impedantei adaptive la calitatea legaturii | `joint_emulator`, `rehab_exo_description` |
+
+## 2. Arhitectura sistemului
+
+```mermaid
+graph TB
+    subgraph "Stratul de transport (O1)"
+        C1[c1_benchmark<br/>microbenchmark RTT]
+    end
+    subgraph "Stratul de aplicatie (O2)"
+        SW[sar_swarm<br/>roi 3 drone + GCS]
+        SP[sar_plugins<br/>canal radio, baterie,<br/>acoperire, victime]
+    end
+    subgraph "Stratul hardware (O3)"
+        JE[joint_emulator<br/>banc 6 servo ABB]
+        RE[rehab_exo_description<br/>exoschelet URDF]
+    end
+    SC[servo_control<br/>demonstrator Gazebo]
+    NET[tc netem<br/>degradare fizica] --> C1
+    NET --> SW
+    SP -- /sar/linkstate --> SW
+    C1 -. metodologie comuna .-> JE
+    JE -- geamanul fizic --> RE
+```
+
+Degradarea de retea este aplicata FIZIC (`tc qdisc ... netem`) pe interfata de test;
+injectoarele simulate raman dezactivate in campanii (`scenario:=none.yaml`), astfel
+incat diferentele masurate apartin exclusiv middleware-ului.
+
+## 3. Taxonomia pachetelor
+
+| Pachet | Tip | Rol | Verificari |
+|--------|-----|-----|------------|
+| `c1_benchmark` | script | benchmark transport + misiune, articolul A1 (SSRR 2026) | 11 + selftest figuri |
+| `sar_swarm` | script | roiul SAR: drone, GCS, injector, probe, dashboard | >100 (3 suite) |
+| `sar_plugins` | script | plugin-uri de mediu: canal, baterie, acoperire, victime | 55 |
+| `joint_emulator` | script | bancul cu 6 servomotoare: impedanta, encodere, vizualizare | 34 |
+| `rehab_exo_description` | ament | exoscheletul de reabilitare (URDF, launch, failsafe) | tag `rehab-v0.3.0` |
+| `servo_control` | ament | demonstratorul istoric: motor Gazebo cu comanda tastatura | — |
+| `curs_ros2*` | ament | exercitii de curs (arhiva) | — |
+
+## 4. Metodologia experimentala
+
+**Conditiile de retea** (aplicate cu `tc netem` pe interfata de test):
+
+| Conditie | Parametri netem |
+|----------|-----------------|
+| `ideal` | fara qdisc |
+| `loss_5` / `loss_15` / `loss_30` | `loss 5%` / `loss 15%` / `loss 30%` |
+| `lat200_jit50` | `delay 200ms 50ms` |
+| `lat200_l15` | `delay 200ms` + `loss 15%` |
+
+**Metrici.** Transport: RTT (p50/p95/p99) pe ecou si pierderea end-to-end in limita
+unui termen per esantion. Misiune: timpul de finalizare, acoperirea finala,
+rata de finalizare (cenzurata la dreapta de bugetul de timp).
+
+**Reproducibilitate.** Fiecare rulare scrie un manifest JSON (seed, versiuni, conditie);
+datele brute se arhiveaza in `~/c1_archive/` (in afara depozitului); in depozit intra
+numai sumarele CSV si figurile. Inaintea oricarei campanii: `./preflight.sh`
+(detecteaza qdisc rezidual si procese vii).
+
+## 5. Mediul software
+
+| Componenta | Versiune |
+|------------|----------|
+| Sistem de operare | Ubuntu 24.04 LTS |
+| ROS 2 | Jazzy Jalisco |
+| Simulator | Gazebo (ros_gz) |
+| Middleware comparat | `rmw_zenoh_cpp`, `rmw_cyclonedds_cpp` |
+| Limbaj | Python 3.12 |
+| Emulare retea | iproute2 / tc netem |
+
+## 6. Compilare si verificare
 
 ```bash
-# build complet
-cd ~/ros2_ws && source /opt/ros/jazzy/setup.bash && colcon build --symlink-install && source install/setup.bash
+# garda: nu se construieste peste o campanie in mers
+pgrep -af "run_campaign|bench_|rmw_zenohd" && echo "STOP" || echo "liber"
 
-# smoke test (fără ROS, sigur oricând)
+cd ~/ros2_ws
+source /opt/ros/jazzy/setup.bash
+colcon build --symlink-install
+source install/setup.bash
+
+# testul de fum al intregului depozit (fara ROS, sigur oricand)
 cd ~/ros2_ws/src && ./smoke_all.sh
-
-# commit + push
-cd ~/ros2_ws/src && git add -A && git commit -m "..." && git pull --rebase && git push
 ```
+
+## 7. Conventii de dezvoltare
+
+1. Logica pura, testata izolat, precede nodurile ROS (noduri subtiri; mesaje JSON pe `std_msgs/String`).
+2. Datele de iesire ale nodurilor: CSV in `~/sar_data/`; rezultatele campaniilor: in afara pachetelor.
+3. Un singur publisher pe `/sar/linkstate` (nodul de canal radio SAU injectorul de defecte).
+4. Comentariile din cod: romana fara diacritice. Commit imediat dupa fiecare jalon verificat.
+5. Inghet de cod pe `c1_benchmark` si `sar_swarm` in perioada premergatoare submisiei.
+
+## 8. Rezultate sintetice (campania C1)
+
+| Conditie | p95 DDS [ms] | p95 Zenoh [ms] | pierdere DDS | pierdere Zenoh |
+|----------|--------------|----------------|--------------|----------------|
+| ideal | 1.5 | 1.7 | 0.0% | 0.0% |
+| loss_15 | 1060 | 758 | 1.1% | 25.3% |
+| lat200_l15 | 2540 | 2463 | 45.6% | 14.9% |
+
+Observatia centrala: sub conditia combinata latenta+pierdere (cea mai apropiata de o
+legatura reala de dezastru), la coada de latenta egala, CycloneDDS pierde de trei ori
+mai multe esantioane decat Zenoh. La nivel de misiune diferentele se comprima
+(116–151 s pentru ambele), ceea ce sustine necesitatea masurarii pe ambele straturi.
+In domeniul tele-impedantei, simularea demonstreaza ca amortizarea pe viteza
+intarziata destabilizeaza bucla de la ~10–20 ms; solutia validata este amortizarea
+locala cu rigiditate adaptiva transmisa prin legatura (pasiva pana la 120 ms).
+
+## 9. Referinte
+
+[1] W.-Y. Liang, Y. Yuan, H.-J. Lin, "A Performance Study on the Throughput and
+    Latency of Zenoh, MQTT, Kafka, and DDS", arXiv:2303.09419, 2023.
+[2] Eclipse Zenoh, https://zenoh.io
+[3] Eclipse Cyclone DDS, https://github.com/eclipse-cyclonedds/cyclonedds
+[4] ROS 2 Jazzy Jalisco, https://docs.ros.org/en/jazzy
+[5] tc-netem(8), Linux man-pages, iproute2.

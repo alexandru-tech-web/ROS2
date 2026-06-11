@@ -1,65 +1,58 @@
-# servo_control — Motorul demonstrator în Gazebo
+# servo_control — Documentatie tehnica
 
-Stratul de **demonstrație aplicativă** al tezei: motor ROS2 cu control de rotație și viteză prin tastatură, rulând în Gazebo. Rol în articol: *application demonstration layer* (distinct de microbenchmark-ul din `c1_benchmark`).
+Demonstratorul istoric al tezei: un motor simulat in Gazebo, comandat de la
+tastatura (rotatie si viteza), pe ROS 2 Jazzy. In economia articolului A1, acest
+pachet ilustreaza STRATUL DE DEMONSTRATIE APLICATIVA — distinct de microbenchmarkul
+de transport (`c1_benchmark`), cele doua avand roluri complementare, nu redundante.
 
-## Structura
+## 1. Pozitia in arhitectura
 
-```
-servo_control/
-├── urdf/
-│   └── servo.urdf              # modelul motorului (cilindru + ax rotitor)
-├── launch/
-│   └── servo_gazebo.launch.py  # Gazebo + robot_state_publisher + teleop
-├── scripts/
-│   ├── servo_node.py           # nodul de control (viteza + rotatie)
-│   └── keyboard_teleop.py      # controlul prin tastatura
-└── worlds/
-    └── servo_world.sdf         # lumea Gazebo simplă
+```mermaid
+graph LR
+    KB[tastatura] --> TN[nodul de teleoperare]
+    TN -- comanda viteza/rotatie --> SN[nodul motorului]
+    SN -- comanda articulatie --> GZ[Gazebo]
+    GZ -- starea articulatiei --> SN
 ```
 
-## Pornire
+Lantul demonstreaza bucla completa operator -> middleware -> simulator si a servit
+ca prima validare a mediului ROS 2 Jazzy + Gazebo pe masina de lucru.
+
+## 2. Compilare si descoperirea executabilelor
+
+Pachet ament (apare in iesirea `colcon build`). Numele exacte ale executabilelor si
+launch-urilor se obtin din pachetul instalat:
 
 ```bash
+cd ~/ros2_ws
 source /opt/ros/jazzy/setup.bash
-cd ~/ros2_ws
-
-# porneste Gazebo cu motorul
-ros2 launch servo_control servo_gazebo.launch.py
-
-# intr-un terminal separat — controlul prin tastatura
-ros2 run servo_control keyboard_teleop.py
-```
-
-## Taste de control
-
-| Tasta | Acțiune |
-|---|---|
-| `W` / `S` | Crește / scade viteza |
-| `A` / `D` | Rotație stânga / dreapta |
-| `SPACE` | Stop (viteză zero) |
-| `Q` | Ieșire |
-
-## Topicuri
-
-| Topic | Tip | Descriere |
-|---|---|---|
-| `/servo/cmd_vel` | Twist | Comanda de viteză/rotație |
-| `/servo/joint_state` | JointState | Starea motorului (poziție, viteză) |
-
-## Relația cu restul proiectului
-
-```
-keyboard_teleop → /servo/cmd_vel → servo_node → Gazebo
-                                              ↓
-                                     /servo/joint_state
-```
-
-Motorul din `servo_control` = demonstratorul vizual al conceptului. Fizica detaliată de impedanță și tele-impedanță trăiește în `joint_emulator`. Benchmarkul middleware trăiește în `c1_benchmark`.
-
-## Build
-
-```bash
-cd ~/ros2_ws
 colcon build --packages-select servo_control --symlink-install
 source install/setup.bash
+
+# inventarul executabilelor
+ros2 pkg executables servo_control
+
+# inventarul launch-urilor
+ls $(ros2 pkg prefix servo_control)/share/servo_control/launch/ 2>/dev/null
 ```
+
+## 3. Sintaxe de pornire
+
+```bash
+# porneste lantul (numele launch-ului din inventarul de mai sus)
+ros2 launch servo_control <launch-ul listat>
+
+# verificarea topicurilor active
+ros2 topic list
+ros2 topic echo --once <topicul de stare al motorului>
+```
+
+Comanda de la tastatura: rotatie stanga/dreapta si cresterea/scaderea vitezei,
+conform nodului de teleoperare al pachetului.
+
+## 4. Statut
+
+Pachet stabil, in regim de arhiva activa: nu se mai dezvolta, dar ramane
+demonstratorul de referinta al buclei de teleoperare si materialul vizual al
+prezentarilor. Functionalitatea lui de cercetare a fost preluata si extinsa de
+`sar_swarm` (teleoperarea roiului) si `joint_emulator` (controlul de impedanta).
