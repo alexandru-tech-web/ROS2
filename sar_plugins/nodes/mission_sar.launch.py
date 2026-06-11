@@ -54,6 +54,6 @@ def generate_launch_description():
         node("battery_node.py",
              "pose_topic:=/sar/telemetry",
              "state_topic:=/sar/battery",
-             "failsafe_cmd_topic:=/sar/failsafe",
-             'failsafe_template:={"id":"%ID%","action":"%STATE%"}'),
+             "failsafe_cmd_topic:=/sar/operator",
+             'failsafe_template:={"type":"drone","id":"%ID%","action":"rth"}'),
     ])
