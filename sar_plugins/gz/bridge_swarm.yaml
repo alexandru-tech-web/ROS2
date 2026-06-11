@@ -1,0 +1,69 @@
+# bridge_swarm.yaml — podul ros_gz pentru 5 multicoptere (d1..d5)
+#
+# Presupune o lume cu 5 instante ale modelului de multicopter (X3/X4 din
+# exemplul oficial gz "multicopter_velocity_control.sdf"), redenumite
+# d1..d5. Fiecare model asculta Twist pe "<nume>/gazebo/command/twist"
+# si publica odometrie pe "<nume>/odometry" (plugin OdometryPublisher).
+#
+# Lantul complet:
+#   coordonator -> /swarm/cmd_vel (JSON) -> quad_adapter_node ->
+#   /d?/gazebo/command/twist -> [acest pod] -> Gazebo (fizica reala)
+#
+# Rulare:
+#   ros2 run ros_gz_bridge parameter_bridge --ros-args \
+#       -p config_file:=$(pwd)/bridge_swarm.yaml
+
+- ros_topic_name: "/d1/gazebo/command/twist"
+  gz_topic_name: "/d1/gazebo/command/twist"
+  ros_type_name: "geometry_msgs/msg/Twist"
+  gz_type_name: "gz.msgs.Twist"
+  direction: ROS_TO_GZ
+- ros_topic_name: "/d1/odometry"
+  gz_topic_name: "/model/d1/odometry"
+  ros_type_name: "nav_msgs/msg/Odometry"
+  gz_type_name: "gz.msgs.Odometry"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "/d2/gazebo/command/twist"
+  gz_topic_name: "/d2/gazebo/command/twist"
+  ros_type_name: "geometry_msgs/msg/Twist"
+  gz_type_name: "gz.msgs.Twist"
+  direction: ROS_TO_GZ
+- ros_topic_name: "/d2/odometry"
+  gz_topic_name: "/model/d2/odometry"
+  ros_type_name: "nav_msgs/msg/Odometry"
+  gz_type_name: "gz.msgs.Odometry"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "/d3/gazebo/command/twist"
+  gz_topic_name: "/d3/gazebo/command/twist"
+  ros_type_name: "geometry_msgs/msg/Twist"
+  gz_type_name: "gz.msgs.Twist"
+  direction: ROS_TO_GZ
+- ros_topic_name: "/d3/odometry"
+  gz_topic_name: "/model/d3/odometry"
+  ros_type_name: "nav_msgs/msg/Odometry"
+  gz_type_name: "gz.msgs.Odometry"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "/d4/gazebo/command/twist"
+  gz_topic_name: "/d4/gazebo/command/twist"
+  ros_type_name: "geometry_msgs/msg/Twist"
+  gz_type_name: "gz.msgs.Twist"
+  direction: ROS_TO_GZ
+- ros_topic_name: "/d4/odometry"
+  gz_topic_name: "/model/d4/odometry"
+  ros_type_name: "nav_msgs/msg/Odometry"
+  gz_type_name: "gz.msgs.Odometry"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "/d5/gazebo/command/twist"
+  gz_topic_name: "/d5/gazebo/command/twist"
+  ros_type_name: "geometry_msgs/msg/Twist"
+  gz_type_name: "gz.msgs.Twist"
+  direction: ROS_TO_GZ
+- ros_topic_name: "/d5/odometry"
+  gz_topic_name: "/model/d5/odometry"
+  ros_type_name: "nav_msgs/msg/Odometry"
+  gz_type_name: "gz.msgs.Odometry"
+  direction: GZ_TO_ROS
