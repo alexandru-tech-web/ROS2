@@ -1,0 +1,90 @@
+<?xml version="1.0"?>
+<!-- GENERAT de tools/gen_bench_model.py — nu edita de mana -->
+<sdf version="1.9">
+  <world name="bench_world">
+    <gravity>0 0 -9.81</gravity>
+    <light type="directional" name="sun"><pose>0 0 10 0 0.5 0.4</pose>
+      <diffuse>0.9 0.9 0.9 1</diffuse><cast_shadows>true</cast_shadows></light>
+    <model name="ground"><static>true</static><link name="g">
+      <collision name="c"><geometry><plane><normal>0 0 1</normal>
+        <size>10 10</size></plane></geometry></collision>
+      <visual name="v"><geometry><plane><normal>0 0 1</normal>
+        <size>10 10</size></plane></geometry>
+        <material><diffuse>0.75 0.7 0.6 1</diffuse></material></visual>
+    </link></model>
+    <model name="joint_bench">
+      <pose>0 0 0 0 0 0</pose>
+      <!-- ANCORA: fara coliziuni, modelul liber ar cadea prin podea -->
+      <joint name="world_anchor" type="fixed">
+        <parent>world</parent><child>base_link</child></joint>
+    <link name="base_link"><pose>0 0 0 0 0 0</pose>
+      <inertial><mass>80</mass><inertia><ixx>0.002</ixx><iyy>0.002</iyy><izz>0.002</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia></inertial>
+      <visual name="v0"><pose>-0.62 -0 0.78 1.5708 0 0</pose><geometry><box><size>0.05 0.05 0.92</size></box></geometry><material><diffuse>0.91 0.35 0.05 1</diffuse></material></visual>
+      <visual name="v1"><pose>0.62 -0 0.78 1.5708 0 0</pose><geometry><box><size>0.05 0.05 0.92</size></box></geometry><material><diffuse>0.91 0.35 0.05 1</diffuse></material></visual>
+      <visual name="v2"><pose>0 0.45 0.780002 1.5708 0 0</pose><geometry><box><size>1.29 0.05 0.05</size></box></geometry><material><diffuse>0.91 0.35 0.05 1</diffuse></material></visual>
+      <visual name="v3"><pose>0 -0.45 0.779998 1.5708 0 0</pose><geometry><box><size>1.29 0.05 0.05</size></box></geometry><material><diffuse>0.91 0.35 0.05 1</diffuse></material></visual>
+      <visual name="v4"><pose>-0.6 -0.42 0.39 0 0 0</pose><geometry><box><size>0.05 0.05 0.78</size></box></geometry><material><diffuse>0.91 0.35 0.05 1</diffuse></material></visual>
+      <visual name="v5"><pose>-0.6 0.42 0.39 0 0 0</pose><geometry><box><size>0.05 0.05 0.78</size></box></geometry><material><diffuse>0.91 0.35 0.05 1</diffuse></material></visual>
+      <visual name="v6"><pose>0.6 -0.42 0.39 0 0 0</pose><geometry><box><size>0.05 0.05 0.78</size></box></geometry><material><diffuse>0.91 0.35 0.05 1</diffuse></material></visual>
+      <visual name="v7"><pose>0.6 0.42 0.39 0 0 0</pose><geometry><box><size>0.05 0.05 0.78</size></box></geometry><material><diffuse>0.91 0.35 0.05 1</diffuse></material></visual>
+      <visual name="v8"><pose>-0.4 0.23 0.780001 1.5708 0 0</pose><geometry><box><size>0.145 0.145 0.22</size></box></geometry><material><diffuse>0.10 0.10 0.10 1</diffuse></material></visual>
+      <visual name="v9"><pose>-0.41 0.29 0.875001 1.5708 0 0</pose><geometry><box><size>0.1 0.05 0.09</size></box></geometry><material><diffuse>0.10 0.10 0.10 1</diffuse></material></visual>
+      <visual name="v10"><pose>-0.41 0.289999 0.925001 3.1416 0 0</pose><geometry><cylinder><radius>0.013</radius><length>0.05</length></cylinder></geometry><material><diffuse>0.55 0.55 0.55 1</diffuse></material></visual>
+      <visual name="v11"><pose>-0.4 -0.23 0.779999 1.5708 0 0</pose><geometry><box><size>0.145 0.145 0.22</size></box></geometry><material><diffuse>0.10 0.10 0.10 1</diffuse></material></visual>
+      <visual name="v12"><pose>-0.41 -0.29 0.874999 1.5708 0 0</pose><geometry><box><size>0.1 0.05 0.09</size></box></geometry><material><diffuse>0.10 0.10 0.10 1</diffuse></material></visual>
+      <visual name="v13"><pose>-0.41 -0.290001 0.924999 3.1416 0 0</pose><geometry><cylinder><radius>0.013</radius><length>0.05</length></cylinder></geometry><material><diffuse>0.55 0.55 0.55 1</diffuse></material></visual>
+      <visual name="v14"><pose>-0.485 -0 0.78 1.5708 0 0</pose><geometry><box><size>0.02 0.14 0.12</size></box></geometry><material><diffuse>0.13 0.32 0.65 1</diffuse></material></visual>
+      <visual name="v15"><pose>-0.315 -0 0.78 1.5708 0 0</pose><geometry><box><size>0.02 0.14 0.12</size></box></geometry><material><diffuse>0.13 0.32 0.65 1</diffuse></material></visual>
+      <visual name="v16"><pose>-0.4 2.7549e-07 0.705 1.5708 0 0</pose><geometry><box><size>0.15 0.02 0.1</size></box></geometry><material><diffuse>0.13 0.32 0.65 1</diffuse></material></visual>
+      <visual name="v17"><pose>0 0.23 0.780001 1.5708 0 0</pose><geometry><box><size>0.145 0.145 0.22</size></box></geometry><material><diffuse>0.10 0.10 0.10 1</diffuse></material></visual>
+      <visual name="v18"><pose>-0.01 0.29 0.875001 1.5708 0 0</pose><geometry><box><size>0.1 0.05 0.09</size></box></geometry><material><diffuse>0.10 0.10 0.10 1</diffuse></material></visual>
+      <visual name="v19"><pose>-0.01 0.289999 0.925001 3.1416 0 0</pose><geometry><cylinder><radius>0.013</radius><length>0.05</length></cylinder></geometry><material><diffuse>0.55 0.55 0.55 1</diffuse></material></visual>
+      <visual name="v20"><pose>0 -0.23 0.779999 1.5708 0 0</pose><geometry><box><size>0.145 0.145 0.22</size></box></geometry><material><diffuse>0.10 0.10 0.10 1</diffuse></material></visual>
+      <visual name="v21"><pose>-0.01 -0.29 0.874999 1.5708 0 0</pose><geometry><box><size>0.1 0.05 0.09</size></box></geometry><material><diffuse>0.10 0.10 0.10 1</diffuse></material></visual>
+      <visual name="v22"><pose>-0.01 -0.290001 0.924999 3.1416 0 0</pose><geometry><cylinder><radius>0.013</radius><length>0.05</length></cylinder></geometry><material><diffuse>0.55 0.55 0.55 1</diffuse></material></visual>
+      <visual name="v23"><pose>-0.085 -0 0.78 1.5708 0 0</pose><geometry><box><size>0.02 0.14 0.12</size></box></geometry><material><diffuse>0.13 0.32 0.65 1</diffuse></material></visual>
+      <visual name="v24"><pose>0.085 -0 0.78 1.5708 0 0</pose><geometry><box><size>0.02 0.14 0.12</size></box></geometry><material><diffuse>0.13 0.32 0.65 1</diffuse></material></visual>
+      <visual name="v25"><pose>0 2.7549e-07 0.705 1.5708 0 0</pose><geometry><box><size>0.15 0.02 0.1</size></box></geometry><material><diffuse>0.13 0.32 0.65 1</diffuse></material></visual>
+      <visual name="v26"><pose>0.4 0.23 0.780001 1.5708 0 0</pose><geometry><box><size>0.145 0.145 0.22</size></box></geometry><material><diffuse>0.10 0.10 0.10 1</diffuse></material></visual>
+      <visual name="v27"><pose>0.39 0.29 0.875001 1.5708 0 0</pose><geometry><box><size>0.1 0.05 0.09</size></box></geometry><material><diffuse>0.10 0.10 0.10 1</diffuse></material></visual>
+      <visual name="v28"><pose>0.39 0.289999 0.925001 3.1416 0 0</pose><geometry><cylinder><radius>0.013</radius><length>0.05</length></cylinder></geometry><material><diffuse>0.55 0.55 0.55 1</diffuse></material></visual>
+      <visual name="v29"><pose>0.4 -0.23 0.779999 1.5708 0 0</pose><geometry><box><size>0.145 0.145 0.22</size></box></geometry><material><diffuse>0.10 0.10 0.10 1</diffuse></material></visual>
+      <visual name="v30"><pose>0.39 -0.29 0.874999 1.5708 0 0</pose><geometry><box><size>0.1 0.05 0.09</size></box></geometry><material><diffuse>0.10 0.10 0.10 1</diffuse></material></visual>
+      <visual name="v31"><pose>0.39 -0.290001 0.924999 3.1416 0 0</pose><geometry><cylinder><radius>0.013</radius><length>0.05</length></cylinder></geometry><material><diffuse>0.55 0.55 0.55 1</diffuse></material></visual>
+      <visual name="v32"><pose>0.315 -0 0.78 1.5708 0 0</pose><geometry><box><size>0.02 0.14 0.12</size></box></geometry><material><diffuse>0.13 0.32 0.65 1</diffuse></material></visual>
+      <visual name="v33"><pose>0.485 -0 0.78 1.5708 0 0</pose><geometry><box><size>0.02 0.14 0.12</size></box></geometry><material><diffuse>0.13 0.32 0.65 1</diffuse></material></visual>
+      <visual name="v34"><pose>0.4 2.7549e-07 0.705 1.5708 0 0</pose><geometry><box><size>0.15 0.02 0.1</size></box></geometry><material><diffuse>0.13 0.32 0.65 1</diffuse></material></visual>
+    </link>
+    <link name="shaft0"><pose>-0.4 -0 0.78 1.5708 0 0</pose>
+      <inertial><mass>0.25</mass><inertia><ixx>0.002</ixx><iyy>0.002</iyy><izz>0.002</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia></inertial>
+      <visual name="v0"><pose>0 0 0 0 0 0</pose><geometry><cylinder><radius>0.016</radius><length>0.24</length></cylinder></geometry><material><diffuse>0.30 0.30 0.30 1</diffuse></material></visual>
+      <visual name="v1"><pose>0 0 0 0 0 0</pose><geometry><cylinder><radius>0.05</radius><length>0.05</length></cylinder></geometry><material><diffuse>0.91 0.35 0.05 1</diffuse></material></visual>
+      <visual name="v2"><pose>0 0 0.06 0 0 0</pose><geometry><cylinder><radius>0.032</radius><length>0.015</length></cylinder></geometry><material><diffuse>0.55 0.55 0.55 1</diffuse></material></visual>
+      <visual name="v3"><pose>0 0 -0.06 0 0 0</pose><geometry><cylinder><radius>0.032</radius><length>0.015</length></cylinder></geometry><material><diffuse>0.55 0.55 0.55 1</diffuse></material></visual>
+      <visual name="v4"><pose>0.06 0 0 0 0 0</pose><geometry><box><size>0.08 0.016 0.016</size></box></geometry><material><diffuse>0.91 0.35 0.05 1</diffuse></material></visual>
+    </link>
+    <link name="shaft1"><pose>0 -0 0.78 1.5708 0 0</pose>
+      <inertial><mass>0.25</mass><inertia><ixx>0.002</ixx><iyy>0.002</iyy><izz>0.002</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia></inertial>
+      <visual name="v0"><pose>0 0 0 0 0 0</pose><geometry><cylinder><radius>0.016</radius><length>0.24</length></cylinder></geometry><material><diffuse>0.30 0.30 0.30 1</diffuse></material></visual>
+      <visual name="v1"><pose>0 0 0 0 0 0</pose><geometry><cylinder><radius>0.05</radius><length>0.05</length></cylinder></geometry><material><diffuse>0.91 0.35 0.05 1</diffuse></material></visual>
+      <visual name="v2"><pose>0 0 0.06 0 0 0</pose><geometry><cylinder><radius>0.032</radius><length>0.015</length></cylinder></geometry><material><diffuse>0.55 0.55 0.55 1</diffuse></material></visual>
+      <visual name="v3"><pose>0 0 -0.06 0 0 0</pose><geometry><cylinder><radius>0.032</radius><length>0.015</length></cylinder></geometry><material><diffuse>0.55 0.55 0.55 1</diffuse></material></visual>
+      <visual name="v4"><pose>0.06 0 0 0 0 0</pose><geometry><box><size>0.08 0.016 0.016</size></box></geometry><material><diffuse>0.91 0.35 0.05 1</diffuse></material></visual>
+    </link>
+    <link name="shaft2"><pose>0.4 -0 0.78 1.5708 0 0</pose>
+      <inertial><mass>0.25</mass><inertia><ixx>0.002</ixx><iyy>0.002</iyy><izz>0.002</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia></inertial>
+      <visual name="v0"><pose>0 0 0 0 0 0</pose><geometry><cylinder><radius>0.016</radius><length>0.24</length></cylinder></geometry><material><diffuse>0.30 0.30 0.30 1</diffuse></material></visual>
+      <visual name="v1"><pose>0 0 0 0 0 0</pose><geometry><cylinder><radius>0.05</radius><length>0.05</length></cylinder></geometry><material><diffuse>0.91 0.35 0.05 1</diffuse></material></visual>
+      <visual name="v2"><pose>0 0 0.06 0 0 0</pose><geometry><cylinder><radius>0.032</radius><length>0.015</length></cylinder></geometry><material><diffuse>0.55 0.55 0.55 1</diffuse></material></visual>
+      <visual name="v3"><pose>0 0 -0.06 0 0 0</pose><geometry><cylinder><radius>0.032</radius><length>0.015</length></cylinder></geometry><material><diffuse>0.55 0.55 0.55 1</diffuse></material></visual>
+      <visual name="v4"><pose>0.06 0 0 0 0 0</pose><geometry><box><size>0.08 0.016 0.016</size></box></geometry><material><diffuse>0.91 0.35 0.05 1</diffuse></material></visual>
+    </link>
+    <joint name="pair0_joint" type="revolute"><parent>base_link</parent><child>shaft0</child><axis><xyz>0 0 1</xyz><limit><lower>-1e16</lower><upper>1e16</upper></limit></axis></joint>
+    <joint name="pair1_joint" type="revolute"><parent>base_link</parent><child>shaft1</child><axis><xyz>0 0 1</xyz><limit><lower>-1e16</lower><upper>1e16</upper></limit></axis></joint>
+    <joint name="pair2_joint" type="revolute"><parent>base_link</parent><child>shaft2</child><axis><xyz>0 0 1</xyz><limit><lower>-1e16</lower><upper>1e16</upper></limit></axis></joint>
+      <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController"><joint_name>pair0_joint</joint_name><topic>/bench/pair0_cmd_pos</topic><p_gain>15</p_gain><d_gain>0.3</d_gain></plugin>
+      <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController"><joint_name>pair1_joint</joint_name><topic>/bench/pair1_cmd_pos</topic><p_gain>15</p_gain><d_gain>0.3</d_gain></plugin>
+      <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController"><joint_name>pair2_joint</joint_name><topic>/bench/pair2_cmd_pos</topic><p_gain>15</p_gain><d_gain>0.3</d_gain></plugin>
+    </model>
+  </world>
+</sdf>

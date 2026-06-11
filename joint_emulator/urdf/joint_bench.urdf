@@ -1,0 +1,65 @@
+<?xml version="1.0"?>
+<!-- GENERAT de tools/gen_bench_model.py — nu edita de mana -->
+<robot name="joint_bench">
+  <link name="base_link">
+    <visual><origin xyz="-0.62 -0 0.78" rpy="1.5708 0 0"/><geometry><box size="0.05 0.05 0.92"/></geometry><material name="portocaliu"><color rgba="0.91 0.35 0.05 1"/></material></visual>
+    <visual><origin xyz="0.62 -0 0.78" rpy="1.5708 0 0"/><geometry><box size="0.05 0.05 0.92"/></geometry><material name="portocaliu"><color rgba="0.91 0.35 0.05 1"/></material></visual>
+    <visual><origin xyz="0 0.45 0.780002" rpy="1.5708 0 0"/><geometry><box size="1.29 0.05 0.05"/></geometry><material name="portocaliu"><color rgba="0.91 0.35 0.05 1"/></material></visual>
+    <visual><origin xyz="0 -0.45 0.779998" rpy="1.5708 0 0"/><geometry><box size="1.29 0.05 0.05"/></geometry><material name="portocaliu"><color rgba="0.91 0.35 0.05 1"/></material></visual>
+    <visual><origin xyz="-0.6 -0.42 0.39" rpy="0 0 0"/><geometry><box size="0.05 0.05 0.78"/></geometry><material name="portocaliu"><color rgba="0.91 0.35 0.05 1"/></material></visual>
+    <visual><origin xyz="-0.6 0.42 0.39" rpy="0 0 0"/><geometry><box size="0.05 0.05 0.78"/></geometry><material name="portocaliu"><color rgba="0.91 0.35 0.05 1"/></material></visual>
+    <visual><origin xyz="0.6 -0.42 0.39" rpy="0 0 0"/><geometry><box size="0.05 0.05 0.78"/></geometry><material name="portocaliu"><color rgba="0.91 0.35 0.05 1"/></material></visual>
+    <visual><origin xyz="0.6 0.42 0.39" rpy="0 0 0"/><geometry><box size="0.05 0.05 0.78"/></geometry><material name="portocaliu"><color rgba="0.91 0.35 0.05 1"/></material></visual>
+    <visual><origin xyz="-0.4 0.23 0.780001" rpy="1.5708 0 0"/><geometry><box size="0.145 0.145 0.22"/></geometry><material name="negru"><color rgba="0.10 0.10 0.10 1"/></material></visual>
+    <visual><origin xyz="-0.41 0.29 0.875001" rpy="1.5708 0 0"/><geometry><box size="0.1 0.05 0.09"/></geometry><material name="negru"><color rgba="0.10 0.10 0.10 1"/></material></visual>
+    <visual><origin xyz="-0.41 0.289999 0.925001" rpy="3.1416 0 0"/><geometry><cylinder radius="0.013" length="0.05"/></geometry><material name="gri"><color rgba="0.55 0.55 0.55 1"/></material></visual>
+    <visual><origin xyz="-0.4 -0.23 0.779999" rpy="1.5708 0 0"/><geometry><box size="0.145 0.145 0.22"/></geometry><material name="negru"><color rgba="0.10 0.10 0.10 1"/></material></visual>
+    <visual><origin xyz="-0.41 -0.29 0.874999" rpy="1.5708 0 0"/><geometry><box size="0.1 0.05 0.09"/></geometry><material name="negru"><color rgba="0.10 0.10 0.10 1"/></material></visual>
+    <visual><origin xyz="-0.41 -0.290001 0.924999" rpy="3.1416 0 0"/><geometry><cylinder radius="0.013" length="0.05"/></geometry><material name="gri"><color rgba="0.55 0.55 0.55 1"/></material></visual>
+    <visual><origin xyz="-0.485 -0 0.78" rpy="1.5708 0 0"/><geometry><box size="0.02 0.14 0.12"/></geometry><material name="albastru"><color rgba="0.13 0.32 0.65 1"/></material></visual>
+    <visual><origin xyz="-0.315 -0 0.78" rpy="1.5708 0 0"/><geometry><box size="0.02 0.14 0.12"/></geometry><material name="albastru"><color rgba="0.13 0.32 0.65 1"/></material></visual>
+    <visual><origin xyz="-0.4 2.7549e-07 0.705" rpy="1.5708 0 0"/><geometry><box size="0.15 0.02 0.1"/></geometry><material name="albastru"><color rgba="0.13 0.32 0.65 1"/></material></visual>
+    <visual><origin xyz="0 0.23 0.780001" rpy="1.5708 0 0"/><geometry><box size="0.145 0.145 0.22"/></geometry><material name="negru"><color rgba="0.10 0.10 0.10 1"/></material></visual>
+    <visual><origin xyz="-0.01 0.29 0.875001" rpy="1.5708 0 0"/><geometry><box size="0.1 0.05 0.09"/></geometry><material name="negru"><color rgba="0.10 0.10 0.10 1"/></material></visual>
+    <visual><origin xyz="-0.01 0.289999 0.925001" rpy="3.1416 0 0"/><geometry><cylinder radius="0.013" length="0.05"/></geometry><material name="gri"><color rgba="0.55 0.55 0.55 1"/></material></visual>
+    <visual><origin xyz="0 -0.23 0.779999" rpy="1.5708 0 0"/><geometry><box size="0.145 0.145 0.22"/></geometry><material name="negru"><color rgba="0.10 0.10 0.10 1"/></material></visual>
+    <visual><origin xyz="-0.01 -0.29 0.874999" rpy="1.5708 0 0"/><geometry><box size="0.1 0.05 0.09"/></geometry><material name="negru"><color rgba="0.10 0.10 0.10 1"/></material></visual>
+    <visual><origin xyz="-0.01 -0.290001 0.924999" rpy="3.1416 0 0"/><geometry><cylinder radius="0.013" length="0.05"/></geometry><material name="gri"><color rgba="0.55 0.55 0.55 1"/></material></visual>
+    <visual><origin xyz="-0.085 -0 0.78" rpy="1.5708 0 0"/><geometry><box size="0.02 0.14 0.12"/></geometry><material name="albastru"><color rgba="0.13 0.32 0.65 1"/></material></visual>
+    <visual><origin xyz="0.085 -0 0.78" rpy="1.5708 0 0"/><geometry><box size="0.02 0.14 0.12"/></geometry><material name="albastru"><color rgba="0.13 0.32 0.65 1"/></material></visual>
+    <visual><origin xyz="0 2.7549e-07 0.705" rpy="1.5708 0 0"/><geometry><box size="0.15 0.02 0.1"/></geometry><material name="albastru"><color rgba="0.13 0.32 0.65 1"/></material></visual>
+    <visual><origin xyz="0.4 0.23 0.780001" rpy="1.5708 0 0"/><geometry><box size="0.145 0.145 0.22"/></geometry><material name="negru"><color rgba="0.10 0.10 0.10 1"/></material></visual>
+    <visual><origin xyz="0.39 0.29 0.875001" rpy="1.5708 0 0"/><geometry><box size="0.1 0.05 0.09"/></geometry><material name="negru"><color rgba="0.10 0.10 0.10 1"/></material></visual>
+    <visual><origin xyz="0.39 0.289999 0.925001" rpy="3.1416 0 0"/><geometry><cylinder radius="0.013" length="0.05"/></geometry><material name="gri"><color rgba="0.55 0.55 0.55 1"/></material></visual>
+    <visual><origin xyz="0.4 -0.23 0.779999" rpy="1.5708 0 0"/><geometry><box size="0.145 0.145 0.22"/></geometry><material name="negru"><color rgba="0.10 0.10 0.10 1"/></material></visual>
+    <visual><origin xyz="0.39 -0.29 0.874999" rpy="1.5708 0 0"/><geometry><box size="0.1 0.05 0.09"/></geometry><material name="negru"><color rgba="0.10 0.10 0.10 1"/></material></visual>
+    <visual><origin xyz="0.39 -0.290001 0.924999" rpy="3.1416 0 0"/><geometry><cylinder radius="0.013" length="0.05"/></geometry><material name="gri"><color rgba="0.55 0.55 0.55 1"/></material></visual>
+    <visual><origin xyz="0.315 -0 0.78" rpy="1.5708 0 0"/><geometry><box size="0.02 0.14 0.12"/></geometry><material name="albastru"><color rgba="0.13 0.32 0.65 1"/></material></visual>
+    <visual><origin xyz="0.485 -0 0.78" rpy="1.5708 0 0"/><geometry><box size="0.02 0.14 0.12"/></geometry><material name="albastru"><color rgba="0.13 0.32 0.65 1"/></material></visual>
+    <visual><origin xyz="0.4 2.7549e-07 0.705" rpy="1.5708 0 0"/><geometry><box size="0.15 0.02 0.1"/></geometry><material name="albastru"><color rgba="0.13 0.32 0.65 1"/></material></visual>
+  </link>
+  <link name="shaft0">
+    <visual><origin xyz="0 0 0" rpy="0 0 0"/><geometry><cylinder radius="0.016" length="0.24"/></geometry><material name="gri_inchis"><color rgba="0.30 0.30 0.30 1"/></material></visual>
+    <visual><origin xyz="0 0 0" rpy="0 0 0"/><geometry><cylinder radius="0.05" length="0.05"/></geometry><material name="portocaliu"><color rgba="0.91 0.35 0.05 1"/></material></visual>
+    <visual><origin xyz="0 0 0.06" rpy="0 0 0"/><geometry><cylinder radius="0.032" length="0.015"/></geometry><material name="gri"><color rgba="0.55 0.55 0.55 1"/></material></visual>
+    <visual><origin xyz="0 0 -0.06" rpy="0 0 0"/><geometry><cylinder radius="0.032" length="0.015"/></geometry><material name="gri"><color rgba="0.55 0.55 0.55 1"/></material></visual>
+    <visual><origin xyz="0.06 0 0" rpy="0 0 0"/><geometry><box size="0.08 0.016 0.016"/></geometry><material name="portocaliu"><color rgba="0.91 0.35 0.05 1"/></material></visual>
+  </link>
+  <link name="shaft1">
+    <visual><origin xyz="0 0 0" rpy="0 0 0"/><geometry><cylinder radius="0.016" length="0.24"/></geometry><material name="gri_inchis"><color rgba="0.30 0.30 0.30 1"/></material></visual>
+    <visual><origin xyz="0 0 0" rpy="0 0 0"/><geometry><cylinder radius="0.05" length="0.05"/></geometry><material name="portocaliu"><color rgba="0.91 0.35 0.05 1"/></material></visual>
+    <visual><origin xyz="0 0 0.06" rpy="0 0 0"/><geometry><cylinder radius="0.032" length="0.015"/></geometry><material name="gri"><color rgba="0.55 0.55 0.55 1"/></material></visual>
+    <visual><origin xyz="0 0 -0.06" rpy="0 0 0"/><geometry><cylinder radius="0.032" length="0.015"/></geometry><material name="gri"><color rgba="0.55 0.55 0.55 1"/></material></visual>
+    <visual><origin xyz="0.06 0 0" rpy="0 0 0"/><geometry><box size="0.08 0.016 0.016"/></geometry><material name="portocaliu"><color rgba="0.91 0.35 0.05 1"/></material></visual>
+  </link>
+  <link name="shaft2">
+    <visual><origin xyz="0 0 0" rpy="0 0 0"/><geometry><cylinder radius="0.016" length="0.24"/></geometry><material name="gri_inchis"><color rgba="0.30 0.30 0.30 1"/></material></visual>
+    <visual><origin xyz="0 0 0" rpy="0 0 0"/><geometry><cylinder radius="0.05" length="0.05"/></geometry><material name="portocaliu"><color rgba="0.91 0.35 0.05 1"/></material></visual>
+    <visual><origin xyz="0 0 0.06" rpy="0 0 0"/><geometry><cylinder radius="0.032" length="0.015"/></geometry><material name="gri"><color rgba="0.55 0.55 0.55 1"/></material></visual>
+    <visual><origin xyz="0 0 -0.06" rpy="0 0 0"/><geometry><cylinder radius="0.032" length="0.015"/></geometry><material name="gri"><color rgba="0.55 0.55 0.55 1"/></material></visual>
+    <visual><origin xyz="0.06 0 0" rpy="0 0 0"/><geometry><box size="0.08 0.016 0.016"/></geometry><material name="portocaliu"><color rgba="0.91 0.35 0.05 1"/></material></visual>
+  </link>
+  <joint name="pair0_joint" type="continuous"><parent link="base_link"/><child link="shaft0"/><origin xyz="-0.4 -0 0.78" rpy="1.5708 0 0"/><axis xyz="0 0 1"/></joint>
+  <joint name="pair1_joint" type="continuous"><parent link="base_link"/><child link="shaft1"/><origin xyz="0 -0 0.78" rpy="1.5708 0 0"/><axis xyz="0 0 1"/></joint>
+  <joint name="pair2_joint" type="continuous"><parent link="base_link"/><child link="shaft2"/><origin xyz="0.4 -0 0.78" rpy="1.5708 0 0"/><axis xyz="0 0 1"/></joint>
+</robot>

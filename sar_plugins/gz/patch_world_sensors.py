@@ -15,7 +15,7 @@ Idempotent: daca senzorul/pluginul exista deja, nu il dubleaza.
 Folosire (pe masina ta cu Jazzy + Gazebo Harmonic):
   python3 patch_world_sensors.py worlds/teleop_course.sdf \
       worlds/teleop_course_sensors.sdf --model rover --link chassis \
-      --lidar --imu
+      --lidar --imu --camera
   gz sim worlds/teleop_course_sensors.sdf
   ros2 run ros_gz_bridge parameter_bridge --ros-args \
       -p config_file:=bridge_rover.yaml
@@ -51,6 +51,26 @@ IMU_XML = """<sensor name="imu_sensor" type="imu">
   <topic>imu</topic>
   <update_rate>100</update_rate>
   <always_on>1</always_on>
+</sensor>"""
+
+CAMERA_XML = """<sensor name="front_camera" type="camera">
+  <pose>0.25 0 0.2 0 0.2 0</pose>
+  <topic>camera/image</topic>
+  <update_rate>15</update_rate>
+  <always_on>1</always_on>
+  <visualize>true</visualize>
+  <camera>
+    <horizontal_fov>1.0472</horizontal_fov>
+    <image>
+      <width>320</width>
+      <height>240</height>
+      <format>R8G8B8</format>
+    </image>
+    <clip>
+      <near>0.05</near>
+      <far>60</far>
+    </clip>
+  </camera>
 </sensor>"""
 
 NAVSAT_XML = """<sensor name="navsat_sensor" type="navsat">
@@ -120,6 +140,7 @@ def main():
     ap.add_argument("--lidar", action="store_true")
     ap.add_argument("--imu", action="store_true")
     ap.add_argument("--navsat", action="store_true")
+    ap.add_argument("--camera", action="store_true")
     args = ap.parse_args()
 
     tree = ET.parse(args.input)
@@ -140,6 +161,11 @@ def main():
             changed.append("plugin Imu (world)")
         if add_sensor(link, IMU_XML):
             changed.append("imu -> topic gz 'imu'")
+    if args.camera:
+        if add_world_plugin(world, "sensors"):       # camera randeaza -> Sensors
+            changed.append("plugin Sensors (world)")
+        if add_sensor(link, CAMERA_XML):
+            changed.append("camera -> topic gz 'camera/image'")
     if args.navsat:
         if add_world_plugin(world, "navsat"):
             changed.append("plugin NavSat (world)")

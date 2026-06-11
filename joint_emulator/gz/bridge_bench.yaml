@@ -1,0 +1,17 @@
+# bridge_bench.yaml — podul ROS <-> Gazebo pentru oglinda bancului:
+#   ros2 run ros_gz_bridge parameter_bridge --ros-args -p config_file:=gz/bridge_bench.yaml
+- ros_topic_name: /bench/pair0_cmd_pos
+  gz_topic_name: /bench/pair0_cmd_pos
+  ros_type_name: std_msgs/msg/Float64
+  gz_type_name: gz.msgs.Double
+  direction: ROS_TO_GZ
+- ros_topic_name: /bench/pair1_cmd_pos
+  gz_topic_name: /bench/pair1_cmd_pos
+  ros_type_name: std_msgs/msg/Float64
+  gz_type_name: gz.msgs.Double
+  direction: ROS_TO_GZ
+- ros_topic_name: /bench/pair2_cmd_pos
+  gz_topic_name: /bench/pair2_cmd_pos
+  ros_type_name: std_msgs/msg/Float64
+  gz_type_name: gz.msgs.Double
+  direction: ROS_TO_GZ

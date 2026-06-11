@@ -101,6 +101,49 @@ python3 robot_node.py --ros-args -p use_hardware:=true -p port:=/dev/ttyUSB0
 
 Protocolul (`hw_link.py`, **8 teste**: sume de control, fragmentare, zgomot, buclă loopback): `$CMD,v,w*CK` / `$POS,x,y,th,seq*CK` — lizibil pe sârmă, verificabil cu un logic analyzer. `hil_firmware_reference.ino` e scheletul de microcontroler (cu watchdog propriu de 400 ms — apărare în adâncime); dead-reckoning-ul se înlocuiește cu encodere. Pasul de teză: **același sweep, pe robot fizic, prin tc netem real** — „control la distanță în timp real" demonstrat pe hardware.
 
+## Percepție + navigare go-to-goal pe teren accidentat, sub Zenoh — NOU
+
+Etajul de **autonomie sub middleware degradat**: un rover cu **4 roți skid-steer** pe **teren accidentat** (heightmap procedural) în Gazebo, cu **cameră** + **recunoaștere de obiecte (OpenCV clasic, HSV)**, care **navighează singur la o coordonată** — fie un waypoint dat, fie coordonata obiectului recunoscut — rulabil sub `rmw_zenoh_cpp` vs `rmw_cyclonedds_cpp`. Cheia: navigatorul publică pe `/teleop/cmd` exact ca pilotul, deci e un **operator drop-in** și moștenește legătura degradată + SafetyGate + jurnalul + comutarea RMW.
+
+```
+camera ─▶ detector_node (HSV blobs + proiecție pinhole/sol-plat, refinare lidar)
+            └─▶ /teleop/target (x,y în lume) ─▶ goto_node (go-to-goal)
+                                                   └─▶ /teleop/cmd ─▶ [link] ─▶ SafetyGate ─▶ rover 4 roți (Gazebo)
+```
+
+**Nuclee PURE noi (testate, fără ROS/Gazebo):**
+- `nav_core.py` — `SkidSteer4W` (cinematică 4 roți cu coeficienți de patinare; `slip=0` ⇒ identic cu `DiffDrive`) + `goto_command(x,y,th,gx,gy)` (pure-pursuit „turn-then-drive" cu rază de sosire). `test_nav_core.py`: **11 verificări** (incl. SIL în buclă închisă până la țintă).
+- `vision_core.py` — `detect_blobs` (HSV), `pixel_to_bearing`, `ground_range`, `project_to_world` (pinhole + sol-plat, refinare lidar). `test_vision_core.py`: **11 verificări** pe imagini sintetice.
+
+**Lume generată din config:** `python3 gen_rough_world.py` → `worlds/teleop_rough.sdf` + heightmap PNG, validat `gz sdf -k`. Capcane heightmap respectate: imagine `2^k+1` (129×129), `<uri>` cale **absolută `file://`**, heightmap în **collision ȘI visual**, `Zscale` mic (1 m) ca skid-steer-ul să-l urce, motor `ogre2` + plugin `Sensors` pentru cameră/lidar. Tintele colorate din `OBJECTS` sunt **adevărul-teren** pentru analizor.
+
+**Rulare (Gazebo):**
+```bash
+python3 gen_rough_world.py
+ros2 launch ./launch/teleop_perception.launch.py rmw:=zenoh \
+    goal_source:=object target_class:=red lat:=200 jit:=40
+# tinta fixa, pe Cyclone:
+ros2 launch ./launch/teleop_perception.launch.py rmw:=cyclone \
+    goal_source:=waypoint goal_x:=8 goal_y:=3
+# metricile (timp->tinta, distanta finala, eroare de localizare) Zenoh vs Cyclone:
+python3 analyze_perception.py --goal 8 3 \
+    --run cyclone ~/teleop_data_cyclone --run zenoh ~/teleop_data_zenoh
+```
+
+**Verificare FĂRĂ Gazebo (lanțul percepție+nav, pe CPU):**
+```bash
+python3 test_nav_core.py && python3 test_vision_core.py        # nuclee pure
+python3 fake_camera_pub.py --ros-args -p color:=red &          # camera sintetica
+python3 detector_node.py                                       # -> /teleop/target + detections.csv
+# go-to-goal end-to-end pe cinematica interna (proprietatea drop-in-operator):
+python3 link_node.py & python3 robot_node.py &
+python3 goto_node.py --ros-args -p goal_source:=waypoint -p goal_x:=10 -p goal_y:=4
+```
+
+**Limite oneste:** proiecția monoculară presupune **sol-plat** — pe heightmap ipoteza e falsă, eroarea de range crește cu panta; de aceea există refinarea opțională cu **lidar** (`scan_topic:=/scan`). La orizont range-ul diverge (`ground_range` întoarce `None`). Camera/gpu_lidar cer **ogre2/GPU**, deci randarea senzorilor și bucla obiect→țintă în Gazebo sunt „prima rulare la tine".
+
+**În plus — îmbunătățire la sweep:** `sweep_teleop.py` mătură acum și **regimul de actuator** (ideal vs. limite de accelerație realiste, `results/teleop_sweep_accel.png`): actuatorul realist mută pragul de rupere (la 500 ms, CTE p95 ≈ 2.9 m vs 1.1 m ideal) — exact pasul cerut în roadmap.
+
 ## Onestitate
 
 Nucleul, bucla SIL, măturarea (75 de rulări), analizorul și figurile au **rulat aici** (17 teste trec; cifrele din tabel sunt măsurate). Nodurile ROS, launch-urile și lumea Gazebo sunt verificate sintactic + XML, pe aceleași tipare deja confirmate funcționale la `sar_swarm` — prima rulare e la tine; jurnalul-traseu are exact formatul SIL, deci `plot_trace.py` merge identic pe ambele.

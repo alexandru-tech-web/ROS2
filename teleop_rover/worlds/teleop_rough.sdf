@@ -1,0 +1,175 @@
+<?xml version="1.0"?>
+<sdf version="1.9">
+  <world name="teleop_rough">
+    <physics name="p" type="ignored"><max_step_size>0.004</max_step_size>
+      <real_time_factor>1.0</real_time_factor></physics>
+    <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"/>
+    <plugin filename="gz-sim-user-commands-system"
+            name="gz::sim::systems::UserCommands"/>
+    <plugin filename="gz-sim-scene-broadcaster-system"
+            name="gz::sim::systems::SceneBroadcaster"/>
+    <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+    <light type="directional" name="sun"><cast_shadows>true</cast_shadows>
+      <pose>0 0 10 0 0 0</pose><diffuse>0.95 0.92 0.86 1</diffuse>
+      <direction>-0.4 0.2 -0.9</direction></light>
+
+    <model name="terrain"><static>true</static>
+      <link name="l">
+        <collision name="c"><geometry><heightmap>
+        <uri>file:///home/ubuntu/ros2_ws/src/teleop_rover/worlds/teleop_rough_height.png</uri>
+        <size>40.0 40.0 1.0</size>
+        <pos>0 0 0</pos>
+      </heightmap></geometry></collision>
+        <visual name="v"><geometry><heightmap>
+        <uri>file:///home/ubuntu/ros2_ws/src/teleop_rover/worlds/teleop_rough_height.png</uri>
+        <size>40.0 40.0 1.0</size>
+        <pos>0 0 0</pos>
+      </heightmap></geometry>
+          <material><ambient>0.50 0.45 0.36 1</ambient>
+          <diffuse>0.52 0.47 0.38 1</diffuse></material></visual>
+      </link>
+    </model>
+    
+    <model name="target_red"><static>true</static>
+      <pose>8.00 3.00 1.0 0 0 0</pose>
+      <link name="l">
+        <visual name="v"><geometry><cylinder><radius>0.35</radius>
+          <length>2.0</length></cylinder></geometry>
+          <material><ambient>0.8 0.1 0.1 1</ambient>
+          <diffuse>0.8 0.1 0.1 1</diffuse></material></visual>
+        <collision name="c"><geometry><cylinder><radius>0.35</radius>
+          <length>2.0</length></cylinder></geometry></collision></link>
+    </model>
+    <model name="target_green"><static>true</static>
+      <pose>-6.00 5.00 1.0 0 0 0</pose>
+      <link name="l">
+        <visual name="v"><geometry><cylinder><radius>0.35</radius>
+          <length>2.0</length></cylinder></geometry>
+          <material><ambient>0.12 0.7 0.18 1</ambient>
+          <diffuse>0.12 0.7 0.18 1</diffuse></material></visual>
+        <collision name="c"><geometry><cylinder><radius>0.35</radius>
+          <length>2.0</length></cylinder></geometry></collision></link>
+    </model>
+    <model name="target_blue"><static>true</static>
+      <pose>5.00 -7.00 1.0 0 0 0</pose>
+      <link name="l">
+        <visual name="v"><geometry><cylinder><radius>0.35</radius>
+          <length>2.0</length></cylinder></geometry>
+          <material><ambient>0.15 0.32 0.85 1</ambient>
+          <diffuse>0.15 0.32 0.85 1</diffuse></material></visual>
+        <collision name="c"><geometry><cylinder><radius>0.35</radius>
+          <length>2.0</length></cylinder></geometry></collision></link>
+    </model>
+
+    <model name="rover">
+      <pose>0 0 0.85 0 0 0</pose>
+      <link name="chassis"><pose>0 0 0.18 0 0 0</pose>
+        <inertial><mass>5.0</mass><inertia><ixx>0.07</ixx><iyy>0.12</iyy>
+          <izz>0.16</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia></inertial>
+        <visual name="v"><geometry><box><size>0.6 0.4 0.18</size></box>
+          </geometry><material><ambient>0.18 0.45 0.8 1</ambient>
+          <diffuse>0.18 0.45 0.8 1</diffuse></material></visual>
+        <collision name="c"><geometry><box><size>0.6 0.4 0.18</size></box>
+          </geometry></collision>
+        
+        <sensor name="front_camera" type="camera">
+          <pose>0.34 0 0.18 0 0.2 0</pose>
+          <topic>camera/image</topic>
+          <update_rate>15</update_rate>
+          <always_on>1</always_on>
+          <visualize>true</visualize>
+          <camera>
+            <horizontal_fov>1.0472</horizontal_fov>
+            <image><width>320</width><height>240</height><format>R8G8B8</format></image>
+            <clip><near>0.05</near><far>60</far></clip>
+          </camera>
+        </sensor>
+        
+        <sensor name="front_lidar" type="gpu_lidar">
+          <pose>0.3 0 0.2 0 0 0</pose>
+          <topic>scan</topic>
+          <update_rate>10</update_rate>
+          <always_on>1</always_on>
+          <lidar><scan><horizontal><samples>360</samples><resolution>1</resolution>
+            <min_angle>-3.14159</min_angle><max_angle>3.14159</max_angle></horizontal></scan>
+            <range><min>0.12</min><max>12.0</max><resolution>0.01</resolution></range>
+          </lidar>
+        </sensor>
+      </link>
+      
+      <link name="fl_wheel"><pose>0.2 0.21 0.12 -1.5708 0 0</pose>
+        <inertial><mass>0.7</mass><inertia><ixx>0.003</ixx><iyy>0.003</iyy>
+          <izz>0.005</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia></inertial>
+        <visual name="v"><geometry><cylinder><radius>0.12</radius>
+          <length>0.06</length></cylinder></geometry>
+          <material><ambient>0.08 0.08 0.08 1</ambient></material></visual>
+        <collision name="c"><geometry><cylinder><radius>0.12</radius>
+          <length>0.06</length></cylinder></geometry>
+          <surface><friction><ode><mu>1.4</mu><mu2>1.2</mu2></ode>
+          </friction></surface></collision></link>
+      <joint name="fl_wheel_joint" type="revolute">
+        <parent>chassis</parent><child>fl_wheel</child>
+        <axis><xyz>0 0 1</xyz><limit><lower>-1e16</lower><upper>1e16</upper></limit></axis>
+      </joint>
+      
+      <link name="rl_wheel"><pose>-0.2 0.21 0.12 -1.5708 0 0</pose>
+        <inertial><mass>0.7</mass><inertia><ixx>0.003</ixx><iyy>0.003</iyy>
+          <izz>0.005</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia></inertial>
+        <visual name="v"><geometry><cylinder><radius>0.12</radius>
+          <length>0.06</length></cylinder></geometry>
+          <material><ambient>0.08 0.08 0.08 1</ambient></material></visual>
+        <collision name="c"><geometry><cylinder><radius>0.12</radius>
+          <length>0.06</length></cylinder></geometry>
+          <surface><friction><ode><mu>1.4</mu><mu2>1.2</mu2></ode>
+          </friction></surface></collision></link>
+      <joint name="rl_wheel_joint" type="revolute">
+        <parent>chassis</parent><child>rl_wheel</child>
+        <axis><xyz>0 0 1</xyz><limit><lower>-1e16</lower><upper>1e16</upper></limit></axis>
+      </joint>
+      
+      <link name="fr_wheel"><pose>0.2 -0.21 0.12 -1.5708 0 0</pose>
+        <inertial><mass>0.7</mass><inertia><ixx>0.003</ixx><iyy>0.003</iyy>
+          <izz>0.005</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia></inertial>
+        <visual name="v"><geometry><cylinder><radius>0.12</radius>
+          <length>0.06</length></cylinder></geometry>
+          <material><ambient>0.08 0.08 0.08 1</ambient></material></visual>
+        <collision name="c"><geometry><cylinder><radius>0.12</radius>
+          <length>0.06</length></cylinder></geometry>
+          <surface><friction><ode><mu>1.4</mu><mu2>1.2</mu2></ode>
+          </friction></surface></collision></link>
+      <joint name="fr_wheel_joint" type="revolute">
+        <parent>chassis</parent><child>fr_wheel</child>
+        <axis><xyz>0 0 1</xyz><limit><lower>-1e16</lower><upper>1e16</upper></limit></axis>
+      </joint>
+      
+      <link name="rr_wheel"><pose>-0.2 -0.21 0.12 -1.5708 0 0</pose>
+        <inertial><mass>0.7</mass><inertia><ixx>0.003</ixx><iyy>0.003</iyy>
+          <izz>0.005</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia></inertial>
+        <visual name="v"><geometry><cylinder><radius>0.12</radius>
+          <length>0.06</length></cylinder></geometry>
+          <material><ambient>0.08 0.08 0.08 1</ambient></material></visual>
+        <collision name="c"><geometry><cylinder><radius>0.12</radius>
+          <length>0.06</length></cylinder></geometry>
+          <surface><friction><ode><mu>1.4</mu><mu2>1.2</mu2></ode>
+          </friction></surface></collision></link>
+      <joint name="rr_wheel_joint" type="revolute">
+        <parent>chassis</parent><child>rr_wheel</child>
+        <axis><xyz>0 0 1</xyz><limit><lower>-1e16</lower><upper>1e16</upper></limit></axis>
+      </joint>
+      <plugin filename="gz-sim-diff-drive-system"
+              name="gz::sim::systems::DiffDrive">
+        <left_joint>fl_wheel_joint</left_joint>
+        <left_joint>rl_wheel_joint</left_joint>
+        <right_joint>fr_wheel_joint</right_joint>
+        <right_joint>rr_wheel_joint</right_joint>
+        <wheel_separation>0.42</wheel_separation>
+        <wheel_radius>0.12</wheel_radius>
+        <odom_publish_frequency>30</odom_publish_frequency>
+        <topic>/model/rover/cmd_vel</topic>
+        <odom_topic>/model/rover/odometry</odom_topic>
+      </plugin>
+    </model>
+  </world>
+</sdf>
