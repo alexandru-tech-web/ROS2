@@ -30,6 +30,3 @@ cd ~/ros2_ws/src && ./smoke_all.sh
 # commit + push
 cd ~/ros2_ws/src && git add -A && git commit -m "..." && git pull --rebase && git push
 ```
-
-## CLAUDE.md
-Fișierul `~/ros2_ws/src/CLAUDE.md` conține contextul complet al proiectului pentru Claude Code (VS Code). Actualizează-l după fiecare jalon major.
