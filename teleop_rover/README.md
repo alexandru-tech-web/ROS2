@@ -2,7 +2,7 @@
 
 **A doua aplicație de teză, complementară roiului SAR: acolo se măsoară controlul *supervizor* (comenzi discrete: du-te, stai); aici se măsoară cazul dur al „controlului la distanță în timp real" — bucla închisă om→robot→om care trece prin rețeaua degradată DE DOUĂ ORI (comanda la dus, feedback-ul la întors). Metricile sunt de APLICAȚIE: eroarea de urmărire, timpul de parcurs, opririle de siguranță — adică „ce înseamnă 200 ms p95 pentru operator", etajul care lipsea peste benchmarkul de transport (C1).**
 
-![ROS 2](https://img.shields.io/badge/ROS_2-Jazzy-blue) ![Gazebo](https://img.shields.io/badge/Gazebo-Harmonic-orange) ![Teste](https://img.shields.io/badge/teste-17%20trec-green)
+![ROS 2](https://img.shields.io/badge/ROS_2-Jazzy-blue) ![Gazebo](https://img.shields.io/badge/Gazebo-Harmonic-orange) ![Teste](https://img.shields.io/badge/teste-25%20trec-green)
 
 ## Bucla, pe scurt
 
@@ -84,6 +84,22 @@ ros2 topic pub --once /teleop/operator std_msgs/msg/String \
 ## Stratul de siguranță (măsurabil, nu doar declarat)
 
 `SafetyGate` (în `rover_core.py`, 6 teste dedicate): robotul **se oprește** dacă n-a primit nicio comandă de 0.4 s (watchdog — opririle sunt numărate și apar în jurnale/figuri) și **ignoră** orice comandă mai veche de 1 s la sosire (o comandă de virare emisă acum 2 secunde e periculoasă, nu utilă). La 1000 ms latență acest strat e cel care transformă instabilitatea în imobilitate sigură — vizibil în panoul 3 al figurii de măturare.
+
+## Hardware-in-the-loop (puntea spre robotul fizic) — NOU
+
+Al treilea backend al roverului, cu **stratul de siguranță rămas în amonte** (pe fir nu pleacă niciodată o comandă veche sau orfană):
+
+```bash
+# HIL FĂRĂ hardware (MCU software pe loopback) — totul identic, zero fire:
+ros2 launch ./launch/teleop.launch.py lat:=200 mode:=pilot &
+# ...dar cu robotul pe puntea hardware:
+python3 robot_node.py --ros-args -p use_hardware:=true -p port:=loop
+
+# hardware REAL (ESP32/Arduino cu hil_firmware_reference.ino, pyserial instalat):
+python3 robot_node.py --ros-args -p use_hardware:=true -p port:=/dev/ttyUSB0
+```
+
+Protocolul (`hw_link.py`, **8 teste**: sume de control, fragmentare, zgomot, buclă loopback): `$CMD,v,w*CK` / `$POS,x,y,th,seq*CK` — lizibil pe sârmă, verificabil cu un logic analyzer. `hil_firmware_reference.ino` e scheletul de microcontroler (cu watchdog propriu de 400 ms — apărare în adâncime); dead-reckoning-ul se înlocuiește cu encodere. Pasul de teză: **același sweep, pe robot fizic, prin tc netem real** — „control la distanță în timp real" demonstrat pe hardware.
 
 ## Onestitate
 

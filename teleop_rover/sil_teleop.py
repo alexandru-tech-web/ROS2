@@ -29,12 +29,13 @@ FB_HZ = 20.0
 T_MAX = 120.0
 
 
-def run(lat_ms=0.0, jit_ms=0.0, loss=0.0, seed=1, trace=None):
+def run(lat_ms=0.0, jit_ms=0.0, loss=0.0, seed=1, trace=None,
+        a_max=None, w_acc=None):
     ch = Channel(["op", "rob"],
                  default={"base_ms": lat_ms, "jitter_ms": jit_ms,
                           "loss": loss},
                  overrides={}, store_and_forward=False, seed=seed)
-    rover = DiffDrive()
+    rover = DiffDrive(a_max=a_max, w_acc=w_acc)
     course = Course()
     pilot = PilotModel(course)
     gate = SafetyGate()
@@ -133,10 +134,14 @@ def main():
     ap.add_argument("--loss", type=float, default=0.0)
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--trace", default=None)
+    ap.add_argument("--amax", type=float, default=None,
+                    help="limita de acceleratie liniara [m/s^2] (actuator realist)")
+    ap.add_argument("--wacc", type=float, default=None)
     ap.add_argument("--plot", action="store_true")
     a = ap.parse_args()
     os.makedirs("results", exist_ok=True)
-    res, rows = run(a.lat, a.jit, a.loss, a.seed, a.trace)
+    res, rows = run(a.lat, a.jit, a.loss, a.seed, a.trace,
+                    a_max=a.amax, w_acc=a.wacc)
     print(json.dumps(res, indent=1))
     if a.plot:
         plot(rows, res, f"results/run_lat{a.lat:.0f}_loss{int(100*a.loss)}"

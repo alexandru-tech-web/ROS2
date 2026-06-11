@@ -21,14 +21,25 @@ WP_RADIUS = 1.0                   # punct atins sub aceasta distanta
 
 
 class DiffDrive:
-    """Cinematica unui robot diferential (integrare Euler)."""
+    """Cinematica unui robot diferential (integrare Euler).
+    a_max / w_acc (optionale): limite de ACCELERATIE liniara/unghiulara —
+    actuator realist (M1); implicit None = raspuns instantaneu (ideal)."""
 
-    def __init__(self, x=0.0, y=0.0, th=0.0):
+    def __init__(self, x=0.0, y=0.0, th=0.0, a_max=None, w_acc=None):
         self.x, self.y, self.th = x, y, th
+        self.a_max, self.w_acc = a_max, w_acc
+        self._v = self._w = 0.0
 
     def step(self, v, w, dt):
         v = max(-V_MAX, min(V_MAX, v))
         w = max(-W_MAX, min(W_MAX, w))
+        if self.a_max is not None:
+            dv = max(-self.a_max * dt, min(self.a_max * dt, v - self._v))
+            v = self._v + dv
+        if self.w_acc is not None:
+            dw = max(-self.w_acc * dt, min(self.w_acc * dt, w - self._w))
+            w = self._w + dw
+        self._v, self._w = v, w
         self.x += v * math.cos(self.th) * dt
         self.y += v * math.sin(self.th) * dt
         self.th = (self.th + w * dt + math.pi) % (2 * math.pi) - math.pi

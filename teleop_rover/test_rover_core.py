@@ -20,6 +20,14 @@ r = DiffDrive()
 v, w = r.step(99, -99, 0.01)
 check(v == V_MAX and w == -W_MAX, "limitele v/w sunt impuse")
 
+# actuatorul realist (limite de acceleratie, opt-in)
+r = DiffDrive(a_max=1.5)
+v, _ = r.step(1.2, 0.0, 0.2)
+check(abs(v - 0.3) < 1e-9, "a_max: viteza creste in rampa (0.3 m/s dupa 0.2 s)")
+r2 = DiffDrive()
+v2, _ = r2.step(1.2, 0.0, 0.2)
+check(v2 == 1.2, "fara a_max: raspuns instantaneu (comportamentul vechi intact)")
+
 # traseul + CTE
 c = Course([(4, 0), (8, 0)])
 check(abs(c.cross_track(2, 1.5) - 1.5) < 1e-9, "CTE fata de segment drept")

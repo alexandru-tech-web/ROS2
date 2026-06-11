@@ -33,6 +33,13 @@ class RobotNode(Node):
         super().__init__("teleop_robot")
         self.declare_parameter("use_gazebo", False)
         self.use_gz = bool(self.get_parameter("use_gazebo").value)
+        self.declare_parameter("use_hardware", False)
+        self.declare_parameter("port", "loop")
+        self.use_hw = bool(self.get_parameter("use_hardware").value)
+        self.hw = None
+        if self.use_hw:
+            from hw_link import HwLink
+            self.hw = HwLink(str(self.get_parameter("port").value))
         self.rover = DiffDrive()
         self.course = Course()          # doar pentru CTE in jurnal
         self.gate = SafetyGate()
@@ -52,7 +59,7 @@ class RobotNode(Node):
         self.log.write("t_s,x,y,cte,cmd_age,fb_age,stopped\n")
         self.create_timer(0.02, self.tick)          # 50 Hz control
         self.create_timer(0.05, self.send_pose)     # 20 Hz feedback
-        self.get_logger().info(f"rover pornit (use_gazebo={self.use_gz}); "
+        self.get_logger().info(f"rover pornit (gazebo={self.use_gz}, hardware={self.use_hw}); "
                                "watchdog 0.4 s, comenzi >1 s respinse")
 
     # ---------- legatura degradata, aplicata la receptie ----------
@@ -85,7 +92,12 @@ class RobotNode(Node):
         for _, t_emis, v, w in due:
             self.gate.on_command(now, t_emis, v, w)
         v, w, stopped = self.gate.output(now)
-        if self.use_gz:
+        if self.use_hw:                       # HARDWARE (sau loopback HIL)
+            self.hw.send_cmd(v, w)
+            pose = self.hw.poll()
+            if pose is not None:
+                self.rover.x, self.rover.y, self.rover.th = pose
+        elif self.use_gz:
             tw = Twist()
             tw.linear.x, tw.angular.z = v, w
             self.tw_pub.publish(tw)
