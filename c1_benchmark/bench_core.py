@@ -1,0 +1,93 @@
+#!/usr/bin/env python3
+"""bench_core.py — nucleul PUR al campaniei C1 (fara ROS, testat automat):
+conditiile de retea SAR-realiste, statisticile de transport, comenzile tc
+netem, planul de campanie si extragerea timpului de finalizare a misiunii.
+
+Metodologia C1 (cheia articolului): degradarea este REALA (tc netem pe
+interfata), nu simulata — de aceea misiunea ruleaza cu scenario:=none.yaml
+(injectorul publica stare curata; singura degradare e cea fizica), iar
+diferentele masurate apartin EXCLUSIV middleware-ului (RMW) sub acea retea.
+"""
+import csv
+import io
+
+# RMW-urile comparate (cheia = numele scurt folosit in foldere/figuri)
+RMWS = {"cyclonedds": "rmw_cyclonedds_cpp",
+        "zenoh": "rmw_zenoh_cpp",
+        "fastdds": "rmw_fastrtps_cpp"}     # optional, al treilea punct
+
+# Conditiile SAR-realiste: planul original (pierderi 0/5/15/30%) + doua
+# combinatii cu latenta (vârful descoperit in simulari: latenta doare).
+CONDITIONS = [
+    dict(name="ideal",        base_ms=0,   jitter_ms=0,  loss=0.00),
+    dict(name="loss_5",       base_ms=0,   jitter_ms=0,  loss=0.05),
+    dict(name="loss_15",      base_ms=0,   jitter_ms=0,  loss=0.15),
+    dict(name="loss_30",      base_ms=0,   jitter_ms=0,  loss=0.30),
+    dict(name="lat200_jit50", base_ms=200, jitter_ms=50, loss=0.00),
+    dict(name="lat200_l15",   base_ms=200, jitter_ms=50, loss=0.15),
+]
+
+
+def make_payload(n: int) -> str:
+    """Sarcina utila de n octeti (ASCII determinist)."""
+    return ("x" * max(0, n))
+
+
+def rtt_stats(rtts_ms, sent, received):
+    """Statisticile unei rulari de transport: percentile + pierdere."""
+    if not rtts_ms:
+        return {"n": 0, "sent": sent, "received": received,
+                "loss": 1.0 if sent else 0.0}
+    s = sorted(rtts_ms)
+    p = lambda q: s[min(len(s) - 1, round(q * (len(s) - 1)))]
+    return {"n": len(s), "sent": sent, "received": received,
+            "loss": round(1.0 - received / sent, 4) if sent else 0.0,
+            "mean_ms": round(sum(s) / len(s), 3),
+            "p50_ms": round(p(0.50), 3), "p95_ms": round(p(0.95), 3),
+            "p99_ms": round(p(0.99), 3),
+            "min_ms": round(s[0], 3), "max_ms": round(s[-1], 3)}
+
+
+def netem_cmd(iface: str, c: dict) -> str:
+    """Comanda tc care aplica o conditie (replace = idempotent)."""
+    return (f"tc qdisc replace dev {iface} root netem "
+            f"delay {c.get('base_ms', 0)}ms {c.get('jitter_ms', 0)}ms "
+            f"loss {100 * c.get('loss', 0.0):.1f}%")
+
+
+def netem_clear_cmd(iface: str) -> str:
+    return f"tc qdisc del dev {iface} root"
+
+
+def build_plan(rmws, conditions, reps, layers=("transport", "mission")):
+    """Planul ordonat al campaniei: blocat pe RMW (routerul Zenoh pornit o
+    singura data per bloc), conditiile in ordine crescatoare de severitate,
+    repetitiile consecutive. Intoarce o lista de rulari-dict."""
+    plan = []
+    for rmw in rmws:
+        if rmw not in RMWS:
+            raise ValueError(f"RMW necunoscut: {rmw!r} "
+                             f"(stiute: {sorted(RMWS)})")
+        for c in conditions:
+            for rep in range(1, reps + 1):
+                for layer in layers:
+                    plan.append(dict(
+                        rmw=rmw, rmw_impl=RMWS[rmw], condition=c["name"],
+                        netem=c, rep=rep, layer=layer,
+                        needs_router=(rmw == "zenoh")))
+    return plan
+
+
+def mission_done_time(metrics_csv_text: str, victims_total: int = 5,
+                      coverage_goal: float = 0.95):
+    """Primul t la care misiunea e completa, din mission_metrics.csv;
+    None daca nu s-a terminat (plafon)."""
+    rdr = csv.DictReader(io.StringIO(metrics_csv_text))
+    for row in rdr:
+        try:
+            if (float(row["coverage"]) >= coverage_goal
+                    and int(row["victims_found"]) >= victims_total):
+                return float(row["t_s"])
+        except (KeyError, ValueError):
+            return None
+    return None

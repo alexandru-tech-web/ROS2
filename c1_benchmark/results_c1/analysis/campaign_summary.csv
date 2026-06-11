@@ -1,0 +1,2 @@
+rmw,condition,rtt_p95_ms,transport_loss,mission_time_s,mission_completed,coverage_end
+cyclonedds,ideal,1.482,0.000,147.5,1/1,0.9984

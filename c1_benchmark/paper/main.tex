@@ -1,0 +1,134 @@
+% A1 — schelet IEEE pre-completat. Compilare: pdflatex + bibtex.
+% [TODO ...] = de completat dupa campania de masuratori (run_campaign.py).
+\documentclass[conference]{IEEEtran}
+\usepackage{graphicx,booktabs,url}
+\begin{document}
+
+\title{Benchmarking rmw\_zenoh against DDS under SAR-Realistic Network
+Degradation: From Transport Metrics to Mission-Level Impact}
+\author{\IEEEauthorblockN{Alexandru [Nume]}
+\IEEEauthorblockA{Institute of Solid Mechanics of the Romanian Academy
+(IMSAR)\\ Bucharest, Romania \quad email@...}}
+\maketitle
+
+\begin{abstract}
+Existing performance studies of the Zenoh protocol and of ROS~2 middleware
+(RMW) implementations report throughput and latency under ideal network
+conditions. Search-and-rescue (SAR) deployments, however, operate over
+degraded links with packet loss, latency spikes and jitter. We present a
+reproducible benchmark that subjects \texttt{rmw\_zenoh} and Cyclone~DDS to
+SAR-realistic impairments injected with \texttt{tc netem}, and measures their
+impact on two layers: (i)~a transport microbenchmark (round-trip latency and
+loss across payload sizes), and (ii)~a complete multi-UAV SAR mission
+(completion time, coverage, operator-command success). [TODO: one-sentence
+headline result.] All software artifacts are publicly available.
+\end{abstract}
+
+\section{Introduction}
+ROS~2 delegates communication to interchangeable middleware (RMW)
+implementations. The recent Tier-1 adoption of \texttt{rmw\_zenoh} raises a
+practical question for field robotics: how do Zenoh and DDS compare not on
+ideal links, but under the degraded networks typical of SAR --- the exact
+regime where middleware choice matters most? Prior comparisons
+\cite{liang2023zenoh} benchmark Zenoh, MQTT, Kafka and DDS on unimpaired
+100\,GbE links; mission-level consequences remain unquantified. We close
+this gap with a two-layer benchmark under real, controlled impairment.
+
+Contributions: (1)~an open testbed combining \texttt{tc netem} conditions
+with an RMW-switchable transport microbenchmark and a full SAR mission;
+(2)~measured transport curves for \texttt{rmw\_zenoh} vs.\ Cyclone~DDS under
+loss (5--30\%) and latency (200\,ms, 50\,ms jitter); (3)~the first
+mission-level quantification of RMW choice under degradation; (4)~public
+artifacts for full reproducibility.
+
+\section{Related Work}
+\cite{liang2023zenoh} compares Zenoh, MQTT, Kafka and Cyclone~DDS under
+ideal conditions, reporting Zenoh throughput up to 2$\times$ DDS.
+\cite{mesh2024rmw} evaluates Fast~RTPS, Cyclone~DDS and Zenoh over a real
+multi-robot mesh with dynamic topology, finding Zenoh advantageous in
+delay, reachability and CPU usage; \cite{edgecloud2023} compares the same
+families across network \emph{types} (Ethernet, Wi-Fi, 4G), where
+Cyclone~DDS wins on Ethernet but Zenoh wins on Wi-Fi/4G and yields the
+smallest trajectory drift on a real robot. \cite{automotive2025} extends
+the comparison to automotive middleware outside ROS~2, and the ROS~2 TSC
+evaluation \cite{tscrmw2021} qualitatively flags lossy-network discovery
+as DDS's weak point. Crucially, all of these compare across network
+\emph{types} or ideal links; none performs a \emph{parametric, controlled
+degradation sweep} (calibrated loss/latency/jitter levels), and none
+quantifies the consequences at \emph{SAR mission level}. Since prior
+verdicts flip with network conditions, the open question is precisely
+\emph{where} the flip occurs --- the gap addressed here.
+
+\section{Benchmark Design}
+\subsection{Network conditions}
+Six conditions applied with \texttt{tc netem} (Table~\ref{tab:cond}):
+loss \{0, 5, 15, 30\%\} and two latency-dominated profiles
+(200\,ms $\pm$ 50\,ms, with and without 15\% loss), motivated by our
+simulation finding that latency spikes harm SAR missions more than packet
+loss [TODO cite/own-figure].
+\begin{table}[t]\centering\caption{Network conditions (tc netem).}
+\label{tab:cond}
+\begin{tabular}{lccc}\toprule
+name & delay [ms] & jitter [ms] & loss \\ \midrule
+ideal & 0 & 0 & 0\% \\ loss\_5 & 0 & 0 & 5\% \\
+loss\_15 & 0 & 0 & 15\% \\ loss\_30 & 0 & 0 & 30\% \\
+lat200\_jit50 & 200 & 50 & 0\% \\ lat200\_l15 & 200 & 50 & 15\% \\
+\bottomrule\end{tabular}\end{table}
+
+\subsection{Layer T: transport microbenchmark}
+Echo-based RTT (clock-safe across machines): a client publishes
+timestamped messages (payloads 64\,B, 4\,KiB, 64\,KiB; 50\,Hz; 20\,s;
+5 repetitions) and measures round-trip time on the echoed reply.
+Metrics: RTT p50/p95/p99, measured loss.
+
+\subsection{Layer M: mission benchmark}
+A 4-UAV SAR mission (frontier exploration, cooperative mapping with
+monotone acknowledgements, store-and-forward) runs unchanged under each
+condition; the only impairment is physical (netem). Metrics: mission
+completion time (95\% coverage, 5/5 victims), final coverage,
+operator-command latency (sent$\to$ack$\to$done).
+
+\subsection{Setup}
+[TODO: two machines (CPU/RAM/OS/ROS~2 Jazzy), interface, Zenoh router
+placement, software versions. Single-machine loopback used as rehearsal.]
+
+\section{Transport Results}
+[TODO after campaign.] Fig.~\ref{fig:transport} shows RTT p95 per condition;
+Fig.~\ref{fig:cdf} the RTT distribution under the harshest condition.
+Hypotheses to test: (H1) under loss, reliability mechanisms differ ---
+Zenoh-over-TCP retransmits (latency grows, loss $\approx$0) while
+best-effort DDS drops (loss grows, latency stable); (H2) under added
+delay both track the physical RTT, differing in jitter handling.
+\begin{figure}[t]\centering
+\includegraphics[width=\linewidth]{fig_transport.png}
+\caption{Transport: RTT p95 under each condition (labels: measured loss).}
+\label{fig:transport}\end{figure}
+\begin{figure}[t]\centering
+\includegraphics[width=\linewidth]{fig_cdf.png}
+\caption{RTT distribution under the harshest condition.}
+\label{fig:cdf}\end{figure}
+
+\section{Mission-Level Results}
+[TODO after campaign.] Fig.~\ref{fig:mission}: completion time per RMW and
+condition (hatched = not completed within the 170\,s cap). To test:
+(H3) transport differences attenuate at mission level thanks to
+application-layer resilience (store-and-forward, monotone acks) --- until
+a breakdown condition; (H4) operator-command success degrades earlier
+than telemetry-driven mapping.
+\begin{figure}[t]\centering
+\includegraphics[width=\linewidth]{fig_mission.png}
+\caption{Mission completion time per RMW and network condition.}
+\label{fig:mission}\end{figure}
+
+\section{Discussion}
+[TODO: interpret H1--H4; practical guidance: which RMW for which SAR link
+profile; threats to validity: localhost vs. physical link, wireless effects
+not modeled, single mission topology.]
+
+\section{Conclusion and Future Work}
+[TODO headline numbers.] Future work: third RMW (Fast~DDS), closed-loop
+teleoperation layer (separate study), hardware-in-the-loop field trials.
+
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+\end{document}
