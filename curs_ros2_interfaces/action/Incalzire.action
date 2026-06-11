@@ -1,0 +1,12 @@
+# Actiune custom: incalzeste pana la o temperatura tinta.
+# Conventia .action: GOAL '---' RESULT '---' FEEDBACK.
+
+# Goal: ce vrem sa obtinem
+float64 tinta                 # temperatura tinta (grade C)
+---
+# Result: ce s-a obtinut la final
+bool    atins                 # true daca tinta a fost atinsa
+float64 temperatura_finala    # ultima temperatura masurata
+---
+# Feedback: progres in timp real
+float64 temperatura_curenta   # temperatura masurata acum

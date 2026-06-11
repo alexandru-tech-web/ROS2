@@ -1,0 +1,8 @@
+# Serviciu custom: schimba la cald pragul de atentie al monitorului (M13).
+# Conventia .srv: campurile cererii, apoi '---', apoi campurile raspunsului.
+
+float64 prag_nou         # noul prag de atentie cerut (grade C)
+---
+bool    succes           # true daca pragul a fost acceptat
+float64 prag_anterior    # ce valoare avea pragul inainte
+string  mesaj            # explicatie lizibila (de ce a reusit/esuat)
