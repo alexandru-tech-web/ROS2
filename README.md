@@ -61,6 +61,7 @@ incat diferentele masurate apartin exclusiv middleware-ului.
 | `sar_swarm` | script | roiul SAR: drone, GCS, injector, probe, dashboard | >100 (3 suite) |
 | `sar_plugins` | script | plugin-uri de mediu: canal, baterie, acoperire, victime | 55 |
 | `joint_emulator` | script | bancul cu 6 servomotoare: impedanta, encodere, vizualizare | 34 |
+| `teleop_rover` | script | roverul teleoperat: link degradat, pilot/manual, perceptie + go-to-goal | 22 + SIL |
 | `rehab_exo_description` | ament | exoscheletul de reabilitare (URDF, launch, failsafe) | tag `rehab-v0.3.0` |
 | `servo_control` | ament | demonstratorul istoric: motor Gazebo cu comanda tastatura | — |
 | `curs_ros2*` | ament | exercitii de curs (arhiva) | — |
@@ -135,7 +136,20 @@ In domeniul tele-impedantei, simularea demonstreaza ca amortizarea pe viteza
 intarziata destabilizeaza bucla de la ~10–20 ms; solutia validata este amortizarea
 locala cu rigiditate adaptiva transmisa prin legatura (pasiva pana la 120 ms).
 
-## 9. Referinte
+## 9. Pornirea rapida a fiecarei aplicatii
+
+| Aplicatie | Comanda de pornire | Documentatia |
+|---|---|---|
+| Benchmark transport (C1) | `python3 run_campaign.py --iface lo --reps 2 --out ~/c1_results` | `c1_benchmark/README.md` |
+| Roiul SAR | `ros2 launch launch/sar_ros.launch.py scenario:=baseline.yaml` | `sar_swarm/README.md` |
+| Etajul de misiune | `ros2 launch nodes/mission_sar.launch.py profile:=open_field` | `sar_plugins/README.md` |
+| Bancul cu 6 servo | 4 terminale: emulator + encodere + RViz + panou | `joint_emulator/README.md` |
+| Exoscheletul (exercitii) | `ros2 launch rehab_exo_description gazebo.launch.py` | `rehab_exo_description/README.md` |
+| Tele-reabilitarea | `ros2 launch rehab_exo_description telerehab.launch.py telerehab:=true` | `rehab_exo_description/README.md` |
+| Roverul teleoperat | `ros2 launch ./launch/teleop.launch.py lat:=200 mode:=pilot` | `teleop_rover/README.md` |
+| Motorul demonstrator | `ros2 launch servo_control servo_launch.py` | `servo_control/README.md` |
+
+## 10. Referinte
 
 [1] W.-Y. Liang, Y. Yuan, H.-J. Lin, "A Performance Study on the Throughput and
     Latency of Zenoh, MQTT, Kafka, and DDS", arXiv:2303.09419, 2023.

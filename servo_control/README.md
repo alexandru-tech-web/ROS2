@@ -1,58 +1,67 @@
 # servo_control — Documentatie tehnica
 
-Demonstratorul istoric al tezei: un motor simulat in Gazebo, comandat de la
-tastatura (rotatie si viteza), pe ROS 2 Jazzy. In economia articolului A1, acest
-pachet ilustreaza STRATUL DE DEMONSTRATIE APLICATIVA — distinct de microbenchmarkul
-de transport (`c1_benchmark`), cele doua avand roluri complementare, nu redundante.
+Demonstratorul istoric al tezei: un servomotor in Gazebo comandat din tastatura
+(directie + viteza), pe ROS 2 Jazzy. Prima validare a lantului complet
+operator -> middleware -> simulator pe masina de lucru; pastrat ca material de
+demonstratie. Pachet ament_python construit de colcon.
 
-## 1. Pozitia in arhitectura
+## 1. Graful lantului
 
 ```mermaid
 graph LR
-    KB[tastatura] --> TN[nodul de teleoperare]
-    TN -- comanda viteza/rotatie --> SN[nodul motorului]
-    SN -- comanda articulatie --> GZ[Gazebo]
-    GZ -- starea articulatiei --> SN
+    KB[tastatura<br/>sageti, spatiu, Q] --> ST[servo_teleop<br/>Float64 la 20 Hz]
+    ST -- "/model/servo1/joint/shaft_joint/cmd_vel" --> BR[ros_gz_bridge<br/>Float64 -> gz.msgs.Double]
+    BR --> GZ[Gazebo<br/>lab_world.sdf: servo1/shaft_joint]
 ```
 
-Lantul demonstreaza bucla completa operator -> middleware -> simulator si a servit
-ca prima validare a mediului ROS 2 Jazzy + Gazebo pe masina de lucru.
+## 2. Continut
 
-## 2. Compilare si descoperirea executabilelor
-
-Pachet ament (apare in iesirea `colcon build`). Numele exacte ale executabilelor si
-launch-urilor se obtin din pachetul instalat:
-
-```bash
-cd ~/ros2_ws
-source /opt/ros/jazzy/setup.bash
-colcon build --packages-select servo_control --symlink-install
-source install/setup.bash
-
-# inventarul executabilelor
-ros2 pkg executables servo_control
-
-# inventarul launch-urilor
-ls $(ros2 pkg prefix servo_control)/share/servo_control/launch/ 2>/dev/null
-```
+| Fisier | Rol |
+|---|---|
+| `servo_control/servo_teleop.py` | nodul de teleoperare din tastatura (executabil `servo_teleop`) |
+| `launch/servo_launch.py` | gz sim + puntea (dupa 5 s) + teleop in fereastra `xterm` (dupa 6 s) |
+| `worlds/lab_world.sdf` | lumea cu servomotorul `servo1` (instalata si in share/) |
 
 ## 3. Sintaxe de pornire
 
 ```bash
-# porneste lantul (numele launch-ului din inventarul de mai sus)
-ros2 launch servo_control <launch-ul listat>
+cd ~/ros2_ws && source /opt/ros/jazzy/setup.bash
+colcon build --packages-select servo_control --symlink-install && source install/setup.bash
 
-# verificarea topicurilor active
-ros2 topic list
-ros2 topic echo --once <topicul de stare al motorului>
+# pregatirea lumii (launch-ul o cauta in ~/.gz/worlds/)
+mkdir -p ~/.gz/worlds
+cp ~/ros2_ws/src/servo_control/worlds/lab_world.sdf ~/.gz/worlds/
+
+# varianta 1 — totul dintr-un launch (necesita xterm: sudo apt install -y xterm)
+ros2 launch servo_control servo_launch.py
+
+# varianta 2 — manual, trei terminale
+gz sim -r ~/.gz/worlds/lab_world.sdf
+ros2 run ros_gz_bridge parameter_bridge \
+  "/model/servo1/joint/shaft_joint/cmd_vel@std_msgs/msg/Float64]gz.msgs.Double"
+ros2 run servo_control servo_teleop
 ```
 
-Comanda de la tastatura: rotatie stanga/dreapta si cresterea/scaderea vitezei,
-conform nodului de teleoperare al pachetului.
+## 4. Comenzile din tastatura
 
-## 4. Statut
+| Tasta | Actiune |
+|---|---|
+| sageata DREAPTA | rotire in sens orar |
+| sageata STANGA | rotire in sens antiorar |
+| sageata SUS / JOS | viteza +/- 0.5 rad/s (intre 0.5 si 10.0) |
+| SPATIU | stop imediat |
+| Q | iesire (publica 0 inainte) |
 
-Pachet stabil, in regim de arhiva activa: nu se mai dezvolta, dar ramane
-demonstratorul de referinta al buclei de teleoperare si materialul vizual al
-prezentarilor. Functionalitatea lui de cercetare a fost preluata si extinsa de
-`sar_swarm` (teleoperarea roiului) si `joint_emulator` (controlul de impedanta).
+Nodul publica permanent la 20 Hz pe
+`/model/servo1/joint/shaft_joint/cmd_vel` (std_msgs/Float64; semnul = sensul).
+
+```bash
+# verificare fara tastatura
+ros2 topic pub --once /model/servo1/joint/shaft_joint/cmd_vel std_msgs/Float64 "data: 2.0"
+```
+
+## 5. Statut
+
+Arhiva activa: nu se mai dezvolta. Functia de cercetare a fost preluata de
+`teleop_rover` (teleoperare cu link degradat), `sar_swarm` (roiul) si
+`joint_emulator` (impedanta pe banc).

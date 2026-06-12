@@ -1,93 +1,78 @@
 # sar_plugins — Documentatie tehnica
 
-Plugin-urile de mediu ale roiului SAR: canal radio dependent de distanta, baterie cu
-failsafe, acoperire de zona, victime, paznic de siguranta, predictor. Module pure
-(testate fara ROS) impachetate in noduri subtiri; se ataseaza roiului din `sar_swarm`
-prin topicurile `/sar/*`.
+Etajul de misiune si add-on-urile de teleoperare: canal radio dependent de
+distanta, acoperire, victime, baterie cu failsafe, garda de obstacole, afisaj
+predictiv, legatura video degradata. Module pure (testate fara ROS: 55/55)
+impachetate in noduri subtiri care se ataseaza roiului (`sar_swarm`) sau
+roverului (`teleop_rover`) FARA modificari de cod in acestea.
 
-## 1. Graful de noduri si topicuri
+## 1. Graful de noduri si topicuri (generatia /sar/*)
 
 ```mermaid
 graph LR
-    subgraph sar_swarm
-        D[drone_node d1..d3]
-        GCS[gcs_node_ros]
-    end
-    RL[radio_link_node] -- "/sar/linkstate" --> D
-    D -- "/sar/telemetry" --> RL
-    D -- "/sar/telemetry" --> BAT[battery_node]
-    BAT -- "/sar/operator {rth}" --> D
+    D[sar_swarm: drone d1..d4] -- "/sar/telemetry" --> RL[radio_link_node]
+    RL -- "/sar/linkstate" --> D
     D -- "/sar/telemetry" --> COV[coverage_node]
-    D -- "/sar/telemetry" --> VIC[victims_node]
-    COV -- "/sar/status (acoperire)" --> GCS
-    VIC -- "/sar/status (victime)" --> GCS
-    D -- "/sar/telemetry" --> GRD[guard_node]
-    GRD -- "/sar/operator {hold}" --> D
-    D -- "/sar/telemetry" --> PRD[predictor_node]
-    CAM[video_link_node] -- "/d1/camera/*" --> GCS
+    D -- "/sar/telemetry" --> VIC[victim_node]
+    D -- "/sar/telemetry" --> BAT[battery_node]
+    BAT -- "/sar/battery" --> GCS[gcs_node_ros]
+    BAT -- "failsafe: rth pe /sar/operator" --> D
+    COV --> GCS
+    VIC --> GCS
 ```
 
-Regula de exclusivitate (identica cu `sar_swarm`): pe `/sar/linkstate` publica
-UN SINGUR nod — `radio_link_node` SAU `fault_injector_node`, niciodata ambele.
+## 2. Fisierele de lansare (ce porneste fiecare + sintaxa)
 
-## 2. Modulele pure si rolurile lor
+| Launch | Ce porneste | Sintaxa |
+|---|---|---|
+| `nodes/mission_sar.launch.py` | etajul de misiune pe topicurile `/sar/*`: radio_link + coverage (aria -5..65) + victim (6 victime, 0..60) + battery cu failsafe `rth` pe `/sar/operator` | `ros2 launch nodes/mission_sar.launch.py profile:=urban_rubble seed:=42` |
+| `nodes/mission_plugins.launch.py` | aceleasi noduri pe generatia veche `/swarm/*` (compatibilitate) | `ros2 launch nodes/mission_plugins.launch.py profile:=open_field seed:=7 area:=40.0` |
+| `nodes/teleop_addons.launch.py` | add-on-urile roverului: garda de obstacole (`/teleop/cmd -> /teleop/cmd_safe` cu `/scan`), afisajul predictiv (`/teleop/pose_pred`), legatura video (`/teleop/video`) | `ros2 launch nodes/teleop_addons.launch.py d_stop:=0.8 guard_msg:=json` |
 
-| Modul | Functie | Nod corespondent |
-|-------|---------|------------------|
-| `channel.py` | modelul canalului radio: atenuare cu distanta, praguri | `radio_link_node` |
-| `battery.py` | descarcarea bateriei + pragul de failsafe | `battery_node` |
-| `coverage.py` | grila de acoperire a zonei de cautare | `coverage_node` |
-| `victims.py` | generarea si detectia victimelor (seed determinist) | `victims_node` |
-| `guard.py` | paznicul: conditii de oprire de siguranta | `guard_node` |
-| `predictor.py` | predictia traiectoriei la pierderea legaturii | `predictor_node` |
+Argumentele `mission_sar.launch.py`:
 
-Verificari automate: 55/55 pe modulele pure (`python3 -m pytest` sau suita proprie).
+| Argument | Implicit | Semnificatie |
+|---|---|---|
+| `profile` | `open_field` | profilul canalului radio: `open_field` \| `urban_rubble` |
+| `seed` | 42 | samanta determinista (victime + canal) |
+| `n_victims` | 6 | numarul de victime generate |
+| `sensor_r` | 6.0 | raza senzorului de detectie [m] |
 
-## 3. Failsafe-ul de baterie (legarea reala)
+Argumentele `teleop_addons.launch.py`: `d_stop` (0.6 m), `d_slow` (1.5 m),
+`guard_msg` (`json`), `linkstate` (`/teleop/linkstate`).
 
-Configurat in `launch/mission_sar.launch.py`:
+ATENTIE (regula unui singur publisher): `mission_sar.launch.py` porneste
+`radio_link_node`, care publica pe `/sar/linkstate`. Foloseste-l NUMAI cu
+scenariul `baseline`/`none` in roiul de baza — nu simultan cu un
+`fault_injector` activ.
 
-```
-failsafe_cmd_topic   := /sar/operator
-failsafe_template    := {"type":"drone","id":"%ID%","action":"rth"}
-```
+## 3. Modulele pure si nodurile
 
-Drona cu baterie sub prag (implicit 30%) primeste automat comanda `rth` — exact
-mecanismul folosit in experimentele de misiune.
+| Modul pur | Nod | Rol / interfata |
+|---|---|---|
+| `channel.py` | `radio_link_node.py` | canal radio cu atenuare pe distanta; params `pose_topic`, `profile`, `seed`, `linkstate_topic` |
+| `coverage.py` | `coverage_node.py` | grila de acoperire; params `xmin/xmax/ymin/ymax`, `sensor_r`, `pose_topic` |
+| `victims.py` | `victim_node.py` | victime deterministe; params `n`, `seed`, aria, `sensor_r` |
+| `battery.py` | `battery_node.py` | descarcarea + failsafe; params `state_topic`, `failsafe_cmd_topic`, `failsafe_template` (`{"type":"drone","id":"%ID%","action":"rth"}`) |
+| `guard.py` | `obstacle_guard_node.py` | poarta de siguranta pe comanda, cu lidar |
+| `predictor.py` | `predictive_display_node.py` | predictia pozei la latenta mare |
+| — | `video_link_node.py` | fluxul video prin legatura degradata |
 
-## 4. Sintaxe de pornire
+Verificari: `python3 test_plugins.py` (55); demo integrat: `python3 demo_plugins_sim.py`.
 
-```bash
-source /opt/ros/jazzy/setup.bash
-cd ~/ros2_ws/src/sar_plugins
+## 4. Instrumentele de campanie
 
-# misiunea completa cu plugin-uri (profiluri: open_field | urban_rubble)
-ros2 launch launch/mission_sar.launch.py profile:=open_field seed:=42
+| Instrument | Rol | Sintaxa |
+|---|---|---|
+| `tools/manifest.py` | manifestul JSON al rularii | apelat de scripturi |
+| `tools/run_experiment.sh` | inregistrarea topicurilor `/sar/*` intr-o rulare | `tools/run_experiment.sh` |
+| `tools/mission_experiment.sh` | campania de misiune: 2 RMW x 2 profiluri x N rep | `DRY=1 tools/mission_experiment.sh` apoi `tools/mission_experiment.sh` |
+| `tools/analyze_missions.py` | agregarea + figurile (T90, acoperire, victime, RTL) | `python3 tools/analyze_missions.py ~/mission_results` |
 
-# camera pe drona d1 (fluxul video greu care streseaza RMW)
-python3 gz/patch_drone_camera.py            # idempotent, modifica modelul d1
-ros2 run ros_gz_bridge parameter_bridge --ros-args -p config_file:=gz/bridge_camera_d1.yaml
-ros2 run image_transport republish raw compressed \
-  --ros-args -r in:=/d1/camera/image -r out/compressed:=/d1/camera/image/compressed
-```
+Variabile pentru `mission_experiment.sh`: `RMWS`, `PROFILES`, `REPS`, `DUR`,
+`SEED0`, `BATT_WH` (implicit 8), `OUT` (implicit `~/mission_results`).
 
-## 5. Instrumentele de campanie
+## 5. Anexa
 
-| Instrument | Rol | Iesire |
-|------------|-----|--------|
-| `tools/manifest.py` | manifestul JSON al rularii (seed, versiuni, conditie) | `manifest.json` |
-| `tools/run_experiment.sh` | inregistrarea topicurilor `/sar/*` intr-o rulare | CSV-uri |
-| `tools/mission_experiment.sh` | campania de misiune: 2 RMW x 2 profiluri x N rep | `~/mission_results/` |
-| `tools/analyze_missions.py` | agregarea + figurile de misiune | `analysis/mission_*.png` |
-
-```bash
-# campania de misiune (~45 min; NU simultan cu campania C1)
-DRY=1 tools/mission_experiment.sh           # planul
-tools/mission_experiment.sh                 # executia
-python3 tools/analyze_missions.py ~/mission_results
-```
-
-## 6. Anexa
-
-Fisa detaliata per aplicatie (ce face, in/out, verificarea cu `ros2 topic echo`):
-vezi `README_PLUGINS.md` din acelasi pachet.
+Fisa detaliata per nod (in/out, verificarea cu `ros2 topic echo`):
+`README_PLUGINS.md` din acelasi pachet.
