@@ -1,0 +1,36 @@
+# =====================================================================
+# config_exemplu.txt — configurarea generatorului de articole
+# Tot ce incepe cu # e comentariu. Format: cheie = valoare
+# Diacriticele si ghilimelele romanesti sunt curatate automat
+# (tex-ul trebuie sa ramana ASCII — lectie platita de doua ori).
+# =====================================================================
+
+# --- identitatea articolului -----------------------------------------
+titlu  = Adaptive Link-Aware Communication for ROS 2 SAR Swarms
+slug   = a2_link_adaptive          # numele dosarului generat
+
+# autori, separati prin ; — fiecare: Nume|Afiliere|Email
+autori = Alexandru NUME|IMSAR, Bucharest|email@imsar.ro
+
+# da = submisie dublu-anonima (autorii sunt inlocuiti automat)
+anonim = nu
+
+# --- formatul ---------------------------------------------------------
+# ieee_conf = IEEEtran conference (SSRR, ICRA-W)
+# article   = clasa article A4 (rapoarte, capitole de teza)
+format = ieee_conf
+
+keywords = ROS 2, middleware, adaptive QoS, search and rescue
+
+# --- sectiunile optionale (da/nu) -------------------------------------
+related = da      # sectiunea Related Work
+ipoteze = da      # subsectiunea Hypotheses (H1..Hn)
+threats = da      # paragraful Threats to validity in Discussion
+
+# --- schelele de continut ---------------------------------------------
+figuri = 4        # cate placeholdere de figura (compilabile fara imagini)
+tabele = 1        # cate schelete de tabel booktabs
+
+# --- bibliografia ------------------------------------------------------
+# ros2 = samanta cu 6 intrari verificate din domeniu | gol = pornesti curat
+bib = ros2

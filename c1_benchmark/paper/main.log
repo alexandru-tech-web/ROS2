@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.6.12)  12 JUN 2026 13:37
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.6.12)  12 JUN 2026 16:17
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -587,22 +587,33 @@ f-dist/fonts/enc/dvips/base/8r.enc}
 
 
 ]
-<figs/fig_transport.png, id=23, 650.43pt x 303.534pt>
+<figs/gz_swarm.png, id=23, 1927.2pt x 1084.05pt>
+File: figs/gz_swarm.png Graphic file (type png)
+<use figs/gz_swarm.png>
+Package pdftex.def Info: figs/gz_swarm.png  used on input line 152.
+(pdftex.def)             Requested size: 123.48138pt x 69.4567pt.
+<figs/rviz_swarm.png, id=25, 1927.2pt x 1084.05pt>
+File: figs/rviz_swarm.png Graphic file (type png)
+<use figs/rviz_swarm.png>
+Package pdftex.def Info: figs/rviz_swarm.png  used on input line 153.
+(pdftex.def)             Requested size: 123.48138pt x 69.4567pt.
+<figs/fig_transport.png, id=26, 650.43pt x 303.534pt>
 File: figs/fig_transport.png Graphic file (type png)
 <use figs/fig_transport.png>
-Package pdftex.def Info: figs/fig_transport.png  used on input line 207.
+Package pdftex.def Info: figs/fig_transport.png  used on input line 205.
 (pdftex.def)             Requested size: 252.0pt x 117.59967pt.
-<figs/fig_cdf.png, id=25, 505.89pt x 289.08pt>
+<figs/fig_cdf.png, id=27, 505.89pt x 289.08pt>
 File: figs/fig_cdf.png Graphic file (type png)
 <use figs/fig_cdf.png>
-Package pdftex.def Info: figs/fig_cdf.png  used on input line 215.
+Package pdftex.def Info: figs/fig_cdf.png  used on input line 213.
 (pdftex.def)             Requested size: 252.0pt x 144.0015pt.
-<figs/fig_mission.png, id=26, 650.43pt x 303.534pt>
+<figs/fig_mission.png, id=28, 650.43pt x 303.534pt>
 File: figs/fig_mission.png Graphic file (type png)
 <use figs/fig_mission.png>
-Package pdftex.def Info: figs/fig_mission.png  used on input line 224.
+Package pdftex.def Info: figs/fig_mission.png  used on input line 222.
 (pdftex.def)             Requested size: 252.0pt x 117.59967pt.
- [2 <./figs/fig_transport.png>] (./main.bbl
+ [2 <./figs/gz_swarm.png> <./figs/rviz_swarm.png> <./figs/fig_transport.png>] (
+./main.bbl
 Underfull \hbox (badness 1789) in paragraph at lines 47--50
 []\OT1/ptm/m/n/8 T. Kro-nauer, J. Pohlmann, M. Matth[]e, T. Sme-jkal, and G. Fe
 t-
@@ -627,11 +638,11 @@ L3 programming layer <2024-01-22>
  ***********
  ) 
 Here is how much of TeX's memory you used:
- 14080 strings out of 476182
- 289822 string characters out of 5795595
- 1948975 words of memory out of 5000000
- 35839 multiletter control sequences out of 15000+600000
- 599435 words of font info for 115 fonts, out of 8000000 for 9000
+ 14096 strings out of 476182
+ 290227 string characters out of 5795595
+ 1947975 words of memory out of 5000000
+ 35856 multiletter control sequences out of 15000+600000
+ 598920 words of font info for 113 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
  84i,11n,87p,430b,751s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb></us
@@ -651,10 +662,10 @@ texlive/texmf-dist/fonts/type1/urw/courier/ucrb8a.pfb></usr/share/texlive/texmf
 ype1/urw/times/utmb8a.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/times/
 utmbi8a.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/times/utmr8a.pfb></u
 sr/share/texlive/texmf-dist/fonts/type1/urw/times/utmri8a.pfb>
-Output written on main.pdf (3 pages, 332683 bytes).
+Output written on main.pdf (3 pages, 676685 bytes).
 PDF statistics:
- 120 PDF objects out of 1000 (max. 8388607)
+ 124 PDF objects out of 1000 (max. 8388607)
  70 compressed objects within 1 object stream
  0 named destinations out of 1000 (max. 500000)
- 28 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 38 words of extra memory for PDF output out of 10000 (max. 10000000)
 
