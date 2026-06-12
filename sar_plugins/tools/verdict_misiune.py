@@ -117,11 +117,15 @@ def analizeaza(cale):
                 difs.append((p, abs(pct)))
         if len(difs) == 2:
             (p1, d1), (p2, d2) = sorted(difs, key=lambda x: x[0])
-            amplifica = d2 > d1 if "urban" in p2 else d1 > d2
+            usor, greu = (d1, d2) if "urban" in p2 else (d2, d1)
+            if greu - usor > 2.0:
+                rezultat = "terenul greu AMPLIFICA diferenta (M2 confirmat)"
+            elif usor - greu > 2.0:
+                rezultat = "terenul greu REDUCE diferenta (M2 respins)"
+            else:
+                rezultat = "diferenta comparabila intre profiluri (M2 neutru)"
             print(f"  [M2] diferenta RMW pe {m_t90}: "
-                  f"{p1} {d1:.0f}% vs {p2} {d2:.0f}% -> "
-                  + ("terenul greu AMPLIFICA diferenta (M2 confirmat)"
-                     if amplifica else "amplificare neconfirmata (M2 respins)"))
+                  f"{p1} {d1:.0f}% vs {p2} {d2:.0f}% -> {rezultat}")
     else:
         print("  [M1/M2] N/A — nicio coloana T90/timp gasita")
 
