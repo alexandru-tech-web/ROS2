@@ -1,10 +1,9 @@
-@misc{liang2023zenoh,
-  author = {Liang, Wen-Yew and Yuan, Yuyuan and Lin, Hsiang-Jui},
-  title  = {A Performance Study on the Throughput and Latency of Zenoh,
-            MQTT, Kafka, and DDS},
-  year   = {2023},
-  eprint = {2303.09419},
-  archivePrefix = {arXiv}
+@article{liang2023zenoh,
+  author  = {Liang, Wen-Yew and Yuan, You-Sheng and Lin, Hong-Jie},
+  title   = {A Performance Study on the Throughput and Latency of Zenoh,
+             {MQTT}, {Kafka}, and {DDS}},
+  journal = {arXiv preprint arXiv:2303.09419},
+  year    = {2023}
 }
 @article{macenski2022ros2,
   author  = {Macenski, Steven and Foote, Tully and Gerkey, Brian and
@@ -12,40 +11,66 @@
   title   = {Robot Operating System 2: Design, architecture, and uses in
              the wild},
   journal = {Science Robotics},
-  volume  = {7}, number = {66}, year = {2022}
+  volume  = {7},
+  number  = {66},
+  year    = {2022}
 }
-@misc{zenoh, title = {Eclipse Zenoh}, howpublished = {\url{https://zenoh.io}}}
-@misc{cyclonedds, title = {Eclipse Cyclone DDS},
-  howpublished = {\url{https://github.com/eclipse-cyclonedds/cyclonedds}}}
-@misc{rmwzenoh, title = {rmw\_zenoh: Zenoh RMW for ROS 2},
-  howpublished = {\url{https://github.com/ros2/rmw_zenoh}}}
-@misc{netem, title = {netem: Network Emulation (Linux Foundation)},
-  howpublished = {\url{https://wiki.linuxfoundation.org/networking/netem}}}
-
-%% Literatura 2024-2025 (gasita 11 iun 2026) — [TODO: completeaza autorii
-%% exact de pe paginile arXiv inainte de submisie]
-@article{mesh2024rmw,
-  title   = {Performance Comparison of ROS2 Middlewares for Multi-robot
-             Mesh Networks in Planetary Exploration},
-  journal = {Journal of Intelligent \& Robotic Systems},
-  year    = {2024},
-  note    = {arXiv:2407.03091}
+@inproceedings{maruyama2016ros2,
+  author    = {Maruyama, Yuya and Kato, Shinpei and Azumi, Takuya},
+  title     = {Exploring the performance of {ROS2}},
+  booktitle = {Proc. 13th Int. Conf. on Embedded Software (EMSOFT)},
+  year      = {2016}
 }
-@misc{edgecloud2023,
-  title = {Comparison of Middlewares in Edge-to-Edge and Edge-to-Cloud
-           Communication for Distributed ROS2 Systems},
-  year  = {2023},
-  note  = {arXiv:2309.07496}
+@article{gutierrez2018realtime,
+  author  = {Guti{\'e}rrez, Carlos San Vicente and Juan, Lander Usategui San
+             and Ugarte, Irati Zamalloa and Vilches, V{\'i}ctor Mayoral},
+  title   = {Towards a distributed and real-time framework for robots:
+             Evaluation of {ROS} 2.0 communications for real-time robotic
+             applications},
+  journal = {arXiv preprint arXiv:1809.02595},
+  year    = {2018}
 }
-@misc{automotive2025,
-  title = {Automotive Middleware Performance: Comparison of FastDDS,
-           Zenoh and vSomeIP},
-  year  = {2025},
-  note  = {arXiv:2505.02734}
+@article{kronauer2021latency,
+  author  = {Kronauer, Tobias and Pohlmann, Joshwa and Matth{\'e}, Maximilian
+             and Smejkal, Till and Fettweis, Gerhard},
+  title   = {Latency Analysis of {ROS2} Multi-Node Systems},
+  journal = {arXiv preprint arXiv:2101.02074},
+  year    = {2021}
 }
-@misc{tscrmw2021,
-  title = {Eclipse Cyclone DDS ROS Middleware Evaluation Report
-           (with iceoryx and Zenoh)},
-  year  = {2021},
-  howpublished = {\url{https://osrf.github.io/TSC-RMW-Reports/}}
+@book{murphy2014disaster,
+  author    = {Murphy, Robin R.},
+  title     = {Disaster Robotics},
+  publisher = {MIT Press},
+  year      = {2014}
+}
+@inproceedings{hemminger2005netem,
+  author    = {Hemminger, Stephen},
+  title     = {Network Emulation with {NetEm}},
+  booktitle = {Proc. Linux Conf. Australia},
+  year      = {2005}
+}
+@misc{zenoh,
+  author       = {{Eclipse Foundation}},
+  title        = {Eclipse Zenoh: Zero overhead network protocol},
+  howpublished = {\url{https://zenoh.io}},
+  note         = {Accessed June 2026}
+}
+@misc{rmwzenoh,
+  author       = {{ROS 2 contributors}},
+  title        = {rmw\_zenoh: A {ROS}~2 middleware based on {Zenoh}},
+  howpublished = {\url{https://github.com/ros2/rmw_zenoh}},
+  note         = {Accessed June 2026}
+}
+@misc{cyclonedds,
+  author       = {{Eclipse Foundation}},
+  title        = {Eclipse Cyclone {DDS}},
+  howpublished = {\url{https://cyclonedds.io}},
+  note         = {Accessed June 2026}
+}
+@misc{omgdds,
+  author       = {{Object Management Group}},
+  title        = {Data Distribution Service ({DDS}) Specification,
+                  Version 1.4},
+  year         = {2015},
+  howpublished = {\url{https://www.omg.org/spec/DDS/1.4}}
 }
