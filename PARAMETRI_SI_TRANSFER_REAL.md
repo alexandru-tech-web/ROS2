@@ -56,23 +56,27 @@ cinstit in articol):
 - `lo` elimina sincronizarea ceasurilor (masuram RTT pe ecou) — corect
   metodologic, dar fara efectele plăcii de retea reale.
 
-### 2.3 Ce s-a intamplat in simulare (N=2, cifrele actuale)
+### 2.3 Ce s-a intamplat in simulare (N=5, campania completa, 12.06.2026)
 
-1. Degradare usoara (loss_5): Zenoh tine coada p95 la 25 ms vs 146 ms DDS —
-   filozofia „livreaza proaspat" plateste imediat.
-2. Pierdere medie (loss_15): compromisul pe fata — DDS recupereaza aproape tot
-   (1.1% pierdere) cu pretul cozii de ~1 s; Zenoh livreaza in ~0.76 s dar
-   accepta 25% esantioane pierdute.
-3. Conditia de dezastru (lat200_l15): la coada EGALA (~2.5 s), DDS pierde
-   45.6%, Zenoh 14.9% — separarea decisiva, fraza de titlu.
-4. Compresia: p95 se degradeaza de pana la ~1800–2200x; timpul de misiune cu
-   cel mult 14% — autonomia absoarbe; un singur esec (Zenoh, loss_30,
-   acoperire stagnata la 0.90).
-5. Costul de pornire Zenoh (~14 s si in ideal) apartine lansatorului
-   (descoperire/sesiune prin router), nu planului de date.
-
-[DE COMPLETAT dupa campania de noapte N=5: aceleasi cinci puncte cu mediile si
-abaterile noi; tabelul din articol se regenereaza automat din CSV.]
+1. Degradare usoara (loss_5, lat+jit): diferente de zeci de ms intre RMW-uri,
+   toate misiunile complete — la degradare blanda alegerea nu conteaza.
+2. Pierdere medie (loss_15): Zenoh tine coada la 690 ms vs 1056 ms DDS, cu
+   cost mic de fiabilitate (2.3% vs 0.8%) — valorile de la N=2 (25% pierdere
+   Zenoh) au fost artefact de incalzire, corectate de replicare.
+3. Pierdere grea (loss_30): cele doua filozofii se despart CALITATIV —
+   DDS transforma pierderea intr-un zid uniform de ~2.3 s si termina 5/5
+   misiuni; Zenoh livreaza mai proaspat pe mediana dar pierde 35% din
+   esantioane si termina 1/5 misiuni (acoperirea stagneaza la ~0.9).
+4. Conditia de dezastru (lat200_l15): formele distributiilor difera
+   fundamental (CDF) — majoritatea esantioanelor Zenoh sosesc SUB zidul DDS
+   de ~2.3 s, dar coada Zenoh trece de 5 s; pierdere totala 21.8% vs 34.1%;
+   misiuni 4/5 vs 5/5. NICIUN castigator universal: DDS cumpara
+   supravietuirea misiunii cu intarziere uniforma; Zenoh cumpara prospetimea
+   cu pierderi care, peste un prag, devin pierderi de misiune.
+5. Compresia (confirmata, mai puternica): p95 se degradeaza de 1885x (DDS) /
+   2547x (Zenoh); timpul de misiune cu cel mult 12% pana la pragul de esec.
+6. Offsetul de pornire Zenoh (~11 s, prezent si in ideal) apartine
+   lansatorului (sesiune prin router), nu planului de date.
 
 ## 3. Campania M — parametrii si semnificatia lor
 
