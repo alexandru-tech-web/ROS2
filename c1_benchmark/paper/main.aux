@@ -1,0 +1,53 @@
+\relax 
+\citation{murphy2014disaster}
+\citation{macenski2022ros2}
+\citation{zenoh}
+\citation{liang2023zenoh,maruyama2016ros2,kronauer2021latency}
+\citation{hemminger2005netem}
+\citation{maruyama2016ros2,gutierrez2018realtime,kronauer2021latency}
+\citation{liang2023zenoh}
+\citation{murphy2014disaster}
+\@writefile{toc}{\contentsline {section}{\numberline {I}Introduction}{1}{}\protected@file@percent }
+\newlabel{sec:intro}{{I}{1}{}{}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {II}Related Work}{1}{}\protected@file@percent }
+\newlabel{sec:related}{{II}{1}{}{}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {III}System and Method}{1}{}\protected@file@percent }
+\newlabel{sec:method}{{III}{1}{}{}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-A}}Two-layer design}{1}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-B}}Transport microbenchmark}{1}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Two-layer benchmark: identical nodes and traffic over either middleware; physical degradation under both layers.}}{2}{}\protected@file@percent }
+\newlabel{fig:arch}{{1}{2}{}{}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Simulated SAR scene: four UAVs covering a disaster area (Gazebo); the GCS dashboard and RViz operator view run over the degraded link.}}{2}{}\protected@file@percent }
+\newlabel{fig:gazebo}{{2}{2}{}{}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-C}}Mission layer}{2}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-D}}Network conditions}{2}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-E}}Hypotheses}{2}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {IV}Results}{2}{}\protected@file@percent }
+\newlabel{sec:results}{{IV}{2}{}{}{}}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-}0a}Three regimes (H1 supported)}{2}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {I}{\ignorespaces Transport and mission results under physical degradation, $N{=}5$. Loss = end-to-end sample loss within deadline; missions censored at 170\,s.}}{2}{}\protected@file@percent }
+\newlabel{tab:campaign}{{I}{2}{}{}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Transport p95 (4096\,B) with measured loss labels: light degradation is benign; heavy regimes separate the philosophies.}}{2}{}\protected@file@percent }
+\newlabel{fig:transport}{{3}{2}{}{}{}}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-}0b}Two failure modes (H2, H3 supported)}{2}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {IV-}0c}Compression (H4 supported)}{2}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {V}Discussion}{2}{}\protected@file@percent }
+\newlabel{sec:discussion}{{V}{2}{}{}{}}
+\bibstyle{IEEEtran}
+\bibdata{references}
+\bibcite{murphy2014disaster}{1}
+\bibcite{macenski2022ros2}{2}
+\bibcite{zenoh}{3}
+\bibcite{liang2023zenoh}{4}
+\bibcite{maruyama2016ros2}{5}
+\bibcite{kronauer2021latency}{6}
+\bibcite{hemminger2005netem}{7}
+\bibcite{gutierrez2018realtime}{8}
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces RTT distributions in the combined condition: the majority of \texttt  {rmw\_zenoh} samples beat the CycloneDDS retransmission wall at ${\sim }2.3$\,s, at the cost of a heavier tail.}}{3}{}\protected@file@percent }
+\newlabel{fig:cdf}{{4}{3}{}{}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Mission completion time per condition: variation $\leq $12\,\% up to the failure threshold; hatched bars denote censored (incomplete) missions.}}{3}{}\protected@file@percent }
+\newlabel{fig:mission}{{5}{3}{}{}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {VI}Limitations and Future Work}{3}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {VII}Conclusion}{3}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{References}{3}{}\protected@file@percent }
+\gdef \@abspage@last{3}
