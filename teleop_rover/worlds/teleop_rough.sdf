@@ -17,23 +17,13 @@
 
     <model name="terrain"><static>true</static>
       <link name="l">
-        <collision name="c"><geometry><heightmap>
-        <uri>file:///home/ubuntu/ros2_ws/src/teleop_rover/worlds/teleop_rough_height.png</uri>
-        <size>40.0 40.0 1.0</size>
-        <pos>0 0 0</pos>
-      </heightmap></geometry></collision>
-        <visual name="v"><geometry><heightmap>
-        <uri>file:///home/ubuntu/ros2_ws/src/teleop_rover/worlds/teleop_rough_height.png</uri>
-        <size>40.0 40.0 1.0</size>
-        <pos>0 0 0</pos>
-      </heightmap></geometry>
-          <material><ambient>0.50 0.45 0.36 1</ambient>
-          <diffuse>0.52 0.47 0.38 1</diffuse></material></visual>
+        <collision name="c"><geometry><mesh><uri>file:///home/ubuntu/ros2_ws/src/teleop_rover/worlds/teleop_rough_terrain.obj</uri></mesh></geometry></collision>
+        <visual name="v"><geometry><mesh><uri>file:///home/ubuntu/ros2_ws/src/teleop_rover/worlds/teleop_rough_terrain.obj</uri></mesh></geometry></visual>
       </link>
     </model>
     
     <model name="target_red"><static>true</static>
-      <pose>8.00 3.00 1.0 0 0 0</pose>
+      <pose>8.00 3.00 1.40 0 0 0</pose>
       <link name="l">
         <visual name="v"><geometry><cylinder><radius>0.35</radius>
           <length>2.0</length></cylinder></geometry>
@@ -43,7 +33,7 @@
           <length>2.0</length></cylinder></geometry></collision></link>
     </model>
     <model name="target_green"><static>true</static>
-      <pose>-6.00 5.00 1.0 0 0 0</pose>
+      <pose>-6.00 5.00 1.44 0 0 0</pose>
       <link name="l">
         <visual name="v"><geometry><cylinder><radius>0.35</radius>
           <length>2.0</length></cylinder></geometry>
@@ -53,7 +43,7 @@
           <length>2.0</length></cylinder></geometry></collision></link>
     </model>
     <model name="target_blue"><static>true</static>
-      <pose>5.00 -7.00 1.0 0 0 0</pose>
+      <pose>5.00 -7.00 1.50 0 0 0</pose>
       <link name="l">
         <visual name="v"><geometry><cylinder><radius>0.35</radius>
           <length>2.0</length></cylinder></geometry>
@@ -62,9 +52,28 @@
         <collision name="c"><geometry><cylinder><radius>0.35</radius>
           <length>2.0</length></cylinder></geometry></collision></link>
     </model>
+    
+    <model name="gcs_station"><static>true</static>
+      <pose>-16.00 -16.00 0.38 0 0 0.6</pose>
+      <link name="l">
+        <visual name="box"><pose>0 0 0.45 0 0 0</pose>
+          <geometry><box><size>1.4 1.0 0.9</size></box></geometry>
+          <material><ambient>0.22 0.24 0.26 1</ambient>
+          <diffuse>0.22 0.24 0.26 1</diffuse></material></visual>
+        <collision name="cbox"><pose>0 0 0.45 0 0 0</pose>
+          <geometry><box><size>1.4 1.0 0.9</size></box></geometry></collision>
+        <visual name="mast"><pose>0.5 0 1.6 0 0 0</pose>
+          <geometry><cylinder><radius>0.05</radius><length>2.2</length></cylinder></geometry>
+          <material><ambient>0.7 0.7 0.7 1</ambient></material></visual>
+        <visual name="tip"><pose>0.5 0 2.75 0 0 0</pose>
+          <geometry><sphere><radius>0.12</radius></sphere></geometry>
+          <material><ambient>0.85 0.1 0.1 1</ambient>
+          <diffuse>0.85 0.1 0.1 1</diffuse></material></visual>
+      </link>
+    </model>
 
     <model name="rover">
-      <pose>0 0 0.85 0 0 0</pose>
+      <pose>0 0 0.75 0 0 0</pose>
       <link name="chassis"><pose>0 0 0.18 0 0 0</pose>
         <inertial><mass>5.0</mass><inertia><ixx>0.07</ixx><iyy>0.12</iyy>
           <izz>0.16</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia></inertial>
