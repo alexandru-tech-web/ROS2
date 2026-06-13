@@ -32,7 +32,7 @@ RGB = {"red": (0.80, 0.10, 0.10), "green": (0.12, 0.70, 0.18),
        "blue": (0.15, 0.32, 0.85), "yellow": (0.85, 0.80, 0.10)}
 
 TERR_XY = 40.0        # latura terenului [m]
-TERR_Z = 0.8          # amplitudinea denivelarilor [m] (mai mare = mai accidentat, dar mai greu de condus)
+TERR_Z = 0.3          # benchmark: teren traversabil
 TERR_N = 101          # vertecsi pe latura (~20000 triunghiuri; coliziune OK)
 SPAWN_Z = 0.75        # roverul porneste putin peste teren si se aseaza
 SEED = 7
