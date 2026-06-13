@@ -94,13 +94,18 @@ egala/usor peste STATIC-FRESH. De inlocuit cu N=5 real.
 
 ## 7. Integrarea in roi
 
-`link_adaptive_node` ruleaza in paralel; publica politica. Consumatorii
-(`drone_node`, `gcs_node`, bridge-ul de telemetrie) citesc /link_adaptive/policy
-si ajusteaza: rata de publicare, profilul QoS (reliable vs best-effort),
-aruncarea esantioanelor vechi, si nivelul de payload. Stratul nu reconfigureaza
-el QoS-ul altora -- expune decizia, ca un controler curat (la fel ca mesh_node cu
-rutele). Se combina cu `mesh_plugin`: mesh decide DACA exista cale la GCS,
-link_adaptive decide CUM se comporta fluxul pe acea cale.
+`link_adaptive_node` ruleaza in paralel; publica politica. Aplicarea se face
+printr-un adaptor subtire `policy_adapter_node` (logica in `policy_applier`,
+testata 13/13) care sta in calea telemetriei si ajusteaza rata de publicare,
+aruncarea esantioanelor vechi, nivelul de payload si QoS-ul (reliable vs
+best-effort, prin recrearea publisher-ului). Atasare cu o singura remapare a
+iesirii dronelor (`-r /sar/telemetry:=/sar/telemetry/raw`), fara cod nou in
+drone_node/gcs_node. Bucla completa: `link_adaptive_loop.launch.py`; efectul
+end-to-end (debit 20->10->2 Hz, payload FULL->REDUCED->CRITICAL) e demonstrat de
+SIL-ul `sil_policy_loop` (figura `docs/sil_policy_loop.png`). Stratul ramane un
+controler curat: link_adaptive EXPUNE decizia, policy_adapter o aplica. Se
+combina cu `mesh_plugin`: mesh decide DACA exista cale la GCS, link_adaptive
+decide CUM se comporta fluxul pe acea cale.
 
 ## 8. Limite (threats to validity)
 

@@ -29,11 +29,15 @@ Metodologia depozitului -- nucleu pur testabil, apoi nod subtire, apoi SIL:
 
     link_adaptive/
       link_adaptive/
-        link_adaptive_core.py    nucleu pur (fara ROS): LinkMonitor + AdaptiveController + POLICIES
+        link_adaptive_core.py    nucleu pur: LinkMonitor + AdaptiveController + POLICIES (decide)
+        policy_applier.py        nucleu pur: aplica politica pe un flux (rata/prospetime/payload)
         link_adaptive_node.py    nod subtire: masoara, decide, publica politica
+        policy_adapter_node.py   nod subtire: aplica politica pe telemetrie (+ recreeaza QoS)
         sil_link_adaptive.py     SIL: adaptiv vs static (fresh/complete), figura
-      launch/link_adaptive.launch.py
-      docs/sil_link_adaptive.png
+        sil_policy_loop.py       SIL: bucla completa decizie+aplicare, figura
+      launch/link_adaptive.launch.py        doar stratul de decizie
+      launch/link_adaptive_loop.launch.py   bucla completa (decizie + adaptor)
+      docs/sil_link_adaptive.png  docs/sil_policy_loop.png
       package.xml  setup.py  setup.cfg  resource/link_adaptive
 
 - **LinkMonitor**: RTT p95 dintr-o fereastra glisanta de masuratori dus-intors;
@@ -111,16 +115,35 @@ in acelasi timp telemetria pe care STATIC-FRESH o pierde cand legatura e buna.
 Fiecare alegere statica pierde pe cate o axa; adaptivul prinde coltul bun.
 Figura: docs/sil_link_adaptive.png.
 
-## 8. Integrare
+## 8. Integrare in roi (bucla C3 inchisa)
 
-`link_adaptive_node` ruleaza in paralel si publica politica; consumatorii
-(`drone_node`, `gcs_node`, bridge-ul de telemetrie) citesc /link_adaptive/policy
-si ajusteaza rata, QoS-ul (reliable vs best-effort), aruncarea esantioanelor
-vechi si nivelul de payload. Stratul nu reconfigureaza el QoS-ul altora -- expune
-DECIZIA, ca un controler curat (la fel ca mesh_node cu rutele).
+Decizia se aplica printr-un **adaptor subtire** (`policy_adapter_node`), fara cod
+nou in `drone_node`/`gcs_node`. Adaptorul sta in calea telemetriei (`in_topic`
+-> `out_topic`) si, dupa `/link_adaptive/policy`, limiteaza debitul la `rate_hz`,
+arunca esantioanele vechi, reduce payload-ul (FULL/REDUCED/CRITICAL) si schimba
+QoS-ul de iesire (reliable<->best-effort) recreand publisher-ul (in ROS 2 QoS-ul
+nu se schimba pe un publisher existent; histerezisul + stationarea din controler
+fac schimbarile rare). Logica de forward e in `policy_applier` (testata 13/13).
 
-Se combina cu `mesh_plugin`: mesh decide DACA exista cale la GCS, link_adaptive
-decide CUM se comporta fluxul pe acea cale.
+Atasare cu o singura remapare (iesirea dronelor -> flux brut; GCS citeste ca inainte):
+```
+drone_node ... -r /sar/telemetry:=/sar/telemetry/raw
+ros2 launch link_adaptive link_adaptive_loop.launch.py     # porneste decizia + adaptorul
+```
+Bucla: drona -> /sar/telemetry/raw -> (monitor masoara legatura, controler decide)
+-> adaptor aplica -> /sar/telemetry -> GCS. SIL-ul `sil_policy_loop` arata efectul:
+debit 20 -> 10 -> 2 Hz si payload FULL -> REDUCED -> CRITICAL pe masura ce legatura
+se degradeaza (figura `docs/sil_policy_loop.png`), ~58% din esantioane forward-ate
+pe o cronologie cu degradare.
+
+Stratul ramane un controler curat: `link_adaptive` EXPUNE decizia, `policy_adapter`
+o aplica. Se combina cu `mesh_plugin`: mesh decide DACA exista cale la GCS,
+link_adaptive decide CUM se comporta fluxul pe acea cale.
+
+Nota despre aruncarea pe vechime: e activa doar daca telemetria poarta un
+timestamp pe ceas de perete intr-un camp dat (`stamp_field`); altfel age=0 si
+doar rata + payload-ul lucreaza. Limitarea ratei si reducerea payload-ului nu
+depind de asta.
 
 ## 9. Limite
 

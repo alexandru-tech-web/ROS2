@@ -24,7 +24,9 @@ setup(
     entry_points={
         "console_scripts": [
             "link_adaptive_node = link_adaptive.link_adaptive_node:main",
+            "policy_adapter_node = link_adaptive.policy_adapter_node:main",
             "sil_link_adaptive = link_adaptive.sil_link_adaptive:main",
+            "sil_policy_loop = link_adaptive.sil_policy_loop:main",
         ],
     },
 )
