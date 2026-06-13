@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>link_adaptive</name>
+  <version>0.1.0</version>
+  <description>
+    Strat aplicativ adaptiv pentru ROS 2 (contributia C3): masoara starea
+    legaturii (RTT p95 + rata de pierdere) si comuta intre moduri de comportament
+    (NOMINAL / DEGRADED / CRITICAL) cu histerezis, ca raspuns la concluzia
+    campaniei C1 -- niciun middleware nu domina, deci adapteaza-te. Expune
+    politica de date (rata, fiabilitate, prag de prospetime, payload) pe care
+    ceilalti noduri o consuma. Logica de decizie e un nucleu pur, testabil fara ROS.
+  </description>
+  <maintainer email="alexandru@example.ro">Alexandru</maintainer>
+  <license>MIT</license>
+
+  <depend>rclpy</depend>
+  <depend>std_msgs</depend>
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
