@@ -22,9 +22,11 @@ from std_msgs.msg import String
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 from tf2_msgs.msg import TFMessage
+from sensor_msgs.msg import LaserScan
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from rover_core import DiffDrive, Course, SafetyGate
+from avoidance_core import front_blocked, AvoidParams
 
 LINK = "op-rob"
 
@@ -49,6 +51,15 @@ class RobotNode(Node):
         self.declare_parameter("pose_min_dist", 2.0)
         self.pose_min_dist = float(self.get_parameter("pose_min_dist").value)
         self._have_world_pose = False
+        # strat de SIGURANTA LOCAL: lidarul de pe rover (FARA link), opreste
+        # daca un obstacol e sub d_crit, indiferent de comanda operatorului
+        self.declare_parameter("safety_lidar", True)
+        self.safety_lidar = bool(self.get_parameter("safety_lidar").value)
+        self.declare_parameter("scan_topic", "/scan")
+        self.declare_parameter("d_crit", 0.5)
+        self._safety_p = AvoidParams(d_crit=float(self.get_parameter("d_crit").value))
+        self._scan = None             # (ranges, amin, ainc) - LOCAL, nedegradat
+        self._safety_stops = 0        # de cate ori siguranta a oprit roverul
         self.declare_parameter("use_hardware", False)
         self.declare_parameter("port", "loop")
         self.use_hw = bool(self.get_parameter("use_hardware").value)
@@ -82,7 +93,7 @@ class RobotNode(Node):
                 self.create_subscription(TFMessage, topic, self.on_world_pose, 30)
         os.makedirs(os.path.expanduser("~/teleop_data"), exist_ok=True)
         self.log = open(os.path.expanduser("~/teleop_data/robot_log.csv"), "w")
-        self.log.write("t_s,x,y,cte,cmd_age,fb_age,stopped,e2e_lat,cmd_jitter,cmd_gap,stops,drop_rate\n")
+        self.log.write("t_s,x,y,cte,cmd_age,fb_age,stopped,e2e_lat,cmd_jitter,cmd_gap,stops,drop_rate,safety_stops\n")
         self.create_timer(0.02, self.tick)          # 50 Hz control
         self.create_timer(0.05, self.send_pose)     # 20 Hz feedback
         self.get_logger().info(f"rover pornit (gazebo={self.use_gz}, hardware={self.use_hw}); "
@@ -150,6 +161,11 @@ class RobotNode(Node):
         self.rover.x, self.rover.y = p.x, p.y
         self.rover.th = self._yaw_from_quat(msg.pose.pose.orientation)
 
+    def on_scan_local(self, msg):
+        # lidar LOCAL pe rover: NU trece prin link (senzor de bord)
+        self._scan = ([float(r) for r in msg.ranges],
+                      float(msg.angle_min), float(msg.angle_increment))
+
     # ---------- bucla de control ----------
     def tick(self):
         now = time.time()
@@ -178,10 +194,20 @@ class RobotNode(Node):
         if self._last_exec_t is not None:
             cmd_gap = f"{(now - self._last_exec_t) * 1000.0:.1f}"
         v, w, stopped = self.gate.output(now)
-        # numara tranzitiile activ->oprit (opriri de siguranta)
+        # numara tranzitiile activ->oprit (opriri de siguranta din watchdog)
         if stopped and not self._prev_stopped:
             self._stop_events += 1
         self._prev_stopped = stopped
+        # --- STRAT DE SIGURANTA LOCAL (lidar de bord, FARA link) ---
+        # daca un obstacol e sub d_crit in conul frontal, opreste roverul
+        # INDIFERENT de comanda operatorului (care poate fi "oarba" sub link prost)
+        safety_override = False
+        if self.safety_lidar and self._scan is not None and v > 0.0:
+            ranges, amin, ainc = self._scan
+            if front_blocked(ranges, amin, ainc, self._safety_p):
+                v, w = 0.0, 0.0
+                safety_override = True
+                self._safety_stops += 1
         # drop_rate cumulativ: pierdute / (primite + pierdute)
         tot = self._cmd_rx + self._cmd_drop
         drop_rate = f"{self._cmd_drop / tot:.3f}" if tot else ""
@@ -202,8 +228,9 @@ class RobotNode(Node):
         self.course.advance(self.rover.x, self.rover.y)
         age = "" if self.gate.t_rx is None else f"{now - self.gate.t_rx:.3f}"
         self.log.write(f"{t:.2f},{self.rover.x:.3f},{self.rover.y:.3f},"
-                       f"{cte:.3f},{age},,{int(stopped)},"
-                       f"{e2e_lat},{cmd_jitter},{cmd_gap},{self._stop_events},{drop_rate}\n")
+                       f"{cte:.3f},{age},,{int(stopped or safety_override)},"
+                       f"{e2e_lat},{cmd_jitter},{cmd_gap},{self._stop_events},{drop_rate},"
+                       f"{self._safety_stops}\n")
 
     def send_pose(self):
         self.log.flush()

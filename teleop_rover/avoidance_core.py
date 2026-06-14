@@ -25,12 +25,13 @@ import math
 V_MAX, W_MAX = 1.2, 2.2
 
 # parametri evitare (reglabili din nod prin AvoidParams)
-D_SAFE = 1.5        # sub atata [m] un obstacol incepe sa respinga
-D_CRIT = 0.5        # sub atata [m] e considerat coliziune iminenta -> blocked
-K_REP = 1.6         # cat de tare resping obstacolele (greutatea repulsiei)
+D_SAFE = 2.5        # sub atata [m] un obstacol incepe sa respinga (reactie din timp)
+D_CRIT = 0.6        # sub atata [m] coliziune iminenta -> blocked
+K_REP = 3.0         # repulsie mai puternica -> ocolire mai larga, vizibila
 K_ATT = 1.0         # greutatea atractiei spre tinta
 FRONT_CONE = math.radians(45)   # conul frontal verificat pentru "blocked"
 K_W = 2.2           # castig pe eroarea de unghi -> w
+GOAL_CLEAR_R = 4.0  # sub atata [m] de tinta, ignora obstacolele (tinta != obstacol)
 
 
 class AvoidParams:
@@ -38,7 +39,7 @@ class AvoidParams:
 
     def __init__(self, d_safe=D_SAFE, d_crit=D_CRIT, k_rep=K_REP,
                  k_att=K_ATT, front_cone=FRONT_CONE, k_w=K_W,
-                 v_max=V_MAX, w_max=W_MAX):
+                 v_max=V_MAX, w_max=W_MAX, goal_clear_r=GOAL_CLEAR_R):
         self.d_safe = d_safe
         self.d_crit = d_crit
         self.k_rep = k_rep
@@ -47,6 +48,9 @@ class AvoidParams:
         self.k_w = k_w
         self.v_max = v_max
         self.w_max = w_max
+        # sub atata [m] de tinta, IGNORA repulsia: tinta e destinatia (victima/
+        # obiectiv), nu un obstacol de evitat -> altfel roverul orbiteaza in jurul ei
+        self.goal_clear_r = goal_clear_r
 
 
 def _wrap(a):
@@ -117,6 +121,12 @@ def avoid_command(ranges, angle_min, angle_increment, goal_bearing, goal_dist,
         return 0.0, 0.0, False
 
     ax, ay = attraction_vector(goal_bearing, p)
+    # aproape de tinta: ignora repulsia (tinta e destinatia, nu obstacol)
+    if goal_dist <= p.goal_clear_r:
+        alpha = _wrap(goal_bearing)
+        w = max(-p.w_max, min(p.w_max, p.k_w * alpha))
+        v = p.v_max * max(0.2, 1.0 - abs(alpha) / 1.2)
+        return v, w, False
     rx, ry, d_min = repulsion_vector(ranges, angle_min, angle_increment, p)
 
     if front_blocked(ranges, angle_min, angle_increment, p):

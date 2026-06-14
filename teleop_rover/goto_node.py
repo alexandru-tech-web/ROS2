@@ -24,6 +24,7 @@ In orice mod, publica un MARKER (visualization_msgs/Marker) la tinta curenta pe
 /teleop/goal_marker, ca sa se vada unde e goal-ul (in RViz).
 """
 import json
+import math
 import os
 import random
 import sys
@@ -34,9 +35,11 @@ from rclpy.node import Node
 from std_msgs.msg import String
 from geometry_msgs.msg import PoseStamped
 from visualization_msgs.msg import Marker
+from sensor_msgs.msg import LaserScan
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from nav_core import goto_command, goal_reached   # noqa: E402
+from avoidance_core import avoid_command, AvoidParams   # noqa: E402
 
 LINK = "op-rob"
 
@@ -51,6 +54,8 @@ class GotoNode(Node):
         p("arrive_r", 0.5)
         p("goal_topic", "/teleop/goal")   # unde asculta tinta de la GCS
         p("frame", "map")                 # frame-ul markerului de tinta
+        p("use_avoidance", True)          # navigare cu evitare (lidar prin link)
+        p("scan_topic", "/scan")
         g = lambda k: self.get_parameter(k).value
         self.source = str(g("goal_source"))
         # in mod gcs roverul STA PE LOC pana cand GCS da o tinta (goal None)
@@ -58,6 +63,11 @@ class GotoNode(Node):
         self.want = str(g("target_class"))
         self.arrive_r = float(g("arrive_r"))
         self.frame = str(g("frame"))
+        self.use_avoid = bool(g("use_avoidance"))
+        self.avoid_p = AvoidParams()
+        # scanul cel mai recent care a SUPRAVIETUIT link-ului (degradat ca poza)
+        self.scan = None              # (ranges, angle_min, angle_increment)
+        self.scan_inbox = []
 
         self.known = (0.0, 0.0, 0.0)
         self.known_t = 0.0
@@ -71,6 +81,8 @@ class GotoNode(Node):
         self.mk_pub = self.create_publisher(Marker, "/teleop/goal_marker", 10)
         self.create_subscription(String, "/teleop/pose", self.on_pose, 30)
         self.create_subscription(String, "/teleop/linkstate", self.on_link, 10)
+        if self.use_avoid:
+            self.create_subscription(LaserScan, str(g("scan_topic")), self.on_scan, 10)
         if self.source == "object":
             self.create_subscription(String, "/teleop/target", self.on_target, 10)
         elif self.source == "gcs":
@@ -99,6 +111,17 @@ class GotoNode(Node):
         lat = max(0.0, self.lat + random.uniform(-self.jit, self.jit)) / 1000.0
         self.inbox.append((time.time() + lat, json.loads(msg.data)))
 
+    def on_scan(self, msg):
+        # scanul trece prin ACELASI link degradat ca poza: la cadere/pierdere
+        # operatorul "orbeste" (nu primeste lidar), iar latenta intarzie perceptia
+        if self.down or random.random() < self.loss:
+            return                                   # scan pierdut pe link
+        lat = max(0.0, self.lat + random.uniform(-self.jit, self.jit)) / 1000.0
+        ranges = [float(r) for r in msg.ranges]
+        self.scan_inbox.append((time.time() + lat, ranges,
+                                float(msg.angle_min),
+                                float(msg.angle_increment)))
+
     def on_target(self, msg):
         d = json.loads(msg.data)
         if self.want and d.get("class") != self.want:
@@ -121,13 +144,30 @@ class GotoNode(Node):
                 self.known = (d["x"], d["y"], d["th"])
                 self.known_t = d["t"]
                 self.robot_info = d
+        # proceseaza scanurile care au sosit (au trecut de link)
+        if self.use_avoid:
+            scan_due = [m for m in self.scan_inbox if m[0] <= now]
+            self.scan_inbox = [m for m in self.scan_inbox if m[0] > now]
+            if scan_due:
+                _, ranges, amin, ainc = scan_due[-1]   # cel mai recent
+                self.scan = (ranges, amin, ainc)
         if self.goal is None:
             self.cmd_pub.publish(String(data=json.dumps({"v": 0.0, "w": 0.0, "t": now})))
             return                                   # roverul sta oprit pana vine tinta de la GCS
         gx, gy = self.goal
-        v, w, arrived = goto_command(self.known[0], self.known[1],
-                                     self.known[2], gx, gy,
-                                     arrive_r=self.arrive_r)
+        x, y, th = self.known
+        # navigare: cu evitare daca avem scan (degradat), altfel atractie pura
+        if self.use_avoid and self.scan is not None:
+            goal_bearing = math.atan2(gy - y, gx - x) - th
+            goal_bearing = (goal_bearing + math.pi) % (2 * math.pi) - math.pi
+            goal_dist = math.hypot(gx - x, gy - y)
+            ranges, amin, ainc = self.scan
+            v, w, blocked = avoid_command(ranges, amin, ainc, goal_bearing,
+                                          goal_dist, p=self.avoid_p,
+                                          arrive_r=self.arrive_r)
+            arrived = goal_dist <= self.arrive_r
+        else:
+            v, w, arrived = goto_command(x, y, th, gx, gy, arrive_r=self.arrive_r)
         self.cmd_pub.publish(String(data=json.dumps({"v": v, "w": w, "t": now})))
         if arrived and not self.arrived_announced:
             self.arrived_announced = True

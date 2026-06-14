@@ -56,7 +56,8 @@ def read_log(path, xcol, ycol, tcol):
                              f"Foloseste --xcol/--ycol/--tcol.")
         # coloane de metrici end-to-end (optionale; lipsesc in loguri vechi)
         mcols = {k: (k in rd.fieldnames) for k in
-                 ("e2e_lat", "cmd_jitter", "cmd_gap", "stops", "drop_rate")}
+                 ("e2e_lat", "cmd_jitter", "cmd_gap", "stops", "drop_rate",
+                  "safety_stops")}
         t, x, y = [], [], []
         extra = {k: [] for k in mcols}
         for i, row in enumerate(rd):
@@ -103,6 +104,7 @@ def metrics(t, x, y, extra, gx, gy, arrive):
     gap = extra.get("cmd_gap", [])
     stops = extra.get("stops", [])
     drop = extra.get("drop_rate", [])
+    safety = extra.get("safety_stops", [])
     return {"success": float(success), "ttg": ttg,
             "cte_mean": float(np.mean(cte)), "cte_max": float(np.max(cte)),
             # metrici end-to-end (degradare): medie + p95 unde conteaza
@@ -111,7 +113,8 @@ def metrics(t, x, y, extra, gx, gy, arrive):
             "cmd_jitter_mean": float(np.mean(jit)) if jit else float("nan"),
             "cmd_gap_max": float(np.max(gap)) if gap else float("nan"),
             "stops": float(stops[-1]) if stops else float("nan"),
-            "drop_rate": float(drop[-1]) if drop else float("nan")}
+            "drop_rate": float(drop[-1]) if drop else float("nan"),
+            "safety_stops": float(safety[-1]) if safety else float("nan")}
 
 
 def main():
@@ -139,7 +142,7 @@ def main():
                 continue
             vals = {k: [] for k in ("success", "ttg", "cte_mean", "cte_max",
                     "e2e_lat_mean", "e2e_lat_p95", "cmd_jitter_mean",
-                    "cmd_gap_max", "stops", "drop_rate")}
+                    "cmd_gap_max", "stops", "drop_rate", "safety_stops")}
             for rep in sorted(os.listdir(cdir)):
                 log = os.path.join(cdir, rep, "robot_log.csv")
                 if not os.path.isfile(log):
@@ -160,7 +163,7 @@ def main():
         w.writerow(["rmw", "conditie", "n", "reusita", "timp_med_s", "timp_std_s",
                     "cte_med_m", "cte_max_m",
                     "e2e_lat_med_ms", "e2e_lat_p95_ms", "jitter_med_ms",
-                    "gap_max_ms", "opriri", "drop_rate"])
+                    "gap_max_ms", "opriri", "drop_rate", "opriri_siguranta"])
         meanf = lambda lst: f"{np.mean(lst):.1f}" if lst else "NA"
         meanf2 = lambda lst: f"{np.mean(lst):.2f}" if lst else "NA"
         for r in rmws:
@@ -181,7 +184,8 @@ def main():
                             meanf(v.get("cmd_jitter_mean", [])),
                             meanf(v.get("cmd_gap_max", [])),
                             meanf2(v.get("stops", [])),
-                            f"{np.mean(v.get('drop_rate', [])):.3f}" if v.get("drop_rate") else "NA"])
+                            f"{np.mean(v.get('drop_rate', [])):.3f}" if v.get("drop_rate") else "NA",
+                            meanf2(v.get("safety_stops", []))])
     print(f"[ok] {out_csv}")
 
     # ---- figuri: bare grupate Zenoh vs Cyclone pe conditii ----
@@ -249,9 +253,12 @@ def main():
         grouped(mk("cmd_jitter_mean"), "jitter comanda [ms]",
                 "Jitter-ul comenzilor executate (medie)", "fig_jitter.png",
                 ek("cmd_jitter_mean"))
-        grouped(mk("stops"), "opriri de siguranta [nr]",
+        grouped(mk("stops"), "opriri watchdog [nr]",
                 "Opriri watchdog vs conditie de retea", "fig_opriri.png",
                 ek("stops"))
+        grouped(mk("safety_stops"), "opriri siguranta locala [nr]",
+                "Opriri siguranta lidar local (creste cu degradarea)",
+                "fig_opriri_siguranta.png", ek("safety_stops"))
 
     print("\nRezumat (vezi summary.csv):")
     os.system(f"column -s, -t {out_csv} 2>/dev/null || cat {out_csv}")

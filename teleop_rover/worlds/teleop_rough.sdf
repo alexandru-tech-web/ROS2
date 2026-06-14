@@ -73,7 +73,7 @@
     </model>
 
     <model name="obs_1"><static>true</static>
-      <pose>-9.96 -8.31 0.75 0 0 0</pose>
+      <pose>-10.15 -9.46 0.75 0 0 0</pose>
       <link name="l">
         <visual name="v"><geometry><cylinder><radius>0.40</radius>
           <length>1.5</length></cylinder></geometry>
@@ -83,7 +83,7 @@
           <length>1.5</length></cylinder></geometry></collision></link>
     </model>
     <model name="obs_2"><static>true</static>
-      <pose>-4.41 -8.64 0.75 0 0 0</pose>
+      <pose>-5.80 -8.68 0.75 0 0 0</pose>
       <link name="l">
         <visual name="v"><geometry><cylinder><radius>0.40</radius>
           <length>1.5</length></cylinder></geometry>
@@ -93,7 +93,7 @@
           <length>1.5</length></cylinder></geometry></collision></link>
     </model>
     <model name="obs_3"><static>true</static>
-      <pose>-3.33 -3.05 0.75 0 0 0</pose>
+      <pose>-3.91 -4.62 0.75 0 0 0</pose>
       <link name="l">
         <visual name="v"><geometry><cylinder><radius>0.40</radius>
           <length>1.5</length></cylinder></geometry>
@@ -103,7 +103,7 @@
           <length>1.5</length></cylinder></geometry></collision></link>
     </model>
     <model name="obs_4"><static>true</static>
-      <pose>2.01 -4.04 0.75 0 0 0</pose>
+      <pose>0.11 -4.34 0.75 0 0 0</pose>
       <link name="l">
         <visual name="v"><geometry><cylinder><radius>0.40</radius>
           <length>1.5</length></cylinder></geometry>
@@ -113,7 +113,7 @@
           <length>1.5</length></cylinder></geometry></collision></link>
     </model>
     <model name="obs_5"><static>true</static>
-      <pose>2.54 0.88 0.75 0 0 0</pose>
+      <pose>1.16 -1.04 0.75 0 0 0</pose>
       <link name="l">
         <visual name="v"><geometry><cylinder><radius>0.40</radius>
           <length>1.5</length></cylinder></geometry>
