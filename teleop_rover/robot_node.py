@@ -21,6 +21,7 @@ from rclpy.node import Node
 from std_msgs.msg import String
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
+from tf2_msgs.msg import TFMessage
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from rover_core import DiffDrive, Course, SafetyGate
@@ -33,6 +34,21 @@ class RobotNode(Node):
         super().__init__("teleop_robot")
         self.declare_parameter("use_gazebo", False)
         self.use_gz = bool(self.get_parameter("use_gazebo").value)
+        # POZA ABSOLUTA in lume: turnul rosu = (8,3) real, indiferent de spawn/yaw.
+        # Topicul de poza din Gazebo are uneori child_frame_id GOL; atunci roverul
+        # se identifica drept transformul cel mai DEPARTE de origine (link-urile sunt
+        # relative la baza, deci au pozitii mici < ~1 m). Daca poza-lume lipseste,
+        # cadem automat pe odometria relativa (fallback).
+        self.declare_parameter("use_world_pose", True)
+        self.use_world_pose = bool(self.get_parameter("use_world_pose").value)
+        self.declare_parameter("model_name", "rover")
+        self.model_name = str(self.get_parameter("model_name").value)
+        self.declare_parameter("world_name", "teleop_rough")
+        self.world_name = str(self.get_parameter("world_name").value)
+        # link-urile rover sunt < ~1 m de baza; spawn/tinta sunt la |pos| mare.
+        self.declare_parameter("pose_min_dist", 2.0)
+        self.pose_min_dist = float(self.get_parameter("pose_min_dist").value)
+        self._have_world_pose = False
         self.declare_parameter("use_hardware", False)
         self.declare_parameter("port", "loop")
         self.use_hw = bool(self.get_parameter("use_hardware").value)
@@ -54,6 +70,9 @@ class RobotNode(Node):
             self.tw_pub = self.create_publisher(Twist, "/model/rover/cmd_vel", 10)
             self.create_subscription(Odometry, "/model/rover/odometry",
                                      self.on_odom, 30)
+            if self.use_world_pose:
+                topic = f"/world/{self.world_name}/dynamic_pose/info"
+                self.create_subscription(TFMessage, topic, self.on_world_pose, 30)
         os.makedirs(os.path.expanduser("~/teleop_data"), exist_ok=True)
         self.log = open(os.path.expanduser("~/teleop_data/robot_log.csv"), "w")
         self.log.write("t_s,x,y,cte,cmd_age,fb_age,stopped\n")
@@ -77,16 +96,58 @@ class RobotNode(Node):
         lat = max(0.0, self.lat + random.uniform(-self.jit, self.jit)) / 1000.0
         self.inbox.append((time.time() + lat, d["t"], d["v"], d["w"]))
 
+    def _yaw_from_quat(self, q):
+        return math.atan2(2 * (q.w * q.z + q.x * q.y),
+                          1 - 2 * (q.y * q.y + q.z * q.z))
+
+    def on_world_pose(self, msg):
+        """Poza ABSOLUTA in lume. Identifica roverul prin:
+        (a) child_frame_id care contine numele modelului, daca e setat; altfel
+        (b) transformul cel mai departe de origine (baza rover; link-urile sunt
+            relative la baza, deci < ~1 m). Asa merge si cand frame_id e gol.
+        """
+        best = None
+        best_d = -1.0
+        for tr in msg.transforms:
+            cf = tr.child_frame_id or ""
+            t = tr.transform.translation
+            # (a) potrivire dupa nume, daca topicul seteaza child_frame_id
+            if self.model_name and self.model_name in cf:
+                if not self._have_world_pose:
+                    self.t0 = time.time()      # porneste cronometrul la prima poza reala
+                self.rover.x, self.rover.y = t.x, t.y
+                self.rover.th = self._yaw_from_quat(tr.transform.rotation)
+                self._have_world_pose = True
+                return
+            # (b) candidat: cel mai departe de origine
+            d = (t.x * t.x + t.y * t.y) ** 0.5
+            if d > best_d:
+                best_d = d
+                best = tr
+        # daca niciun nume nu s-a potrivit, foloseste candidatul cel mai indepartat
+        if best is not None and best_d >= self.pose_min_dist:
+            if not self._have_world_pose:
+                self.t0 = time.time()          # porneste cronometrul la prima poza reala
+            t = best.transform.translation
+            self.rover.x, self.rover.y = t.x, t.y
+            self.rover.th = self._yaw_from_quat(best.transform.rotation)
+            self._have_world_pose = True
+
     def on_odom(self, msg):
+        # FALLBACK: doar daca NU avem poza-lume (odometrie relativa la spawn)
+        if self.use_world_pose and self._have_world_pose:
+            return
         p = msg.pose.pose.position
-        q = msg.pose.pose.orientation
         self.rover.x, self.rover.y = p.x, p.y
-        self.rover.th = math.atan2(2 * (q.w * q.z + q.x * q.y),
-                                   1 - 2 * (q.y * q.y + q.z * q.z))
+        self.rover.th = self._yaw_from_quat(msg.pose.pose.orientation)
 
     # ---------- bucla de control ----------
     def tick(self):
         now = time.time()
+        # asteapta prima poza-LUME valida: altfel am loga pozitia-fantoma (0,0)
+        # de dinainte ca dynamic_pose/info sa publice, ceea ce strica start-ul in analiza
+        if self.use_world_pose and not self._have_world_pose:
+            return
         due = [m for m in self.inbox if m[0] <= now]
         self.inbox = [m for m in self.inbox if m[0] > now]
         for _, t_emis, v, w in due:

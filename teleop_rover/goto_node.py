@@ -135,6 +135,10 @@ class GotoNode(Node):
                 f"TINTA ATINSA ({gx:.1f},{gy:.1f}) in {now - self.t0:.1f} s - "
                 f"opriri de siguranta: {self.robot_info.get('stops', 0)}; "
                 f"jurnal: ~/teleop_data/robot_log.csv")
+            if self.source == "waypoint":
+                # benchmark determinist: o singura tinta -> misiune gata, opreste procesul
+                self.get_logger().info("mod waypoint: misiune completa, inchid nodul")
+                raise SystemExit(0)
         elif arrived and self.source == "object":
             self.arrived_announced = False           # re-armeaza pt. tinta noua
 

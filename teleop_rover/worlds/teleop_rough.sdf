@@ -73,7 +73,7 @@
     </model>
 
     <model name="rover">
-      <pose>-14.5 -14.0 0.75 0 0 0.6</pose>
+      <pose>-14.5 -14.0 0.75 0 0 0</pose>
       <link name="chassis"><pose>0 0 0.18 0 0 0</pose>
         <inertial><mass>5.0</mass><inertia><ixx>0.07</ixx><iyy>0.12</iyy>
           <izz>0.16</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia></inertial>

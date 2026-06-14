@@ -56,6 +56,7 @@ def setup(context, *a, **k):
         ros("ros2", "run", "ros_gz_bridge", "parameter_bridge",
             "/model/rover/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist",
             "/model/rover/odometry@nav_msgs/msg/Odometry[gz.msgs.Odometry",
+            "/world/teleop_rough/dynamic_pose/info@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V",
             "/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan"),
         ros("ros2", "run", "ros_gz_image", "image_bridge", "camera/image"),
         ros("python3", os.path.join(PKG, "link_node.py"), "--ros-args",
@@ -68,6 +69,7 @@ def setup(context, *a, **k):
         ros("python3", os.path.join(PKG, "goto_node.py"), "--ros-args",
             "-p", f"goal_source:={val('goal_source')}",
             "-p", f"goal_x:={val('goal_x')}", "-p", f"goal_y:={val('goal_y')}",
+            "-p", f"arrive_r:={val('arrive_r')}",
             "-p", f"target_class:={val('target_class')}"),
     ])
     return early + [delayed]
@@ -81,6 +83,7 @@ def generate_launch_description():
                               description="object | waypoint"),
         DeclareLaunchArgument("goal_x", default_value="8.0"),
         DeclareLaunchArgument("goal_y", default_value="3.0"),
+        DeclareLaunchArgument("arrive_r", default_value="1.0"),
         DeclareLaunchArgument("target_class", default_value="red"),
         DeclareLaunchArgument("lat", default_value="0.0"),
         DeclareLaunchArgument("jit", default_value="0.0"),
