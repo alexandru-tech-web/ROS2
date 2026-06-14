@@ -62,6 +62,13 @@ class RobotNode(Node):
         self.down, self.lat, self.jit, self.loss = False, 0.0, 0.0, 0.0
         self.inbox = []                 # (t_proc, t_emis, v, w)
         self.t0 = time.time()
+        # --- metrici end-to-end (degradare) ---
+        self._cmd_rx = 0            # comenzi PRIMITE (au trecut de link)
+        self._cmd_drop = 0          # comenzi PIERDUTE pe link (down sau loss)
+        self._last_exec_t = None    # wall-clock al ultimei comenzi NOI executate
+        self._last_emit_t = None    # t_emis al ultimei comenzi NOI executate
+        self._prev_stopped = True   # pt. numararea tranzitiilor 0->1 (opriri)
+        self._stop_events = 0
 
         self.pose_pub = self.create_publisher(String, "/teleop/pose", 20)
         self.create_subscription(String, "/teleop/cmd", self.on_cmd, 30)
@@ -75,7 +82,7 @@ class RobotNode(Node):
                 self.create_subscription(TFMessage, topic, self.on_world_pose, 30)
         os.makedirs(os.path.expanduser("~/teleop_data"), exist_ok=True)
         self.log = open(os.path.expanduser("~/teleop_data/robot_log.csv"), "w")
-        self.log.write("t_s,x,y,cte,cmd_age,fb_age,stopped\n")
+        self.log.write("t_s,x,y,cte,cmd_age,fb_age,stopped,e2e_lat,cmd_jitter,cmd_gap,stops,drop_rate\n")
         self.create_timer(0.02, self.tick)          # 50 Hz control
         self.create_timer(0.05, self.send_pose)     # 20 Hz feedback
         self.get_logger().info(f"rover pornit (gazebo={self.use_gz}, hardware={self.use_hw}); "
@@ -91,7 +98,9 @@ class RobotNode(Node):
 
     def on_cmd(self, msg):
         if self.down or random.random() < self.loss:
-            return                                   # pierdut pe drum
+            self._cmd_drop += 1                      # pierdut pe drum
+            return
+        self._cmd_rx += 1
         d = json.loads(msg.data)
         lat = max(0.0, self.lat + random.uniform(-self.jit, self.jit)) / 1000.0
         self.inbox.append((time.time() + lat, d["t"], d["v"], d["w"]))
@@ -150,9 +159,32 @@ class RobotNode(Node):
             return
         due = [m for m in self.inbox if m[0] <= now]
         self.inbox = [m for m in self.inbox if m[0] > now]
+        # metrici end-to-end: doar pe comenzile NOI executate acum
+        e2e_lat = ""
+        cmd_jitter = ""
+        cmd_gap = ""
         for _, t_emis, v, w in due:
-            self.gate.on_command(now, t_emis, v, w)
+            accepted = self.gate.on_command(now, t_emis, v, w)
+            if accepted:
+                # e2e: emitere (goto) -> executie (robot), include link+jitter+coada
+                e2e = (now - t_emis) * 1000.0
+                e2e_lat = f"{e2e:.1f}"
+                if self._last_exec_t is not None:
+                    # jitter = variatia intervalului real intre comenzi executate
+                    cmd_jitter = f"{(now - self._last_exec_t) * 1000.0:.1f}"
+                self._last_exec_t = now
+                self._last_emit_t = t_emis
+        # gap = cat timp a trecut de la ultima comanda executata (creste sub loss)
+        if self._last_exec_t is not None:
+            cmd_gap = f"{(now - self._last_exec_t) * 1000.0:.1f}"
         v, w, stopped = self.gate.output(now)
+        # numara tranzitiile activ->oprit (opriri de siguranta)
+        if stopped and not self._prev_stopped:
+            self._stop_events += 1
+        self._prev_stopped = stopped
+        # drop_rate cumulativ: pierdute / (primite + pierdute)
+        tot = self._cmd_rx + self._cmd_drop
+        drop_rate = f"{self._cmd_drop / tot:.3f}" if tot else ""
         if self.use_hw:                       # HARDWARE (sau loopback HIL)
             self.hw.send_cmd(v, w)
             pose = self.hw.poll()
@@ -170,7 +202,8 @@ class RobotNode(Node):
         self.course.advance(self.rover.x, self.rover.y)
         age = "" if self.gate.t_rx is None else f"{now - self.gate.t_rx:.3f}"
         self.log.write(f"{t:.2f},{self.rover.x:.3f},{self.rover.y:.3f},"
-                       f"{cte:.3f},{age},,{int(stopped)}\n")
+                       f"{cte:.3f},{age},,{int(stopped)},"
+                       f"{e2e_lat},{cmd_jitter},{cmd_gap},{self._stop_events},{drop_rate}\n")
 
     def send_pose(self):
         self.log.flush()
