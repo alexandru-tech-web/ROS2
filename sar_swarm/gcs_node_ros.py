@@ -36,7 +36,10 @@ class GcsNode(Node):
         self.create_timer(0.05, self.drain)
         os.makedirs(os.path.expanduser("~/sar_data"), exist_ok=True)
         self.csv = open(os.path.expanduser("~/sar_data/mission_metrics.csv"), "w")
-        self.csv.write("t_s,coverage,victims_found,cohesion,drones_linked\n")
+        self.csv.write("t_s,coverage,victims_found,cohesion,drones_linked,"
+                       "e2e_telemetry_ms,msgs_delivered\n")
+        self.e2e_samples = []
+        self.msgs_delivered = 0
         self.op_csv = open(os.path.expanduser("~/sar_data/op_commands.csv"), "w")
         self.op_csv.write("t_s,cmd_id,drone,action,phase\n")
         self.t0 = time.time()
@@ -89,6 +92,13 @@ class GcsNode(Node):
         for _, d in due:
             did = d["id"]
             self.last_seen[did] = now
+            # latenta e2e: varsta informatiei cand ajunge la GCS (daca drona a
+            # pus timestamp "t" la emisie). Reflecta si intarzierea S&F.
+            t_emit = d.get("t")
+            if t_emit is not None:
+                age_ms = max(0.0, (now - float(t_emit)) * 1000.0)
+                self.e2e_samples.append(age_ms)
+                self.e2e_samples = self.e2e_samples[-2000:]
             if d.get("k") == "op_event":     # ack/done/fail la comanda operator
                 self.ops.on_event(did, d.get("phase"))
                 self._op_log(d.get("cmd_id", 0), did, "-", d.get("phase"))
@@ -97,6 +107,7 @@ class GcsNode(Node):
             self.state[did] = d.get("state", "?")
             self.map.merge_cells([tuple(c) for c in d["cells"]])
             self.victims.update(map(tuple, d["victims"]))
+            self.msgs_delivered += 1
             self._cmd(did, {"k": "map_ack",
                             "upto": d["from"] + len(d["cells"])})
 
@@ -130,7 +141,11 @@ class GcsNode(Node):
                            "age_s": round(t - 0 if d not in self.last_seen
                                           else time.time()-self.last_seen[d], 1),
                            "link": self.link_up(d)} for d in self.pos}})))
-        self.csv.write(f"{t:.1f},{cov:.4f},{len(self.victims)},{coh:.3f},{linked}\n")
+        # latenta e2e curenta: media ultimelor mostre (varsta telemetriei)
+        e2e_now = (round(sum(self.e2e_samples[-20:]) / len(self.e2e_samples[-20:]), 1)
+                   if self.e2e_samples else 0.0)
+        self.csv.write(f"{t:.1f},{cov:.4f},{len(self.victims)},{coh:.3f},"
+                       f"{linked},{e2e_now},{self.msgs_delivered}\n")
         self.csv.flush()
 
 def main():

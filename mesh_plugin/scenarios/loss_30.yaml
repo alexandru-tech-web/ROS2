@@ -1,0 +1,7 @@
+# Caz 1: pierdere de pachete 30% pe toate legaturile (SAR realist)
+name: loss_30
+duration_s: 150
+store_and_forward: true
+default_link: {base_ms: 60, jitter_ms: 15, loss: 0.30}
+link_overrides: {}
+events: []

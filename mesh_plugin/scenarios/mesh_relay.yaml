@@ -1,0 +1,15 @@
+# Scenariu pentru mesh: d3,d4 pierd legatura DIRECTA cu GCS (t=10..90), dar
+# pastreaza legatura cu d1,d2 (care raman conectate la GCS). Exista deci punte
+# multi-hop: d3 -> d1 -> gcs. FARA mesh, telemetria d3/d4 se pierde (S&F oprit);
+# CU mesh, ajunge prin relay. store_and_forward OPRIT ca diferenta sa fie reala.
+name: mesh_relay
+duration_s: 120
+store_and_forward: false
+default_link: {base_ms: 50, jitter_ms: 10, loss: 0.05}
+link_overrides: {}
+events:
+  # taie DOAR legaturile directe d3-gcs si d4-gcs (up: false, nu down)
+  - {t: 10, type: set_link, a: d3, b: gcs, up: false}
+  - {t: 10, type: set_link, a: d4, b: gcs, up: false}
+  - {t: 90, type: set_link, a: d3, b: gcs, up: true}
+  - {t: 90, type: set_link, a: d4, b: gcs, up: true}

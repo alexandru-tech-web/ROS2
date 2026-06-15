@@ -1,0 +1,9 @@
+# Caz 4: partitie de roi 2 vs 2 (d3,d4 pierd GCS si d1,d2) t=30..70 s
+name: partition_2v2
+duration_s: 150
+store_and_forward: true
+default_link: {base_ms: 50, jitter_ms: 10, loss: 0.05}
+link_overrides: {}
+events:
+  - {t: 30, type: partition, group_a: [gcs, d1, d2], group_b: [d3, d4]}
+  - {t: 70, type: heal_partition, group_a: [gcs, d1, d2], group_b: [d3, d4]}

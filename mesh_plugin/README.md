@@ -1,211 +1,193 @@
-# mesh_plugin — retea mesh multi-hop intre drone (ROS 2 / SAR)
+# mesh_plugin
 
-Pachet ROS 2 (ament_python) care adauga roiului un strat de comunicatie
-**mesh multi-hop**: o drona fara legatura DIRECTA la statia de la sol (GCS)
-ajunge prin relee, in mai multe hopuri. Schimba topologia roiului din **stea**
-(fiecare drona vorbeste doar cu GCS) in **mesh** (drona -> vecin -> ... -> GCS).
+Strat de retea MESH multi-hop peste roiul SAR: o drona fara legatura directa
+cu GCS ajunge prin vecini (relay hop-by-hop). Schimba topologia din STEA in
+MESH si recupereaza telemetria pe care o partitie de roi ar pierde-o. Feeds
+contributia C3 a tezei.
 
-> Pozitionare in teza: rezultatul de baza al benchmarkului a aratat ca, in
-> topologia in stea, o legatura proasta orbeste harta — o drona izolata zboara,
-> dar raportul ei nu ajunge la GCS. Acest pachet ataca exact acea limita si
-> deschide contributia C3 (adaptarea la starea legaturii). Vezi
-> `dezvoltare/PROIECT_LINK_ADAPTIVE.md`.
+Nucleu pur (fara ROS), aliniat la literatura clasica de mesh: metrica ETX
+(De Couto, MIT 2004; folosita in OLSR / B.A.T.M.A.N. / Babel), rutare Dijkstra,
+relay dirijat cu dedup si TTL. Refoloseste modelul radio al proiectului
+(`radio_link.py`), deci e fizic consistent cu restul tezei.
 
 ---
 
-## 1. Motivatie si intrebare de cercetare
+## 1. Descrierea proiectului
 
-In scenariul `partition_2v2`, doua drone pierd legatura cu GCS (100% pierdere)
-si zonele lor raman neexplorate pe harta, desi fizic sunt survolate. Intrebarea:
+In topologia STEA, fiecare drona vorbeste DIRECT cu GCS. Cand o drona se
+indeparteaza dincolo de raza radio (sau o partitie taie legatura), GCS-ul
+orbeste: nu mai primeste telemetria ei, deci nu crediteaza acoperirea/victimele
+descoperite de ea. Pe profiluri radio severe (urban_rubble: cladiri prabusite,
+raza utila ~70 m) asta se intampla des.
 
-> **Cat din acoperire si cate victime recupereaza un strat mesh multi-hop fata
-> de topologia in stea, si cu ce cost (hopuri / latenta / energie)?**
+Stratul MESH rezolva: daca d3 nu vede GCS dar vede d1, iar d1 vede GCS, atunci
+d3 ajunge la GCS prin relay d3 -> d1 -> gcs. Reteaua devine rezilienta la
+indepartare si la caderea unor noduri. Demonstratia centrala: poti BLOCA o
+drona (doborata / radio mort) si vezi ca multi-hop-ul fie se reconfigureaza
+(alt drum), fie raporteaza corect ce noduri raman izolate.
 
-Stratul mesh nu inlocuieste middleware-ul (DDS / Zenoh) si nu modifica
-nodurile existente; sta deasupra modelului radio si remapeaza fluxul de
-telemetrie prin relee.
+---
 
-## 2. Arhitectura (patru niveluri)
+## 2. Grafic de comunicatie
 
-| Nivel | Ce face | Unde |
-|------|---------|------|
-| 1. Model radio | distanta -> RSSI (log-distance) -> PDR (sigmoida pe sensibilitate) | `mesh_core.rssi_dbm`, `pdr_from_rssi`, `link_pdr` |
-| 2. Metrica | ETX = 1/(PDR_dus x PDR_intors) = nr. mediu de transmisii / livrare | `mesh_core.etx` |
-| 3. Rutare | graf de adiacenta cu cost ETX; Dijkstra spre GCS; tabela next-hop | `mesh_core.MeshTopology`, `shortest_path`, `routing_table` |
-| 4. Releu | forwardare DIRIJATA hop-cu-hop (pachetul poarta `next`), TTL anti-bucla | `mesh_node.on_relay`, `on_ingest` |
+```mermaid
+graph LR
+    D3[d3<br/>fara link direct] -- "relay {next:d2}" --> D2[d2]
+    D2 -- "relay {next:d1}" --> D1[d1<br/>vede GCS]
+    D1 -- "/mesh/relay {next:gcs}" --> GCS[gcs]
+    D1 -- "/mesh/beacon" --> D2
+    D2 -- "/mesh/beacon" --> D3
+    GCS -- "/mesh/route/d3" --> D3
+```
 
-ETX este metrica standard a retelelor mesh (OLSR, Babel); aici leaga rutarea
-de aceeasi marime ca tot restul tezei — **pierderea de pachete**.
+Fiecare nod emite periodic un BEACON (pozitia + id) pe care vecinii il aud
+in functie de distanta -> topologie. Din topologie, fiecare nod calculeaza
+next-hop-ul spre GCS (Dijkstra pe cost ETX). Un pachet de RELAY poarta campul
+`next` = vecinul care trebuie sa-l preia; doar acela il forwardeaza mai departe,
+recalculandu-si propriul next-hop. NU flooding -> trafic minim.
 
-## 3. Structura pachetului
+---
+
+## 3. Work tree
 
 ```
 mesh_plugin/
-  package.xml                      manifest ament (rclpy, std_msgs)
-  setup.py / setup.cfg             build ament_python + entry-points
-  resource/mesh_plugin             marker ament
-  mesh_plugin/
-    mesh_core.py                   NUCLEU pur (fara ROS): radio, ETX, Dijkstra,
-                                   releu, comparatie stea vs mesh. 21 verificari.
-    mesh_node.py                   nod ROS 2 subtire: beacon, topologie, releu
-                                   dirijat, ingest/egress telemetrie (optional)
-    sil_mesh.py                    SIL reachability (stea vs mesh in timp)
-    sil_mesh_mission.py            SIL de misiune (acoperire + victime)
-  launch/
-    mesh_plugins.launch.py         un mesh_node per drona + unul pentru GCS
-  docs/
-    sil_mesh_mission.png           figura de rezultat (acoperire stea vs mesh)
-    sil_mesh_reachability.png      reachability in timp
-    sil_mesh_snapshot.png          snapshot spatial cu rutele
+├── mesh_core.py          NUCLEU PUR (fara ROS): PDR->ETX, MeshGraph (Dijkstra),
+│                         DirectedRelay (dedup+TTL), star vs mesh, blocare nod
+├── test_mesh_core.py     31 verificari (ETX, rutare, relay, partition, blocare)
+├── sil_mesh.py           SIL star vs mesh: reachability + livrare + figuri
+├── mesh_node.py          nod ROS subtire: telemetrie -> topologie -> /mesh/routes
+│                         + /mesh/status; comenzi block/unblock pe /mesh/control
+├── mesh_demo.py          demo LIVE Tkinter: buton "blocheaza drona" + harta cu
+│                         link direct / relay / izolat + rutele multi-hop
+└── docs/
+    ├── mesh_reachability.png   drone care ajung la GCS: stea vs mesh in timp
+    ├── mesh_delivery.png       pachete telemetrie livrate (cumulat)
+    ├── mesh_topology.png       topologia la final (link direct vs relay)
+    └── mesh_demo_preview.png   cum arata demo-ul live (normal vs drona blocata)
 ```
 
-## 4. Instalare in ros2_ws
+---
+
+## 4. Descrierea detaliata (functii)
+
+### `mesh_core.py` -- nucleul pur
+
+| Functie / clasa | Rol |
+|---|---|
+| `pdr_from_link(link, d)` | PDR = 1 - loss(distanta) din modelul radio (radio_link.py) |
+| `etx(pdr_fwd, pdr_rev)` | ETX = 1/(PDR_fwd * PDR_rev); ETX=1 perfect, inf = link mort |
+| `MeshGraph(link, pdr_min)` | graf de adiacenta; muchii cu cost ETX; `set_positions`, `block_node`/`unblock_node` |
+| `MeshGraph.shortest_paths_to(dest)` | Dijkstra pe ETX -> (dist, next_hop) per nod |
+| `MeshGraph.reachable_set(dest)` | nodurile care ajung la dest (ETX finit) |
+| `MeshGraph.hop_count_to(dest)` | numarul de hopuri pe ruta aleasa |
+| `DirectedRelay(id, ttl)` | releu pe un nod: `new_packet`, `on_receive` (deliver/forward/drop) cu dedup pe (src,seq) + TTL |
+| `deliver_once(graph, relays, src, payload)` | simuleaza livrarea unui pachet hop-by-hop (determinist sau stochastic) |
+| `star_reachable(graph, dest)` | cine ajunge la GCS in STEA (doar legatura directa) |
+| `mesh_vs_star(graph, dest)` | bilantul complet: cine ajunge in stea vs mesh, cine e recuperat de mesh |
+
+Parametri cheie: `pdr_min` (sub acest PDR muchia nu exista; implicit 0.10),
+`ttl` (max hopuri; implicit 8).
+
+### `sil_mesh.py` -- demonstratia
+
+Dronele pornesc langa GCS si se imprastie; d3/d4 ajung dincolo de raza directa
+dar raman in spatele lui d1/d2. La fiecare pas masoara cate drone ajung la GCS
+si cate pachete se livreaza, in stea vs mesh. Argument: `--profile`
+(open_field | urban_rubble | forest).
+
+---
+
+## 5. Learning: pornire + teste
 
 ```bash
-# 1. Copiaza pachetul in workspace (din folderul descarcat)
-cp -r mesh_plugin ~/ros2_ws/src/
+cd ~/ros2_ws/src/mesh_plugin
 
-# 2. (optional) verifica local nucleul si SIL-urile, FARA ROS
-cd ~/ros2_ws/src/mesh_plugin/mesh_plugin
-python3 mesh_core.py            # selftest: 21 verificari + demo partition_2v2
-python3 sil_mesh_mission.py     # experimentul de misiune + figura
+# nucleul pur (fara ROS):
+python3 mesh_core.py            # selftest 20/20
+python3 test_mesh_core.py       # suita completa 31/31
 
-# 3. Construieste pachetul
-cd ~/ros2_ws
-colcon build --packages-select mesh_plugin
-source install/setup.bash
+# demonstratia star vs mesh (figuri in docs/):
+python3 sil_mesh.py                          # urban_rubble (multi-hop activ)
+python3 sil_mesh.py --profile open_field     # raza mare: mesh = stea (corect)
+python3 sil_mesh.py --profile forest
 
-# 4. Confirma executabilele
-ros2 pkg executables mesh_plugin
-#   mesh_plugin mesh_node
-#   mesh_plugin sil_mesh
-#   mesh_plugin sil_mesh_mission
+# DEMO LIVE (buton "blocheaza drona", vezi relay-ul):
+python3 mesh_demo.py            # standalone (fara ROS, ruleaza oriunde)
+python3 mesh_demo.py --ros      # cu roiul pornit: pozitii reale din /sar/telemetry
 
-# 5. Versioneaza in monorepo
-cd ~/ros2_ws/src
-git add mesh_plugin
-git commit -m "mesh_plugin: retea mesh multi-hop intre drone (pachet ament_python, C3)"
-git pull --rebase && git push
+# nodul ROS (publica rutele, asculta blocarile):
+python3 mesh_node.py --ros-args -p profile:=urban_rubble -p pdr_min:=0.10
 ```
 
-## 5. Utilizare
+Demo-ul live: fiecare drona are un buton "blocheaza". Blochezi o drona si vezi
+pe harta cum reteaua se reconfigureaza -- daca era un releu, dronele din spate
+fie isi gasesc alt drum (linie verde noua), fie devin rosii (izolate). Sub
+harta, bilantul star vs mesh in timp real. mesh_demo.py merge si fara ROS
+(scenariu intern de imprastiere), util la aparare/prezentare.
 
-### 5.1 Offline (fara ROS) — verificare si figuri
-```bash
-cd ~/ros2_ws/src/mesh_plugin/mesh_plugin
-python3 mesh_core.py            # logica de rutare + demo partition_2v2
-python3 sil_mesh.py             # reachability stea vs mesh + 2 figuri
-python3 sil_mesh_mission.py     # acoperire + victime, stea vs mesh + figura
-```
+Ce verifica testele (`test_mesh_core.py`, 31):
+- **ETX**: link perfect=1, PDR=0.5 -> 4, PDR=0 -> infinit, asimetric, monotonie.
+- **PDR din radio**: scade cu distanta, ~1 aproape, ~0 departe.
+- **Dijkstra**: pe lant GCS-d1-d2-d3, doar d1 vede GCS direct, mesh ajunge la
+  toate, next-hop corect (d3->d2->d1->gcs), hop count 1/2/3.
+- **Relay**: livrare prin 3 hopuri, dedup (acelasi (src,seq) o data), TTL
+  expira, pachet 'next'!=id ignorat.
+- **Star vs mesh**: partition 2v2 -> stea pierde d3/d4, mesh le recupereaza.
+- **Blocare**: d2 doborat -> d3 izolat; deblocare -> d3 ajunge iar; blocarea
+  unei frunze nu rupe restul.
+- **Stochastic**: livrare partiala pe lant lung (0 < rata < 1).
+- **Determinism**: aceeasi topologie -> aceleasi rute.
 
-### 5.2 Sub ROS — stratul mesh peste roi
-```bash
-# un mesh_node per drona (d1..d4) + unul pentru GCS
-ros2 launch mesh_plugin mesh_plugins.launch.py
+Rezultat tipic (urban_rubble): STEA livreaza ~78% din pachete, MESH 100%
+(+28%); la final stea ajunge la 2/4 drone, mesh la 4/4 (recupereaza d3, d4).
 
-# un singur nod, pentru depanare
-ros2 run mesh_plugin mesh_node --ros-args -p id:=d3 -p gcs:=GCS \
-    -p pose_topic:=/sar/pose/d3
+Learnings (capcane platite):
+- **Calibrarea razei conteaza.** Multi-hop-ul e relevant doar cand raza radio
+  e mica fata de imprastierea roiului. Pe `open_field` (raza ~300 m) dronele
+  raman in raza directa -> mesh = stea (corect, nu un bug). Pe `urban_rubble`
+  (raza ~70 m) multi-hop-ul devine esential -- exact mediul SAR greu.
+- **Cheia muchiei trebuie sortata consecvent.** Stocarea muchiei cu o ordine
+  si cautarea cu alta (lexicografica) da ETX=inf fals pe unele muchii -> rute
+  gresite doar in modul stochastic. Cheie mereu `(a,b) cu a<b`.
 
-# inspecteaza rutarea live
-ros2 topic echo /mesh/route/d3
-ros2 topic echo /mesh/beacon
-```
+---
 
-### 5.3 Integrare in roi (transport de telemetrie prin mesh)
-Cu `ingest:=true`, fiecare drona isi impacheteaza telemetria proprie
-(`/sar/telemetry/<id>`) si o trimite multi-hop spre GCS, care o republica pe
-`egress_topic` (`/sar/telemetry`) pentru consumatorii existenti
-(`coverage_node`, dashboard). Telemetria unei drone fara legatura directa
-ajunge astfel la GCS prin relee:
+## 6. Documentatie tehnica
 
-```bash
-ros2 launch mesh_plugin mesh_plugins.launch.py ingest:=true \
-    ingest_prefix:=/sar/telemetry/ egress_topic:=/sar/telemetry
-```
+### ETX si rutarea
 
-Precizare: aceasta presupune ca `drone_node` publica telemetria pe topic-uri
-per-drona (`/sar/telemetry/<id>`). Remaparea completa a roiului este pasul de
-integrare descris la sectiunea 8.
+ETX (Expected Transmission Count) estimeaza cate transmisii sunt necesare ca un
+pachet sa ajunga cu succes pe o legatura: `ETX = 1/(PDR_fwd * PDR_rev)`. Pe un
+drum multi-hop, costul total e suma ETX-urilor muchiilor. Dijkstra alege drumul
+de cost minim spre GCS. Spre deosebire de hop-count (care ignora calitatea
+linkului), ETX prefera drumuri cu legaturi bune chiar daca au mai multe hopuri
+-- standardul in mesh-urile reale (OLSR-LQ, Babel).
 
-## 6. Topicuri (JSON pe std_msgs/String)
+### Relay dirijat (nu flooding)
 
-```
-publica:  /mesh/beacon       {id, x, y, t, seq}
-          /mesh/relay        {src, dst, seq, ttl, next, path, payload?}
-          /mesh/route/<id>   {next, hops, etx, path, reachable}
-          <egress_topic>     (doar GCS) telemetria livrata, repusa in circuit
-asculta:  /mesh/beacon       (de la toate dronele)
-          /mesh/relay        (proceseaza doar ce ii e adresat: next == id)
-          <pose_topic>       pozitia proprie (daca nu are pozitie statica)
-          <ingest_topic>     (daca ingest=true) telemetria proprie a dronei
-```
+Fiecare pachet poarta `next` = next-hop-ul calculat de emitator. La receptie, un
+nod il proceseaza DOAR daca `next == id_propriu`; altfel il ignora. Asta evita
+furtuna de broadcast a flooding-ului. Nodul care preia: deduplica pe (src,seq),
+decrementeaza TTL, recalculeaza propriul next-hop (topologia se poate fi
+schimbat intre timp -- robust la mobilitate) si forwardeaza.
 
-## 7. Experimente si metrici
+### Blocarea unei drone (demonstratia ceruta)
 
-### 7.1 Reachability (stea vs mesh)
-`python3 sil_mesh.py` — un lant de drone care se intinde dincolo de raza
-directa a GCS. Metrica: numarul de noduri conectate la GCS in timp.
-Rezultat tipic: **mesh 4/4 vs stea 1/4** (castig mediu ~2.5 noduri).
+`block_node(id)` scoate un nod din retea (drona doborata / radio mort): toate
+muchiile lui dispar, rutele se recalculeaza. Daca nodul era un RELEU critic,
+nodurile din spatele lui devin izolate (vizibil in `mesh_vs_star`); daca era o
+frunza, restul retelei nu e afectat. Asta e demonstratia live: blochezi o drona
+si vezi pe harta cum multi-hop-ul fie gaseste alt drum, fie raporteaza ce a
+ramas izolat.
 
-### 7.2 Misiune (acoperire + victime)
-`python3 sil_mesh_mission.py` — cautare in adancime a unui coridor, 4 drone
-esalonate pe zone, lant de relee. Acoperirea se crediteaza la GCS **doar din
-telemetria livrata** (ca in sistemul real). Metrici: % acoperire creditata si
-victime raportate, stea vs mesh vs plafon fizic.
+### Limite oneste
 
-Rezultat (prag de creditare PDR >= 0.30):
-
-| Metrica | Stea | Mesh | Plafon fizic |
-|---------|------|------|--------------|
-| Acoperire creditata | 41% | **84%** | 84% |
-| Victime raportate | 2/5 | **5/5** | 5/5 |
-
-Figura `docs/sil_mesh_mission.png`: jumatatea adanca a coridorului e creditata
-DOAR datorita releului multi-hop, iar victimele din adancime ajung la GCS doar
-prin mesh. Aceasta este figura de rezultat propusa pentru un articol.
-
-## 8. Reproducere
-
-```bash
-cd ~/ros2_ws/src/mesh_plugin/mesh_plugin
-python3 mesh_core.py            # 21/21 verificari (determinist)
-python3 sil_mesh.py             # regenereaza figurile de reachability
-python3 sil_mesh_mission.py     # regenereaza figura de misiune
-```
-Parametrii scenariului (raza radio, adancimea zonelor, pragul de creditare)
-sunt constante in capul fisierelor SIL; modelul radio implicit da o raza utila
-de rutare de ~25 m, calibrata pentru un mediu cu obstacole.
-
-## 9. Limite (threats to validity)
-
-- **Cuplaj cu pierderea reala**: SIL-ul crediteaza acoperirea cand EXISTA o cale
-  la GCS; presupune livrare odata ce calea exista. Combinarea celor doua
-  straturi (mesh x pierdere/latenta reala a DDS/Zenoh) este pasul urmator.
-- **Compromis acoperire–conectivitate**: castigul mesh depinde de topologie.
-  Cu putine drone sau raza mica, releul recupereaza doar partial — exista o
-  tensiune reala intre imprastierea pentru acoperire si mentinerea lantului.
-- **Model radio i.i.d.**, nu rafale (aceeasi limita ca in campania principala).
-- **Nivel de rutare, nu PHY/MAC**: nu modeleaza coliziuni / congestie pe canalul
-  partajat la multe hopuri; e un strat de rutare, nu un simulator complet.
-
-## 10. Pasi urmatori (daca devine articol)
-
-1. **Integrare in roi** — remaparea telemetriei prin `/mesh/relay`
-   (`drone_node` publica per-drona; GCS republica agregat) si campanie
-   stea-vs-mesh pe scenariile existente, `partition_2v2` in primul rand.
-2. **Metrica de misiune** — cate victime / cat % acoperire recupereaza mesh-ul,
-   pe toate scenariile, cu N=5 repetari (ca in campania C1).
-3. **Cost** — hopurile suplimentare cresc latenta si consumul; de cuantificat
-   compromisul: reachability castigata vs latenta/energie platita (numar mediu
-   de hopuri, ETX cumulat pe cale, transmisii totale).
-
-## 11. Referinte
-
-- D. S. J. De Couto, D. Aguayo, J. Bicket, R. Morris, "A High-Throughput Path
-  Metric for Multi-Hop Wireless Routing," ACM MobiCom, 2003. (metrica ETX)
-- T. Clausen, P. Jacquet, "Optimized Link State Routing Protocol (OLSR),"
-  RFC 3626, 2003.
-- J. Chroboczek, "The Babel Routing Protocol," RFC 6126 / RFC 8966.
-- C. Perkins, E. Belding-Royer, S. Das, "Ad hoc On-Demand Distance Vector
-  (AODV) Routing," RFC 3561, 2003.
+- Modelul radio e simetric (acelasi PDR ambele sensuri) -- ETX real masoara
+  ambele directii separat; aici le aproximam egale (rezonabil in simulare).
+- Rutarea e recalculata global (Dijkstra centralizat) in SIL; un mesh real e
+  distribuit (fiecare nod cu vedere partiala) -- nodul ROS va aproxima asta cu
+  beacon-uri periodice si tabele locale.
+- Livrarea determinista (pe ruta ETX) e folosita pentru reachability curata;
+  modul stochastic (PDR pe fiecare hop) e disponibil pentru analiza de
+  fiabilitate end-to-end.

@@ -1,0 +1,9 @@
+# Caz 5: izolarea completa a dronei d2 intre t=25..60 s
+name: drone_isolation
+duration_s: 150
+store_and_forward: true
+default_link: {base_ms: 50, jitter_ms: 10, loss: 0.05}
+link_overrides: {}
+events:
+  - {t: 25, type: isolate, node: d2}
+  - {t: 60, type: restore_node, node: d2}

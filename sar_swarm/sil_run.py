@@ -58,9 +58,10 @@ def run(scen_path, out_dir):
     ids = ["d1", "d2", "d3", "d4"]
     starts = [(3, 3), (3, 6), (6, 3), (6, 6)]
     drones = {d: SilDrone(d, x, y, world) for d, (x, y) in zip(ids, starts)}
+    _seed = int(os.environ.get("SIL_SEED", "11"))
     ch = Channel(["gcs"] + ids, default=sc["default_link"],
                  overrides=sc["link_overrides"],
-                 store_and_forward=sc["store_and_forward"], seed=11)
+                 store_and_forward=sc["store_and_forward"], seed=_seed)
 
     dlogs = {}
     for d in ids:
@@ -206,9 +207,17 @@ def run(scen_path, out_dir):
                                f"{len(dr.pending_cells)},{dl:.2f}\n")
 
         cov = gcs_map.coverage()
+        # latenta e2e instantanee: media varstei mesajelor livrate la GCS in
+        # ultima fereastra (pentru curba "cat de veche e informatia in timp")
+        e2e_now = 0.0
+        win = [s for k, L in ch.links.items() if "gcs" in k
+               for s in L.lat_samples[-8:]]
+        if win:
+            e2e_now = round(sum(win) / len(win), 1)
         rows.append((round(t, 2), round(cov, 4), len(victims_global),
                      round(cohesion(positions), 3),
-                     sum(1 for d in ids if drones[d].fallback.state != LINKED)))
+                     sum(1 for d in ids if drones[d].fallback.state != LINKED),
+                     e2e_now))
         if done_t is None and cov >= 0.95 and \
                 len(victims_global) == len(world.victims):
             done_t = t
@@ -218,13 +227,42 @@ def run(scen_path, out_dir):
     # ---------- iesiri ----------
     name = os.path.splitext(os.path.basename(scen_path))[0]
     with open(os.path.join(out_dir, f"{name}_metrics.csv"), "w") as f:
-        f.write("t_s,coverage,victims_found,cohesion,drones_in_fallback\n")
+        f.write("t_s,coverage,victims_found,cohesion,drones_in_fallback,"
+                "e2e_telemetry_ms\n")
         for r in rows:
             f.write(",".join(map(str, r)) + "\n")
     for fh in dlogs.values():
         fh.close()
     stats = ch.stats()
     gcs_links = {k: v for k, v in stats.items() if "gcs" in k}
+
+    # --- METRICI E2E TELEMETRIE (latenta informatiei de misiune la GCS) ---
+    # lat_samples per legatura GCS contin varsta fiecarui mesaj LIVRAT
+    # (t_livrare - t_emisie). Le agregam pe toate legaturile catre GCS:
+    # asta e CAT DE VECHE e informatia cand ajunge la operator -- exact axa
+    # Zenoh vs DDS (transport cu latenta mica). Diferit de RTT-ul probe:
+    # masoara fluxul real de telemetrie, nu ping-uri sintetice.
+    e2e_all = sorted(s for v in gcs_links.values() for s in v["lat_samples"])
+
+    def _pct(L, q):
+        return round(L[int(q * (len(L) - 1))], 1) if L else 0.0
+
+    e2e_mean = round(sum(e2e_all) / len(e2e_all), 1) if e2e_all else 0.0
+
+    # --- THROUGHPUT (mesaje de misiune livrate vs oferite) ---
+    sent_gcs = sum(v["sent"] for v in gcs_links.values())
+    deliv_gcs = sum(v["delivered"] for v in gcs_links.values())
+    goodput = round(deliv_gcs / max(1, sent_gcs), 3)   # fractia care AJUNGE
+
+    # --- TIMP IN FALLBACK (cat au fost dronele rupte de GCS, agregat) ---
+    # rows are coloana drones_in_fallback (numarul de drone in avarie la t);
+    # integram pe timp -> drona*secunde petrecute in fallback.
+    if len(rows) > 1:
+        dt_row = rows[1][0] - rows[0][0]
+        fallback_drone_s = round(sum(r[4] for r in rows) * dt_row, 1)
+    else:
+        fallback_drone_s = 0.0
+
     summary = {
         "scenario": sc["name"],
         "mission_time_s": done_t if done_t is not None else sc["duration_s"],
@@ -240,6 +278,15 @@ def run(scen_path, out_dir):
         "loss_measured_gcs": round(
             sum(v["lost"] for v in gcs_links.values())
             / max(1, sum(v["sent"] for v in gcs_links.values())), 3),
+        # metrici e2e NOI (telemetria reala, nu probe):
+        "e2e_telemetry_mean_ms": e2e_mean,
+        "e2e_telemetry_p50_ms": _pct(e2e_all, 0.50),
+        "e2e_telemetry_p95_ms": _pct(e2e_all, 0.95),
+        "goodput_gcs": goodput,                 # livrate / oferite [0..1]
+        "msgs_delivered_gcs": deliv_gcs,
+        "msgs_sent_gcs": sent_gcs,
+        "fallback_drone_s": fallback_drone_s,   # drona*secunde in avarie
+        # RTT probe (pastrate, complementare):
         "rtt_p95_ms": round(
             (lambda L: sorted(L)[int(0.95 * (len(L) - 1))] if L else 0.0)
             ([r[2] for r in rtt_log if r[2] < 5000.0]), 1),

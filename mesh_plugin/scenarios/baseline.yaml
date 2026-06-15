@@ -1,0 +1,7 @@
+# Caz 0: retea nominala (referinta)
+name: baseline
+duration_s: 150
+store_and_forward: true
+default_link: {base_ms: 40, jitter_ms: 8, loss: 0.0}
+link_overrides: {}
+events: []

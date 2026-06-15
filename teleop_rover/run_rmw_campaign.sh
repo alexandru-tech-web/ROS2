@@ -10,6 +10,7 @@
 # Reglaje prin variabile de mediu:
 #   REPS=3 DURATION=70 GOAL_X=8.0 GOAL_Y=3.0 ./run_rmw_campaign.sh
 
+set -u
 RMWS=(zenoh cyclone)
 # conditii: "eticheta lat_ms jit_ms loss" (prefix numeric => sortare corecta in figuri)
 CONDS=(
@@ -22,7 +23,6 @@ REPS=${REPS:-3}
 DURATION=${DURATION:-70}
 GOAL_X=${GOAL_X:-8.0}
 GOAL_Y=${GOAL_Y:-3.0}
-ARRIVE_R=${ARRIVE_R:-1.0}
 
 WS="$HOME/ros2_ws"
 PKG="$WS/src/teleop_rover"
@@ -58,7 +58,7 @@ source "$WS/install/setup.bash" 2>/dev/null || true
 cd "$PKG" || { echo "Nu gasesc $PKG"; exit 1; }
 
 echo "Campanie -> $OUT"
-echo "RMW: ${RMWS[*]} | conditii: ${#CONDS[@]} | repetari: $REPS | durata/rulare: ${DURATION}s | tinta: ($GOAL_X,$GOAL_Y) | arrive_r: ${ARRIVE_R}m"
+echo "RMW: ${RMWS[*]} | conditii: ${#CONDS[@]} | repetari: $REPS | durata/rulare: ${DURATION}s | tinta: ($GOAL_X,$GOAL_Y)"
 echo
 
 for rmw in "${RMWS[@]}"; do
@@ -75,7 +75,6 @@ for rmw in "${RMWS[@]}"; do
       # ruleaza misiunea cu timp limitat; SIGINT ca un Ctrl-C curat
       timeout -s INT "$DURATION" ros2 launch ./launch/teleop_perception.launch.py \
         rmw:="$rmw" goal_source:=waypoint goal_x:="$GOAL_X" goal_y:="$GOAL_Y" \
-        arrive_r:="$ARRIVE_R" \
         lat:="$lat" jit:="$jit" loss:="$loss" \
         > "$dst/launch.log" 2>&1
       if [ -f "$LOG" ]; then
@@ -91,6 +90,6 @@ done
 
 echo
 echo "=== analiza ==="
-python3 analyze_campaign.py --camp "$OUT" --goal "$GOAL_X" "$GOAL_Y" --arrive "$ARRIVE_R"
+python3 analyze_campaign.py --camp "$OUT" --goal "$GOAL_X" "$GOAL_Y"
 echo
 echo "Gata. Figuri + summary.csv in: $OUT"

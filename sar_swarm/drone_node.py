@@ -278,6 +278,7 @@ class DroneNode(Node):
             "k": "telemetry", "id": self.id,
             "pos": [self.kin.x, self.kin.y, self.kin.z],
             "state": self._state_str(),
+            "t": self.get_clock().now().nanoseconds * 1e-9,  # timp emisie (e2e)
             "from": self.cells_base, "cells": self.pending[:600],
             "victims": sorted(self.victims)})
         if self.gcs_up():
