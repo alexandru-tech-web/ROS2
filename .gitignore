@@ -12,3 +12,13 @@ __pycache__/
 .idea/
 *.swp
 teleop_rover/results/
+c1_benchmark/results_c1/
+c1_benchmark/selftest_out/
+c1_benchmark/__pycache__/
+sar_swarm/results/
+mesh_plugin/*.png
+c1_benchmark/results_c1/
+c1_benchmark/selftest_out/
+c1_benchmark/__pycache__/
+sar_swarm/results/
+mesh_plugin/*.png
