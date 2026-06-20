@@ -9,6 +9,7 @@ interfata), nu simulata — de aceea misiunea ruleaza cu scenario:=none.yaml
 diferentele masurate apartin EXCLUSIV middleware-ului (RMW) sub acea retea.
 """
 import csv
+import sys as _sys; csv.field_size_limit(min(_sys.maxsize, 2**31 - 1))
 import io
 
 # RMW-urile comparate (cheia = numele scurt folosit in foldere/figuri)
@@ -22,9 +23,16 @@ CONDITIONS = [
     dict(name="ideal",        base_ms=0,   jitter_ms=0,  loss=0.00),
     dict(name="loss_5",       base_ms=0,   jitter_ms=0,  loss=0.05),
     dict(name="loss_15",      base_ms=0,   jitter_ms=0,  loss=0.15),
+    dict(name="loss_20",      base_ms=0,   jitter_ms=0,  loss=0.20),
+    dict(name="loss_25",      base_ms=0,   jitter_ms=0,  loss=0.25),
     dict(name="loss_30",      base_ms=0,   jitter_ms=0,  loss=0.30),
+    # rafale: pierdere CORELATA, aceeasi medie ca geamanul independent
+    dict(name="loss_20_burst", base_ms=0,   jitter_ms=0,  loss=0.20, corr=0.50),
+    dict(name="loss_25_burst", base_ms=0,   jitter_ms=0,  loss=0.25, corr=0.50),
+    dict(name="loss_30_burst", base_ms=0,   jitter_ms=0,  loss=0.30, corr=0.50),
     dict(name="lat200_jit50", base_ms=200, jitter_ms=50, loss=0.00),
     dict(name="lat200_l15",   base_ms=200, jitter_ms=50, loss=0.15),
+    
 ]
 
 
@@ -48,12 +56,22 @@ def rtt_stats(rtts_ms, sent, received):
             "min_ms": round(s[0], 3), "max_ms": round(s[-1], 3)}
 
 
+#def netem_cmd(iface: str, c: dict) -> str:
+#    """Comanda tc care aplica o conditie (replace = idempotent)."""
+#    return (f"tc qdisc replace dev {iface} root netem "
+#            f"delay {c.get('base_ms', 0)}ms {c.get('jitter_ms', 0)}ms "
+#            f"loss {100 * c.get('loss', 0.0):.1f}%")
+
 def netem_cmd(iface: str, c: dict) -> str:
-    """Comanda tc care aplica o conditie (replace = idempotent)."""
+    """Comanda tc care aplica o conditie (replace = idempotent).
+    Daca 'corr' > 0, pierderea e CORELATA (rafale): netem 'loss p% r%' —
+    aceeasi medie p, dar pierderi grupate temporal (model de fading)."""
+    loss_tok = f"loss {100 * c.get('loss', 0.0):.1f}%"
+    if c.get("corr", 0.0):
+        loss_tok += f" {100 * c['corr']:.1f}%"
     return (f"tc qdisc replace dev {iface} root netem "
             f"delay {c.get('base_ms', 0)}ms {c.get('jitter_ms', 0)}ms "
-            f"loss {100 * c.get('loss', 0.0):.1f}%")
-
+            f"{loss_tok}")
 
 def netem_clear_cmd(iface: str) -> str:
     return f"tc qdisc del dev {iface} root"
