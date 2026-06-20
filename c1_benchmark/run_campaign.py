@@ -46,6 +46,8 @@ def main():
     ap.add_argument("--iface", default="lo")
     ap.add_argument("--reps", type=int, default=5)
     ap.add_argument("--rmws", default="cyclonedds,zenoh")
+    ap.add_argument("--conditions", default=None,
+                    help="lista de conditii rulate (virgula); implicit toate")
     ap.add_argument("--layers", default="transport,mission")
     ap.add_argument("--duration", type=float, default=20.0,
                     help="durata unei rulari de transport per sarcina utila")
@@ -56,8 +58,17 @@ def main():
     a = ap.parse_args()
     rmws = [r.strip() for r in a.rmws.split(",") if r.strip()]
     layers = tuple(l.strip() for l in a.layers.split(","))
-    plan = build_plan(rmws, CONDITIONS, a.reps, layers)
-    print(f"plan: {len(plan)} rulari ({len(rmws)} RMW x {len(CONDITIONS)} "
+    if a.conditions:
+        want = [c.strip() for c in a.conditions.split(",") if c.strip()]
+        known = {c["name"] for c in CONDITIONS}
+        bad = [c for c in want if c not in known]
+        if bad:
+            sys.exit(f"conditii necunoscute: {bad} (stiute: {sorted(known)})")
+        conditions = [c for c in CONDITIONS if c["name"] in want]
+    else:
+        conditions = CONDITIONS
+    plan = build_plan(rmws, conditions, a.reps, layers)
+    print(f"plan: {len(plan)} rulari ({len(rmws)} RMW x {len(conditions)} "
           f"conditii x {a.reps} rep x {len(layers)} straturi)")
 
     router = None

@@ -111,7 +111,8 @@ def analyze(root, outdir):
     ax.set_ylabel(f"RTT p95 [ms] (payload {REF_PAYLOAD} B)")
     ax.set_title("Transport sub degradare reala (tc netem) — "
                  "etichete: pierderea masurata")
-    ax.legend(title="RMW")
+    if ax.get_legend_handles_labels()[0]:
+        ax.legend(title="RMW")
     ax.grid(axis="y", alpha=0.3)
     fig.tight_layout()
     fig.savefig(os.path.join(outdir, "fig_transport.png"), dpi=140)
@@ -137,7 +138,8 @@ def analyze(root, outdir):
     ax.set_ylabel("timp de finalizare a misiunii [s]")
     ax.set_title("Impactul la nivel de misiune (hasurat = plafon, "
                  "misiune neterminata)")
-    ax.legend(title="RMW")
+    if ax.get_legend_handles_labels()[0]:
+        ax.legend(title="RMW")
     ax.grid(axis="y", alpha=0.3)
     fig.tight_layout()
     fig.savefig(os.path.join(outdir, "fig_mission.png"), dpi=140)
@@ -155,7 +157,8 @@ def analyze(root, outdir):
         ax.set_xlabel("RTT [ms]")
         ax.set_ylabel("CDF")
         ax.set_title(f"Distributia RTT — conditia «{pick}»")
-        ax.legend()
+        if ax.get_legend_handles_labels()[0]:
+            ax.legend()
         ax.grid(alpha=0.3)
         fig.tight_layout()
         fig.savefig(os.path.join(outdir, "fig_cdf.png"), dpi=140)

@@ -19,11 +19,14 @@ check(rtt_stats([], 20, 0)["loss"] == 1.0, "zero raspunsuri -> pierdere 100%")
 cmd = netem_cmd("lo", dict(base_ms=200, jitter_ms=50, loss=0.15))
 check(cmd == "tc qdisc replace dev lo root netem delay 200ms 50ms loss 15.0%",
       "comanda tc construita exact")
+check(netem_cmd("lo", dict(base_ms=0, jitter_ms=0, loss=0.25, corr=0.50))
+      == "tc qdisc replace dev lo root netem delay 0ms 0ms loss 25.0% 50.0%",
+      "comanda tc cu pierdere corelata (rafala)")
 check(netem_clear_cmd("eth0") == "tc qdisc del dev eth0 root",
       "comanda de curatare tc")
 
 plan = build_plan(["cyclonedds", "zenoh"], CONDITIONS, reps=5)
-check(len(plan) == 2 * 6 * 5 * 2, "planul: 2 RMW x 6 conditii x 5 rep x 2 straturi")
+check(len(plan) == 2 * len(CONDITIONS) * 5 * 2, "planul: 2 RMW x 6 conditii x 5 rep x 2 straturi")
 check(all(p["needs_router"] == (p["rmw"] == "zenoh") for p in plan),
       "routerul Zenoh cerut doar pentru blocul zenoh")
 check(plan[0]["rmw"] == "cyclonedds" and plan[-1]["rmw"] == "zenoh"

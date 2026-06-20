@@ -1,0 +1,7 @@
+results_c1/
+c1_results*/
+selftest_out/
+stats_out/
+__pycache__/
+venv_pdia/
+*.pyc
