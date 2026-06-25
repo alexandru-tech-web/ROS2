@@ -89,6 +89,21 @@ def main():
     ok(sc.cell_winner(sc.build_cost_cells(lossrows, 1000.0)[("loss_30", 64)]) == "cyclonedds",
        "loss-aware: winner se inverseaza la cyclonedds (pierdere mai mica)")
 
+    print("== 9. obiectiv telemetrie (min timp de misiune din campaign_summary) ==")
+    srows = [
+        {"rmw": "cyclonedds", "condition": "loss_30", "mission_time_s": "120"},
+        {"rmw": "zenoh", "condition": "loss_30", "mission_time_s": "150"},
+        {"rmw": "cyclonedds", "condition": "ideal", "mission_time_s": "100"},
+        {"rmw": "zenoh", "condition": "ideal", "mission_time_s": ""},
+    ]
+    mc = sc.build_mission_cells(srows, ref_payload=4096)
+    ok(mc[("loss_30", 4096)] == {"cyclonedds": 120.0, "zenoh": 150.0},
+       "o celula per conditie la payload de referinta (payload-agnostic)")
+    ok(sc.cell_winner(mc[("loss_30", 4096)]) == "cyclonedds",
+       "telemetrie: castiga timpul de misiune mai mic")
+    ok("zenoh" not in mc[("ideal", 4096)],
+       "randul cu mission_time_s gol (cenzurat) e sarit")
+
     print("\nTOATE TESTELE SELECTOR_CORE AU TRECUT: %d verificari." % N)
 
 

@@ -26,14 +26,19 @@ RMWS = ("cyclonedds", "zenoh")
 
 # Parametrii netem REALI codati in numele conditiei: (loss %, latenta ms, jitter ms).
 COND_NETEM = {
-    "ideal":        (0.0,   0.0,  0.0),
-    "loss_5":       (5.0,   0.0,  0.0),
-    "loss_15":      (15.0,  0.0,  0.0),
-    "loss_20":      (20.0,  0.0,  0.0),
-    "loss_25":      (25.0,  0.0,  0.0),
-    "loss_30":      (30.0,  0.0,  0.0),
-    "lat200_jit50": (0.0, 200.0, 50.0),
-    "lat200_l15":   (15.0, 200.0,  0.0),
+    "ideal":         (0.0,   0.0,  0.0),
+    "loss_5":        (5.0,   0.0,  0.0),
+    "loss_15":       (15.0,  0.0,  0.0),
+    "loss_20":       (20.0,  0.0,  0.0),
+    "loss_25":       (25.0,  0.0,  0.0),
+    "loss_30":       (30.0,  0.0,  0.0),
+    # variante 'burst' = aceeasi pierdere, cu corelatie (rafale). Burstiness NU e inca un
+    # feature -> au aceleasi (loss, lat, jit) ca varianta de baza (TODO: feature de corelatie).
+    "loss_20_burst": (20.0,  0.0,  0.0),
+    "loss_25_burst": (25.0,  0.0,  0.0),
+    "loss_30_burst": (30.0,  0.0,  0.0),
+    "lat200_jit50":  (0.0, 200.0, 50.0),
+    "lat200_l15":    (15.0, 200.0,  0.0),
 }
 
 
@@ -116,6 +121,24 @@ def build_cost_cells(rows, penalty_ms, rtt_metric="rtt_p95_ms", loss_metric="los
         cond, pl, rmw = key
         loss_frac = agg(loss_acc[key]) / 100.0
         cells.setdefault((cond, pl), {})[rmw] = loss_aware_cost(agg(rtts), loss_frac, penalty_ms)
+    return cells
+
+
+def build_mission_cells(rows, ref_payload=4096, metric="mission_time_s"):
+    """Celule pentru obiectivul TELEMETRIE (min timp de misiune).
+
+    rows = dict-uri tip campaign_summary.csv (chei: rmw, condition, <metric>).
+    Misiunea e payload-agnostica -> o cheie per conditie, la payload-ul de referinta
+    (feature inert), ca masinaria de selector (cell_winner / regret / loco_folds /
+    evaluate_selector / nn_predict) sa mearga neatins. Randurile cu <metric> gol
+    (misiune neterminata / cenzurata) sunt sarite -- apelantul le raporteaza.
+    """
+    cells = {}
+    for r in rows:
+        v = r.get(metric, "")
+        if v in ("", None):
+            continue
+        cells.setdefault((r["condition"], ref_payload), {})[r["rmw"]] = float(v)
     return cells
 
 
@@ -271,6 +294,18 @@ def _selftest():
     assert cell_winner(build_cells(lossrows)[("loss_30", 64)]) == "zenoh"
     # loss-aware (D=1000): cyclonedds castiga (280 < 604) -- winner-ul se INVERSEAZA
     assert cell_winner(build_cost_cells(lossrows, 1000.0)[("loss_30", 64)]) == "cyclonedds"
+
+    # obiectiv telemetrie (min timp de misiune) din randuri tip campaign_summary
+    srows = [
+        {"rmw": "cyclonedds", "condition": "loss_30", "mission_time_s": "120"},
+        {"rmw": "zenoh", "condition": "loss_30", "mission_time_s": "150"},
+        {"rmw": "cyclonedds", "condition": "ideal", "mission_time_s": "100"},
+        {"rmw": "zenoh", "condition": "ideal", "mission_time_s": ""},   # cenzurat -> sarit
+    ]
+    mc = build_mission_cells(srows, ref_payload=4096)
+    assert mc[("loss_30", 4096)] == {"cyclonedds": 120.0, "zenoh": 150.0}
+    assert cell_winner(mc[("loss_30", 4096)]) == "cyclonedds"          # timp mai mic castiga
+    assert "zenoh" not in mc[("ideal", 4096)]                          # randul gol a fost sarit
 
     print("TOATE VERIFICARILE selector_core AU TRECUT")
 
