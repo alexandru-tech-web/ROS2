@@ -1,6 +1,6 @@
 # Contributii la dezvoltarea sistemelor robotice prin controlul de la distanta in timp real
 
-Depozit de cercetare doctorala — IMSAR. Cod, protocoale experimentale si date sintetice
+Depozit de cercetare doctorala -- IMSAR. Cod, protocoale experimentale si date sintetice
 pentru evaluarea middleware-ului ROS 2 (`rmw_zenoh` vs. `rmw_cyclonedds_cpp`) in conditii
 de retea degradata, cu aplicatie in robotica Search and Rescue (SAR) si tele-reabilitare.
 
@@ -12,7 +12,7 @@ Studiile comparative existente asupra protocoalelor pub/sub (Zenoh, DDS, MQTT, K
 raporteaza performanta exclusiv in conditii ideale de retea [1]. Prezentul depozit
 operationalizeaza evaluarea in regimuri degradate realiste pentru misiuni SAR
 (pierdere de pachete, latenta, jitter, combinatii), pe doua straturi de masura:
-(i) stratul de transport — microbenchmark RTT pe ecou; (ii) stratul de misiune —
+(i) stratul de transport -- microbenchmark RTT pe ecou; (ii) stratul de misiune --
 roi de drone simulat cu metrici operationale (timp de finalizare, acoperire).
 Suplimentar, depozitul contine emulatorul software al unui banc fizic cu sase
 servomotoare ABB cuplate in perechi (trei articulatii), destinat validarii hardware
@@ -85,10 +85,10 @@ Fiecare nume trimite la README-ul pachetului.
 | [`joint_emulator`](joint_emulator/README.md) | script | bancul cu 6 servomotoare: impedanta, encodere, vizualizare | 34 |
 | [`teleop_rover`](teleop_rover/README.md) | script | roverul teleoperat: link degradat, pilot/manual, perceptie + go-to-goal | 22 + SIL |
 | [`rehab_exo_description`](rehab_exo_description/README.md) | ament | exoscheletul de reabilitare (URDF, launch, failsafe) | tag `rehab-v0.3.0` |
-| [`servo_control`](servo_control/README.md) | ament | demonstratorul istoric: motor Gazebo cu comanda tastatura | — |
+| [`servo_control`](servo_control/README.md) | ament | demonstratorul istoric: motor Gazebo cu comanda tastatura | -- |
 | [`curs_ros2`](curs_ros2/README.md) | ament | exercitii de curs ROS 2 (14 module) | test/ (lint + logica) |
-| [`curs_ros2_interfaces`](curs_ros2_interfaces/README.md) | ament | interfete custom (msg/srv/action) pentru curs | — |
-| [`gen_articol`](gen_articol/README.md) | script | generator de schelete de articole stiintifice (LaTeX) | — |
+| [`curs_ros2_interfaces`](curs_ros2_interfaces/README.md) | ament | interfete custom (msg/srv/action) pentru curs | -- |
+| [`gen_articol`](gen_articol/README.md) | script | generator de schelete de articole stiintifice (LaTeX) | -- |
 
 ## 4. Metodologia experimentala
 
@@ -146,19 +146,29 @@ cd ~/ros2_ws/src && ./smoke_all.sh
 
 ## 8. Rezultate sintetice (campania C1)
 
-| Conditie | p95 DDS [ms] | p95 Zenoh [ms] | pierdere DDS | pierdere Zenoh |
-|----------|--------------|----------------|--------------|----------------|
-| ideal | 1.5 | 1.7 | 0.0% | 0.0% |
-| loss_15 | 1060 | 758 | 1.1% | 25.3% |
-| lat200_l15 | 2540 | 2463 | 45.6% | 14.9% |
+Cifre din campania curata peer-to-peer (mediu curat inainte de fiecare rulare), N=10
+(9 pentru zenoh/loss_30), payload 4096 B; sursa: `c1_benchmark/NOTA_METODOLOGICA_C1.md`.
+p95 RTT in ms, CV = std/medie:
 
-Observatia centrala: sub conditia combinata latenta+pierdere (cea mai apropiata de o
-legatura reala de dezastru), la coada de latenta egala, CycloneDDS pierde de trei ori
-mai multe esantioane decat Zenoh. La nivel de misiune diferentele se comprima
-(116–151 s pentru ambele), ceea ce sustine necesitatea masurarii pe ambele straturi.
-In domeniul tele-impedantei, simularea demonstreaza ca amortizarea pe viteza
-intarziata destabilizeaza bucla de la ~10–20 ms; solutia validata este amortizarea
-locala cu rigiditate adaptiva transmisa prin legatura (pasiva pana la 120 ms).
+| Conditie | p95 DDS [ms] | CV DDS | p95 Zenoh [ms] | CV Zenoh | pierdere DDS | pierdere Zenoh |
+|----------|--------------|--------|----------------|----------|--------------|----------------|
+| loss_15    | 1019 | 10% | 560  | 23%  | 1.4%  | 8.5%  |
+| loss_25    | 2145 | 3%  | 5392 | 100% | 26.5% | 34.1% |
+| loss_30    | 2317 | 2%  | 8709 | 63%  | 41.0% | 57.8% |
+| lat200_l15 | 2548 | 1%  | 3893 | 49%  | 36.0% | 20.8% |
+
+Observatia centrala (loopback): CycloneDDS are latenta de coada mare dar PREDICTIBILA
+(CV sub 20%, monotona cu pierderea), pe cand Zenoh are latenta mare SI imprevizibila
+(CV 50-100%; la loss_25, variatie de un ordin de marime intre rulari identice). Pentru
+teleoperare in timp real, unde conteaza predictibilitatea, CycloneDDS este net preferabil
+pe loopback. Versiunea initiala arata Zenoh aparent imun la pierdere mica -- artefact de
+stare reziduala, care NU se foloseste. Comparatia autoritara necesita HIL pe doua masini
+fizice. Conditiile `ideal` / `loss_5` / `lat200_jit50` nu au inca cifre consolidate
+(TODO: de completat din campania reala).
+
+In domeniul tele-impedantei, simularea demonstreaza ca amortizarea pe viteza intarziata
+destabilizeaza bucla de la ~10-20 ms; solutia validata este amortizarea locala cu
+rigiditate adaptiva transmisa prin legatura (pasiva pana la 120 ms).
 
 ## 9. Pornirea rapida a fiecarei aplicatii
 
