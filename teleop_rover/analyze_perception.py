@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""analyze_perception.py — metricile de teza pentru navigarea go-to-goal sub
-percepție, comparand RMW-uri (ex. Zenoh vs Cyclone).
+"""analyze_perception.py -- metricile de teza pentru navigarea go-to-goal sub
+perceptie, comparand RMW-uri (ex. Zenoh vs Cyclone).
 
 Pentru fiecare rulare (un director cu robot_log.csv [+ detections.csv]) calculeaza:
   - timp-pana-la-tinta   : prima clipa cand roverul intra in raza de sosire;
@@ -97,8 +97,8 @@ def main():
         m = metrics(load_traj(d), load_dets(d), goal, a.arrive_r)
         runs.append((label, load_traj(d), m))
         tg = f"{m['t_goal']:.1f} s" if m["t_goal"] is not None else "ATINS NU"
-        fn = f"{m['final']:.2f} m" if m["final"] is not None else "—"
-        lc = f"{m['loc_err']:.2f} m" if m["loc_err"] is not None else "—"
+        fn = f"{m['final']:.2f} m" if m["final"] is not None else "-"
+        lc = f"{m['loc_err']:.2f} m" if m["loc_err"] is not None else "-"
         print(f"{label:12} {tg:>12} {fn:>12} {lc:>12} {m['n_det']:>10}")
 
     import matplotlib
@@ -106,8 +106,8 @@ def main():
     import matplotlib.pyplot as plt
     os.makedirs(os.path.dirname(a.out) or ".", exist_ok=True)
     fig, ax = plt.subplots(1, 2, figsize=(12, 4.6))
-    fig.suptitle("Navigare go-to-goal sub percepție — comparatie RMW",
-                 fontweight="bold")
+    fig.suptitle("Navigare go-to-goal sub perceptie -- comparatie RMW",
+                 fontweight="bold", fontsize=12)
     # stanga: traiectoriile + tinta + obiectele
     for label, traj, _ in runs:
         if traj:
@@ -116,7 +116,10 @@ def main():
     ax[0].plot([goal[0]], [goal[1]], "*", ms=16, color="#c0392b", label="tinta")
     for o in OBJECTS:
         ax[0].plot(*o["xy"], "s", ms=7, color="#888")
-    ax[0].set_aspect("equal"); ax[0].grid(alpha=0.3); ax[0].legend()
+    ax[0].set_aspect("equal")
+    ax[0].set_xlabel("x [m]", fontsize=11); ax[0].set_ylabel("y [m]", fontsize=11)
+    ax[0].grid(linestyle=":", linewidth=0.5, alpha=0.6); ax[0].set_axisbelow(True)
+    ax[0].legend(fontsize=9)
     ax[0].set_title("traiectorii catre tinta")
     # dreapta: bare cu timp-pana-la-tinta si distanta finala
     labels = [r[0] for r in runs]
@@ -128,10 +131,15 @@ def main():
     ax[1].bar([i + 0.2 for i in xpos], fn, 0.4, label="dist finala [m]",
               color="#d8702e")
     ax[1].set_xticks(list(xpos)); ax[1].set_xticklabels(labels)
-    ax[1].grid(alpha=0.3, axis="y"); ax[1].legend()
+    ax[1].set_ylabel("timp [s] / distanta [m]", fontsize=11)
+    ax[1].grid(linestyle=":", linewidth=0.5, alpha=0.6, axis="y"); ax[1].set_axisbelow(True)
+    ax[1].legend(fontsize=9)
     ax[1].set_title("metrici per RMW")
-    fig.tight_layout(); fig.savefig(a.out, dpi=130)
-    print(f"\n[ok] figura: {a.out}")
+    stem = os.path.splitext(a.out)[0]
+    fig.tight_layout()
+    for ext in ("png", "pdf"):
+        fig.savefig(stem + "." + ext, dpi=200)
+    print(f"\n[ok] figura: {stem}.{{png,pdf}}")
 
 
 if __name__ == "__main__":
