@@ -1,19 +1,27 @@
 #!/usr/bin/env python3
-"""run_campaign.py — ORCHESTRATORUL campaniei C1: ruleaza intreaga matrice
+"""run_campaign.py -- ORCHESTRATORUL campaniei C1: ruleaza intreaga matrice
 RMW x conditie x repetitii, pe doua straturi de masurare, si organizeaza
 rezultatele pentru analyze_campaign.py.
 
   stratul "transport": bench_echo_server + bench_client (RTT brut + rezumat)
   stratul "mission":   misiunea SAR reala (sar_swarm) cu scenario:=none.yaml
-                       — singura degradare e tc netem (REALA), deci
+                       -- singura degradare e tc netem (REALA), deci
                        diferentele masurate apartin middleware-ului.
 
-Rulare (repetitia generala pe o masina, prin lo):
-  sudo -v && python3 run_campaign.py --iface lo --reps 5
+Mod SIL vs HIL (--mode):
+  sil (implicit): tot pe o masina, prin loopback (--iface lo); ecoul/misiunea
+                  sunt pornite local.
+  hil           : ecoul/misiunea ruleaza pe a DOUA masina (PC + RPi); acest script
+                  ruleaza doar clientul si aplica netem pe interfata reala. Schema de
+                  date e IDENTICA -> analyze_campaign / selectorul ingera datele HIL
+                  fara modificari de cod. Procedura completa: HIL_RUNBOOK.md.
+
+Rulare SIL (pe o masina, prin lo):
+  sudo -v && python3 run_campaign.py --mode sil --iface lo --reps 5
+Rulare HIL (pe masina-client; ecoul pornit pe masina 2 -- vezi HIL_RUNBOOK.md):
+  sudo -v && python3 run_campaign.py --mode hil --iface <interfata reala> --reps 5
 Vezi planul fara sa rulezi nimic:
   python3 run_campaign.py --dry
-Pe doua masini: --iface <interfata reala>, ecoul/misiunea pe masina a doua
-(protocolul pas-cu-pas: paper/experimental_protocol.md).
 
 Rezultate: results_c1/{rmw}/{conditie}/rep{N}/
   transport_p{P}.csv + _summary.json   (per dimensiune de sarcina utila)
@@ -32,7 +40,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from bench_core import CONDITIONS, build_plan, netem_cmd, netem_clear_cmd
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-PAYLOADS = [64, 4096, 65536]          # B: comanda / telemetrie / hartă
+PAYLOADS = [64, 4096, 65536]          # B: comanda / telemetrie / harta
 
 
 def sh(cmd, dry, **kw):
@@ -44,6 +52,9 @@ def sh(cmd, dry, **kw):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--iface", default="lo")
+    ap.add_argument("--mode", choices=["sil", "hil"], default="sil",
+                    help="sil = tot pe o masina (loopback); "
+                         "hil = ecoul/misiunea pe a doua masina (vezi HIL_RUNBOOK.md)")
     ap.add_argument("--reps", type=int, default=5)
     ap.add_argument("--rmws", default="cyclonedds,zenoh")
     ap.add_argument("--conditions", default=None,
@@ -70,6 +81,11 @@ def main():
     plan = build_plan(rmws, conditions, a.reps, layers)
     print(f"plan: {len(plan)} rulari ({len(rmws)} RMW x {len(conditions)} "
           f"conditii x {a.reps} rep x {len(layers)} straturi)")
+    loc = "loopback, o masina" if a.mode == "sil" else "doua masini -- ecoul/misiunea pe masina 2"
+    print(f"mod: {a.mode.upper()}  iface: {a.iface}  ({loc})")
+    if a.mode == "hil":
+        print("[hil] ASIGURA-TE ca ecoul ruleaza pe masina a 2-a inainte sa pornesti "
+              "(vezi HIL_RUNBOOK.md)")
 
     router = None
     cur_rmw = None
@@ -91,7 +107,7 @@ def main():
             # WATCHDOG: daca routerul a murit intre rulari, il repornim
             if (p["needs_router"] and router is not None
                     and router.poll() is not None):
-                print("[!] routerul Zenoh a murit — il repornesc")
+                print("[!] routerul Zenoh a murit -- il repornesc")
                 cur_rmw = None
             # routerul Zenoh: o singura instanta per bloc RMW
             if p["rmw"] != cur_rmw:
@@ -112,24 +128,33 @@ def main():
             if p["layer"] == "transport":
                 for pay in PAYLOADS:
                     if a.dry:
-                        print(f"[dry] echo + client payload={pay} "
+                        srv = "echo local + " if a.mode == "sil" else "echo REMOTE (masina 2) + "
+                        print(f"[dry] {srv}client payload={pay} "
                               f"durata={a.duration}s -> {outdir}")
                         continue
-                    echo = subprocess.Popen(
-                        ["python3", os.path.join(HERE, "bench_echo_server.py")],
-                        env=env, preexec_fn=os.setsid,
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL)
-                    time.sleep(1.5)
+                    # SIL: pornim ecoul local. HIL: ecoul ruleaza pe masina 2.
+                    echo = None
+                    if a.mode == "sil":
+                        echo = subprocess.Popen(
+                            ["python3", os.path.join(HERE, "bench_echo_server.py")],
+                            env=env, preexec_fn=os.setsid,
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL)
+                        time.sleep(1.5)
                     sh(["python3", os.path.join(HERE, "bench_client.py"),
                         "--payload", str(pay), "--duration", str(a.duration),
                         "--out", os.path.join(outdir,
                                               f"transport_p{pay}.csv")],
                        a.dry, env=env)
-                    os.killpg(os.getpgid(echo.pid), signal.SIGTERM)
-                    time.sleep(0.5)
+                    if echo is not None:
+                        os.killpg(os.getpgid(echo.pid), signal.SIGTERM)
+                        time.sleep(0.5)
 
             elif p["layer"] == "mission":
+                if a.mode == "hil":
+                    print("[hil] strat 'mission' distribuit pe doua masini -- ruleaza-l manual")
+                    print("      conform HIL_RUNBOOK.md (recomandat: incepe cu --layers transport).")
+                    continue
                 launch = os.path.join(a.sar_dir, "launch",
                                       "sar_ros.launch.py")
                 sh(["timeout", str(a.mission_timeout), "ros2", "launch",
