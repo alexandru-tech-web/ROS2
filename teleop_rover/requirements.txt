@@ -1,0 +1,9 @@
+# Dependinte Python externe (pip) pentru teleop_rover.
+# Pachetele ROS 2 (rclpy, *_msgs, launch) vin din mediul ROS.
+# tkinter (panou operator) nu e pip -> sistem: sudo apt install python3-tk
+# pyserial (serial) si opencv-python (cv2) folosite la legatura HW / perceptie.
+matplotlib
+numpy
+opencv-python
+pyserial
+PyYAML

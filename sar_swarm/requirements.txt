@@ -1,0 +1,6 @@
+# Dependinte Python externe (pip) pentru sar_swarm.
+# Pachetele ROS 2 (rclpy, *_msgs, launch) vin din mediul ROS.
+# tkinter (ecranul de misiune) nu e pip -> sistem: sudo apt install python3-tk
+matplotlib
+numpy
+PyYAML

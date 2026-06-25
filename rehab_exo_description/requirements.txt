@@ -1,0 +1,6 @@
+# Dependinte Python externe (pip) pentru rehab_exo_description.
+# Pachetele ROS 2 (rclpy, *_msgs, launch) vin din mediul ROS.
+# tkinter (panou operator / telemetrie) nu e pip -> sistem: sudo apt install python3-tk
+matplotlib
+numpy
+PyYAML

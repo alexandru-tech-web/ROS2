@@ -1,0 +1,6 @@
+# Dependinte Python externe (pip) pentru c1_benchmark.
+# Derivat din import-urile reale; pachetele ROS 2 (rclpy, std_msgs) vin din mediul ROS.
+matplotlib
+numpy
+pandas
+scikit-learn

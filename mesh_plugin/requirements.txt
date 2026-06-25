@@ -1,0 +1,6 @@
+# Dependinte Python externe (pip) pentru mesh_plugin.
+# Pachetele ROS 2 (rclpy, std_msgs, launch) vin din mediul ROS.
+# tkinter (vizualizare) nu e pip -> sistem: sudo apt install python3-tk
+matplotlib
+numpy
+PyYAML

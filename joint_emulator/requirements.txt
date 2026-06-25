@@ -1,0 +1,5 @@
+# Dependinte Python externe (pip) pentru joint_emulator.
+# Pachetele ROS 2 (rclpy, *_msgs, launch) vin din mediul ROS.
+# pymodbus e optional (backend Modbus real); importat doar la rulare pe hardware.
+matplotlib
+pymodbus

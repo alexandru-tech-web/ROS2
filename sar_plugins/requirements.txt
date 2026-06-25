@@ -1,0 +1,4 @@
+# Dependinte Python externe (pip) pentru sar_plugins.
+# Pachetele ROS 2 (rclpy, *_msgs, launch) vin din mediul ROS.
+matplotlib
+numpy

@@ -1,0 +1,3 @@
+# Dependinte Python externe (pip) pentru link_adaptive.
+# Pachetele ROS 2 (rclpy, std_msgs, launch) vin din mediul ROS.
+matplotlib
