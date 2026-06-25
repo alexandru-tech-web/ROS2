@@ -20,6 +20,10 @@ import os
 import sys
 import numpy as np
 import pandas as pd
+
+# PDF reproductibil pe octeti: matplotlib scrie un timestamp in metadatele PDF;
+# il fixam ca regenerarea figurilor sa nu murdareasca git la fiecare rulare.
+os.environ.setdefault("SOURCE_DATE_EPOCH", "1718700000")
 import matplotlib
 matplotlib.use("Agg")  # nu deschide ferestre; salveaza direct in fisiere
 import matplotlib.pyplot as plt
