@@ -1,4 +1,4 @@
-"""Nucleu PUR de logica al cursului — fara ROS, fara efecte secundare.
+"""Nucleu PUR de logica al cursului -- fara ROS, fara efecte secundare.
 
 Aceasta este "regula de aur" a acestui workspace (vezi README-ul repo-ului):
 logica importanta se scrie ca functii pure, se TESTEAZA automat

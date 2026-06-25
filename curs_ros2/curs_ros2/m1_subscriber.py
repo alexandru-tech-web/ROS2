@@ -27,7 +27,7 @@ class SubTemperatura(Node):
         else:
             status = 'CRITIC'
             
-        self.get_logger().info(f'Temperatura: {temperatura}°C  →  {status}')
+        self.get_logger().info(f'Temperatura: {temperatura}degC  ->  {status}')
 
         if status == 'NORMAL':
             alarma = String()          # <-- variabila noua, nu suprascrie msg

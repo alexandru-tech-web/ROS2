@@ -40,7 +40,7 @@ class NodExecutor(Node):
         # sa astepte ca cel curent sa se termine.
         self.grup_lent = ReentrantCallbackGroup()
 
-        # === Timer RAPID (0.5s) — callback SCURT ===
+        # === Timer RAPID (0.5s) -- callback SCURT ===
         # Logheaza un contor; ar trebui sa "bata" de ~2 ori pe secunda, constant.
         self.timer_rapid = self.create_timer(
             0.5,
@@ -48,7 +48,7 @@ class NodExecutor(Node):
             callback_group=self.grup_rapid,
         )
 
-        # === Timer LENT (2.0s) — callback care simuleaza MUNCA GREA ===
+        # === Timer LENT (2.0s) -- callback care simuleaza MUNCA GREA ===
         # time.sleep(3.0) blocheaza firul pe care ruleaza callback-ul timp de 3s.
         # Pe un SingleThreadedExecutor, acest sleep ar bloca INTREG nodul, deci
         # timer-ul rapid ar inceta sa logheze in tot acest interval.

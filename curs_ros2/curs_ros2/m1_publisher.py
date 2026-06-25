@@ -15,7 +15,7 @@ class Publisher(Node):
         msg = Float64()
         msg.data = self.valoare
         self.pub.publish(msg)
-        self.get_logger().info(f'Publicat: {self.valoare}°C')
+        self.get_logger().info(f'Publicat: {self.valoare}degC')
         self.valoare += 0.5  # creste cu 0.5 grade pe secunda
 
 def main():
