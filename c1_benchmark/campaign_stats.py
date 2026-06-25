@@ -408,8 +408,8 @@ def plot_cdf(data, cond, out, boot, alpha):
     lo_x = min(min(za), min(ca)); hi_x = max(percentile(za, 99), percentile(ca, 99))
     grid = [lo_x + (hi_x - lo_x) * i / 200.0 for i in range(201)]
 
-    fig, ax = plt.subplots(figsize=(7.6, 4.6), dpi=130)
-    for xs, name, col in ((ca, "CycloneDDS", "#C0504D"), (za, "Zenoh", "#1C7293")):
+    fig, ax = plt.subplots(figsize=(7.8, 5.0), dpi=200)
+    for xs, name, col in ((ca, "CycloneDDS", "#1f77b4"), (za, "Zenoh", "#9467bd")):
         s = sorted(xs)
         F = [_cdf_at(s, g) for g in grid]
         blo, bhi = cdf_band_bootstrap(xs, grid, B=max(200, boot // 3), alpha=alpha,
@@ -418,12 +418,17 @@ def plot_cdf(data, cond, out, boot, alpha):
         ax.fill_between(grid, [b * 100 for b in blo], [b * 100 for b in bhi],
                         color=col, alpha=0.18, linewidth=0)
     D, p = ks_2samp(za, ca)
-    ax.set_xlabel("RTT [ms]"); ax.set_ylabel("CDF [%]")
-    ax.set_title(f"CDF RTT cu banda de incredere {int((1-alpha)*100)}% -- conditia {cond}\n"
-                 f"KS: D={D:.3f}, p={p:.3g}")
-    ax.grid(alpha=0.3); ax.legend(loc="lower right")
-    path = os.path.join(out, f"fig_cdf_band_{cond}.png")
-    fig.savefig(path, bbox_inches="tight"); print(f"  [figura] {path}")
+    ax.set_xlabel("RTT [ms]", fontsize=11); ax.set_ylabel("CDF [%]", fontsize=11)
+    ax.set_title(f"CDF RTT cu banda de incredere {int((1-alpha)*100)}% -- conditia '{cond}'\n"
+                 f"KS: D={D:.3f}, p={p:.3g}", fontsize=12)
+    ax.grid(linestyle=":", linewidth=0.5, alpha=0.6); ax.set_axisbelow(True)
+    ax.legend(loc="lower right", fontsize=10)
+    fig.subplots_adjust(left=0.10, right=0.97, top=0.86, bottom=0.18)
+    fig.text(0.5, 0.02, f"SIL (loopback); n(CycloneDDS)={len(ca)}, n(Zenoh)={len(za)} "
+             "esantioane RTT brute; banda = bootstrap.", ha="center", va="bottom", fontsize=8.5)
+    for ext in ("png", "pdf"):
+        fig.savefig(os.path.join(out, f"fig_cdf_band_{cond}.{ext}"))
+    print(f"  [figura] {os.path.join(out, 'fig_cdf_band_'+cond)}.{{png,pdf}}")
 
 
 def plot_p95_ci(data, out, boot, alpha):
@@ -436,10 +441,10 @@ def plot_p95_ci(data, out, boot, alpha):
     rng = random.Random(0)
     conds = _sorted_conds({k[1] for k in data})
     rmws = [r for r in ("cyclonedds", "zenoh") if any(k[0] == r for k in data)]
-    cols = {"cyclonedds": "#C0504D", "zenoh": "#1C7293"}
+    cols = {"cyclonedds": "#1f77b4", "zenoh": "#9467bd"}
     x = list(range(len(conds))); w = 0.36
 
-    fig, ax = plt.subplots(figsize=(8.4, 4.6), dpi=130)
+    fig, ax = plt.subplots(figsize=(8.6, 5.0), dpi=200)
     for idx, rmw in enumerate(rmws):
         ys, los, his = [], [], []
         for cond in conds:
@@ -453,13 +458,19 @@ def plot_p95_ci(data, out, boot, alpha):
         ax.bar([xi + off for xi in x], ys, width=w, color=cols.get(rmw, "#888"),
                label=rmw, yerr=[los, his], capsize=3,
                error_kw=dict(ecolor="#333", lw=1))
-    ax.set_xticks(x); ax.set_xticklabels(conds, rotation=20, ha="right")
-    ax.set_ylabel("RTT p95 [ms]")
+    ax.set_xticks(x); ax.set_xticklabels(conds, rotation=20, ha="right", fontsize=10)
+    ax.set_xlabel("conditie de retea (tc netem)", fontsize=11)
+    ax.set_ylabel("RTT p95 [ms]", fontsize=11)
     ax.set_title(f"RTT p95 per conditie cu interval de incredere {int((1-alpha)*100)}% "
-                 f"(bootstrap)")
-    ax.grid(alpha=0.3, axis="y"); ax.legend()
-    path = os.path.join(out, "fig_p95_ci.png")
-    fig.savefig(path, bbox_inches="tight"); print(f"  [figura] {path}")
+                 "(bootstrap)", fontsize=12)
+    ax.grid(axis="y", linestyle=":", linewidth=0.5, alpha=0.6); ax.set_axisbelow(True)
+    ax.legend(title="RMW", fontsize=10)
+    fig.subplots_adjust(left=0.10, right=0.97, top=0.91, bottom=0.22)
+    fig.text(0.5, 0.02, f"SIL (loopback); bare de eroare = CI bootstrap {int((1-alpha)*100)}%.",
+             ha="center", va="bottom", fontsize=8.5)
+    for ext in ("png", "pdf"):
+        fig.savefig(os.path.join(out, f"fig_p95_ci.{ext}"))
+    print(f"  [figura] {os.path.join(out, 'fig_p95_ci')}.{{png,pdf}}")
 
 
 def main():

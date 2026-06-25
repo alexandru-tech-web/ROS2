@@ -54,16 +54,22 @@ for cf in glob.glob(os.path.join(ROOT,"*",COND,"rep*",f"transport_p{PL}.csv")):
         data.setdefault(rmw,[]).extend(vals); detected[rmw]=lab
 if not data: sys.exit(f"[!] niciun transport_p{PL}.csv pentru {COND} sub {ROOT}")
 
-fig, ax = plt.subplots(figsize=(9,5.5))
+fig, ax = plt.subplots(figsize=(9, 5.5))
 for r in sorted(data.keys()):
     v = sorted(data[r]); n = len(v)
     y = [(i+1)/n for i in range(n)]
     ax.plot(v, y, color=COL.get(r), label=f"{r} (n={n})", lw=1.8)
     print(f"  {r}: coloana detectata='{detected[r]}', n={n}, "
           f"min={v[0]:.1f} median={v[n//2]:.1f} max={v[-1]:.1f} ms")
-ax.set_xlabel("RTT [ms]"); ax.set_ylabel("CDF")
-ax.set_title(f"Distributia RTT (CDF) -- conditia {COND}, payload {PL}")
-ax.grid(True, alpha=0.3); ax.legend()
-plt.tight_layout()
-od = os.path.join(ROOT,"analysis"); os.makedirs(od, exist_ok=True)
-out = os.path.join(od,f"fig_cdf_{COND}.png"); plt.savefig(out, dpi=150); print("[ok]", out)
+ax.set_xlabel("RTT [ms]", fontsize=11)
+ax.set_ylabel("probabilitate cumulata (CDF)", fontsize=11)
+ax.set_title(f"Distributia RTT (CDF) -- conditia '{COND}', sarcina utila {PL} B", fontsize=12)
+ax.grid(True, linestyle=":", linewidth=0.5, alpha=0.6); ax.set_axisbelow(True)
+ax.legend(title="RMW", fontsize=10)
+fig.subplots_adjust(left=0.09, right=0.97, top=0.92, bottom=0.18)
+fig.text(0.5, 0.02, f"SIL (loopback); conditia '{COND}'; RTT brut agregat pe repetitii "
+         f"(sarcina utila {PL} B).", ha="center", va="bottom", fontsize=8.5)
+od = os.path.join(ROOT, "analysis"); os.makedirs(od, exist_ok=True)
+for ext in ("png", "pdf"):
+    plt.savefig(os.path.join(od, f"fig_cdf_{COND}.{ext}"), dpi=200)
+print("[ok]", os.path.join(od, f"fig_cdf_{COND}") + ".{png,pdf}")

@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""analyze_campaign.py — din arborele results_c1/ produce TABELUL si
+"""analyze_campaign.py -- din arborele results_c1/ produce TABELUL si
 FIGURILE articolului A1:
 
   campaign_summary.csv        rand per (rmw, conditie): transport + misiune
-  fig_transport.png           RTT p95 per conditie, grupat pe RMW (+pierderea
-                              masurata ca etichete) — Fig. 2 din articol
-  fig_mission.png             timpul de finalizare a misiunii (plafon hasurat)
-                              + acoperirea finala — Fig. 3 din articol
-  fig_cdf.png                 CDF-ul RTT brut la o conditie aleasa — Fig. 4
+  fig_transport.png/.pdf      RTT p95 per conditie, grupat pe RMW (+pierderea
+                              masurata ca etichete) -- Fig. 2 din articol
+  fig_mission.png/.pdf        timpul de finalizare a misiunii (plafon hasurat)
+                              + acoperirea finala -- Fig. 3 din articol
+  fig_cdf.png/.pdf            CDF-ul RTT brut la o conditie aleasa -- Fig. 4
 
 Autotestul (ruleaza AICI, fara ROS): --selftest fabrica un arbore sintetic
 cu schema exacta a campaniei si trece prin tot fluxul -> valideaza analiza
@@ -75,6 +75,15 @@ def mean(xs):
     return sum(xs) / len(xs) if xs else None
 
 
+def _savefig(fig, outdir, name, caption=""):
+    """Salveaza la standard academic: caption SIL sub axe, iesire .png + .pdf, DPI 200."""
+    fig.subplots_adjust(left=0.10, right=0.97, top=0.91, bottom=0.27 if caption else 0.14)
+    if caption:
+        fig.text(0.5, 0.04, caption, ha="center", va="bottom", fontsize=8.5)
+    for ext in ("png", "pdf"):
+        fig.savefig(os.path.join(outdir, name + "." + ext), dpi=200)
+
+
 def analyze(root, outdir):
     data = collect(root)
     rmws = sorted({k[0] for k in data})
@@ -92,8 +101,10 @@ def analyze(root, outdir):
                     f"{len(done)}/{len(e['done']) or 0},"
                     f"{mean(e['cov']) or '':}\n")
 
-    # Fig. 2 — transportul
-    fig, ax = plt.subplots(figsize=(9, 4.2))
+    nrep = max([len(e["loss"]) for e in data.values()] or [0])
+
+    # Fig. 2 -- transportul
+    fig, ax = plt.subplots(figsize=(9, 5.0))
     w = 0.8 / max(1, len(rmws))
     for j, rmw in enumerate(rmws):
         xs, ys, ls = [], [], []
@@ -102,23 +113,27 @@ def analyze(root, outdir):
             xs.append(i + j * w)
             ys.append(mean(e.get("t", [])) or 0)
             ls.append(mean(e.get("loss", [])) or 0)
-        b = ax.bar(xs, ys, width=w, label=rmw, color=COL.get(rmw, "#888"))
+        b = ax.bar(xs, ys, width=w, label=rmw, color=COL.get(rmw, "#888"),
+                   edgecolor="black", linewidth=0.5)
         for r, l in zip(b, ls):
             ax.text(r.get_x() + r.get_width() / 2, r.get_height(),
                     f"{100 * l:.0f}%", ha="center", va="bottom", fontsize=8)
     ax.set_xticks([i + w * (len(rmws) - 1) / 2 for i in range(len(conds))],
-                  conds, rotation=15)
-    ax.set_ylabel(f"RTT p95 [ms] (payload {REF_PAYLOAD} B)")
-    ax.set_title("Transport sub degradare reala (tc netem) — "
-                 "etichete: pierderea masurata")
+                  conds, rotation=15, fontsize=10)
+    ax.set_xlabel("conditie de retea (tc netem)", fontsize=11)
+    ax.set_ylabel(f"RTT p95 [ms] (sarcina utila {REF_PAYLOAD} B)", fontsize=11)
+    ax.set_title("Transport sub degradare (tc netem); "
+                 "etichete = pierderea medie masurata", fontsize=12)
     if ax.get_legend_handles_labels()[0]:
-        ax.legend(title="RMW")
-    ax.grid(axis="y", alpha=0.3)
-    fig.tight_layout()
-    fig.savefig(os.path.join(outdir, "fig_transport.png"), dpi=140)
+        ax.legend(title="RMW", fontsize=10)
+    ax.grid(axis="y", linestyle=":", linewidth=0.5, alpha=0.6)
+    ax.set_axisbelow(True)
+    _savefig(fig, outdir, "fig_transport",
+             "SIL (loopback); N=%d repetitii; %d conditii netem; sarcina utila %d B."
+             % (nrep, len(conds), REF_PAYLOAD))
 
-    # Fig. 3 — misiunea
-    fig, ax = plt.subplots(figsize=(9, 4.2))
+    # Fig. 3 -- misiunea
+    fig, ax = plt.subplots(figsize=(9, 5.0))
     for j, rmw in enumerate(rmws):
         xs, ys, hatch = [], [], []
         for i, c in enumerate(conds):
@@ -127,41 +142,46 @@ def analyze(root, outdir):
             xs.append(i + j * w)
             ys.append(mean(done) if done else MISSION_CAP)
             hatch.append(not done and bool(e.get("done")))
-        bars = ax.bar(xs, ys, width=w, label=rmw, color=COL.get(rmw, "#888"))
+        bars = ax.bar(xs, ys, width=w, label=rmw, color=COL.get(rmw, "#888"),
+                      edgecolor="black", linewidth=0.5)
         for r, h in zip(bars, hatch):
             if h:
                 r.set_hatch("//")
                 r.set_alpha(0.6)
     ax.axhline(MISSION_CAP, ls=":", color="#888")
     ax.set_xticks([i + w * (len(rmws) - 1) / 2 for i in range(len(conds))],
-                  conds, rotation=15)
-    ax.set_ylabel("timp de finalizare a misiunii [s]")
-    ax.set_title("Impactul la nivel de misiune (hasurat = plafon, "
-                 "misiune neterminata)")
+                  conds, rotation=15, fontsize=10)
+    ax.set_xlabel("conditie de retea (tc netem)", fontsize=11)
+    ax.set_ylabel("timp de finalizare a misiunii [s]", fontsize=11)
+    ax.set_title("Impact la nivel de misiune "
+                 "(hasurat = plafon, misiune neterminata)", fontsize=12)
     if ax.get_legend_handles_labels()[0]:
-        ax.legend(title="RMW")
-    ax.grid(axis="y", alpha=0.3)
-    fig.tight_layout()
-    fig.savefig(os.path.join(outdir, "fig_mission.png"), dpi=140)
+        ax.legend(title="RMW", fontsize=10)
+    ax.grid(axis="y", linestyle=":", linewidth=0.5, alpha=0.6)
+    ax.set_axisbelow(True)
+    _savefig(fig, outdir, "fig_mission",
+             "SIL (loopback); N=%d repetitii; %d conditii netem; plafon misiune %.0f s."
+             % (nrep, len(conds), MISSION_CAP))
 
-    # Fig. 4 — CDF la conditia cea mai severa cu date
+    # Fig. 4 -- CDF la conditia cea mai severa cu date
     pick = next((c for c in reversed(conds)
                  if any(data.get((r, c), {}).get("raw") for r in rmws)), None)
     if pick:
-        fig, ax = plt.subplots(figsize=(7, 4))
+        fig, ax = plt.subplots(figsize=(7.2, 5.0))
         for rmw in rmws:
             raw = sorted(data.get((rmw, pick), {}).get("raw", []))
             if raw:
                 ax.plot(raw, [k / len(raw) for k in range(1, len(raw) + 1)],
-                        label=rmw, color=COL.get(rmw, "#888"))
-        ax.set_xlabel("RTT [ms]")
-        ax.set_ylabel("CDF")
-        ax.set_title(f"Distributia RTT — conditia «{pick}»")
+                        label=rmw, color=COL.get(rmw, "#888"), linewidth=1.6)
+        ax.set_xlabel("RTT [ms]", fontsize=11)
+        ax.set_ylabel("probabilitate cumulata (CDF)", fontsize=11)
+        ax.set_title(f"Distributia RTT -- conditia '{pick}'", fontsize=12)
         if ax.get_legend_handles_labels()[0]:
-            ax.legend()
-        ax.grid(alpha=0.3)
-        fig.tight_layout()
-        fig.savefig(os.path.join(outdir, "fig_cdf.png"), dpi=140)
+            ax.legend(title="RMW", fontsize=10)
+        ax.grid(linestyle=":", linewidth=0.5, alpha=0.6)
+        ax.set_axisbelow(True)
+        _savefig(fig, outdir, "fig_cdf",
+                 f"SIL (loopback); conditia '{pick}'; RTT brut agregat pe repetitii.")
     print(f"[ok] rezumat + figuri in {outdir}")
 
 

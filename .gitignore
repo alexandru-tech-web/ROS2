@@ -38,4 +38,4 @@ mesh_plugin/*.png
 
 # artefacte derivate ale selectorului (regenerabile din campanie cu build_selector_dataset.py)
 c1_benchmark/selector_dataset.csv
-c1_benchmark/selector_regret.png
+c1_benchmark/selector_regret.*

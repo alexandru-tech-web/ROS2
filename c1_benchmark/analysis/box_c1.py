@@ -15,7 +15,7 @@ REF = int(sys.argv[2]) if len(sys.argv) > 2 else 4096
 COND_ORDER = ["loss_20", "loss_25", "loss_30"]
 RMW_ORDER = ["cyclonedds", "zenoh"]
 LABELS = {"cyclonedds": "CycloneDDS", "zenoh": "Zenoh"}
-COLORS = {"cyclonedds": "#2c7fb8", "zenoh": "#de2d26"}
+COLORS = {"cyclonedds": "#1f77b4", "zenoh": "#9467bd"}
 
 def collect(rmw, cond):
     vals = []
@@ -48,18 +48,26 @@ for i, rmw in enumerate(RMW_ORDER):
     ax.plot([], [], color=COLORS[rmw], linewidth=9, alpha=0.75,
             label=LABELS[rmw])
 
-ax.set_xticks(pos)
-ax.set_xticklabels([c.replace("loss_", "") + "%" for c in conds])
-ax.set_xlabel("Pierdere pachete")
-ax.set_ylabel("RTT p95 [ms]")
-ax.set_title("Latenta de coada (p95) per conditie -- CycloneDDS vs Zenoh (N=10)")
-ax.legend(loc="upper left")
-ax.grid(axis="y", alpha=0.3)
-plt.tight_layout()
+nvals = sorted(set(ns.values()))
+nlabel = str(nvals[0]) if len(nvals) == 1 else f"{nvals[0]}..{nvals[-1]}"
 
-out = os.path.join(ROOT, "analysis", "fig_boxplot_p95.png")
-os.makedirs(os.path.dirname(out), exist_ok=True)
-plt.savefig(out, dpi=150)
-print(f"[ok] {out}")
+ax.set_xticks(pos)
+ax.set_xticklabels([c.replace("loss_", "") + "%" for c in conds], fontsize=10)
+ax.set_xlabel("pierdere de pachete (tc netem)", fontsize=11)
+ax.set_ylabel("RTT p95 [ms]", fontsize=11)
+ax.set_title("Latenta de coada (p95) per conditie -- CycloneDDS vs Zenoh", fontsize=12)
+ax.legend(loc="upper left", fontsize=10)
+ax.grid(axis="y", linestyle=":", linewidth=0.5, alpha=0.6)
+ax.set_axisbelow(True)
+fig.subplots_adjust(left=0.10, right=0.97, top=0.91, bottom=0.20)
+fig.text(0.5, 0.02, f"SIL (loopback); N={nlabel} repetitii; sarcina utila {REF} B; "
+         "fiecare cutie = distributia p95 pe repetitii.",
+         ha="center", va="bottom", fontsize=8.5)
+
+od = os.path.join(ROOT, "analysis")
+os.makedirs(od, exist_ok=True)
+for ext in ("png", "pdf"):
+    plt.savefig(os.path.join(od, "fig_boxplot_p95." + ext), dpi=200)
+print(f"[ok] {os.path.join(od, 'fig_boxplot_p95')}.{{png,pdf}}")
 print("N per (rmw, conditie):", {f"{r}/{c}": ns[(r, c)]
                                  for r in RMW_ORDER for c in conds})

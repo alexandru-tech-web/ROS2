@@ -16,6 +16,7 @@ Dependinte:
   pip install numpy pandas scikit-learn matplotlib
 """
 
+import os
 import sys
 import numpy as np
 import pandas as pd
@@ -30,7 +31,9 @@ from sklearn.metrics import r2_score, accuracy_score, confusion_matrix
 # ----------------------------------------------------------------------
 # PARAMETRI FIXATI - identici cu cei din prezentare (NU schimba daca vrei aceleasi cifre)
 # ----------------------------------------------------------------------
-CSV_PATH       = "ml_dataset.csv"   # fisierul cu cele 177 de masuratori
+HERE           = os.path.dirname(os.path.abspath(__file__))
+OUTDIR         = os.path.join(HERE, "Analiza_ML_18.06.2026")  # figurile urmarite ale articolului
+CSV_PATH       = os.path.join(HERE, "ml_dataset.csv")   # cele 177 de masuratori (langa script)
 RANDOM_STATE   = 42                 # samanta pentru split reproductibil
 TEST_SIZE      = 0.30               # 30% holdout pentru test
 RIDGE_LAMBDA   = 1.0                # regularizare L2 (alpha in scikit-learn)
@@ -49,6 +52,19 @@ SEVERITATE = {
 
 # Paleta de culori (identica cu prezentarea)
 NAVY = "#1F2D5A"; GOLD = "#E0A800"; TEAL = "#2C7A7B"; RED = "#C0392B"; GRAY = "#5A6478"
+
+
+def _savefig(fig, name, caption=""):
+    """Salveaza in OUTDIR la standard academic: caption SIL sub axe, .png + .pdf, DPI 200."""
+    os.makedirs(OUTDIR, exist_ok=True)
+    fig.tight_layout(rect=(0, 0.06, 1, 1) if caption else (0, 0, 1, 1))
+    if caption:
+        fig.text(0.5, 0.01, caption, ha="center", va="bottom", fontsize=8)
+    stem = os.path.join(OUTDIR, name)
+    for ext in ("png", "pdf"):
+        fig.savefig(stem + "." + ext, dpi=200)
+    plt.close(fig)
+    print(f"  [salvat] {stem}.{{png,pdf}}")
 
 
 def incarca_date(path):
@@ -116,11 +132,11 @@ def studiu1_regresie(df):
     df_out["rtt_prezis_ms"]  = 10 ** df_out["log_rtt_prezis"]
     df_out[["cond", "payload", "rtt_p95_ms", "log_rtt",
             "log_rtt_prezis", "rtt_prezis_ms"]].to_csv(
-        "predictii_regresie.csv", index=False)
-    print("  [salvat] predictii_regresie.csv")
+        os.path.join(OUTDIR, "predictii_regresie.csv"), index=False)
+    print(f"  [salvat] {os.path.join(OUTDIR, 'predictii_regresie.csv')}")
 
     # ---- FIGURA A: setul de date (severitate vs log10 RTT, colorat pe payload) ----
-    fig, ax = plt.subplots(figsize=(5.6, 4.0))
+    fig, ax = plt.subplots(figsize=(5.8, 4.2))
     rng = np.random.RandomState(3)
     jit = df["severitate"] + rng.uniform(-0.13, 0.13, len(df))
     for pv, lab, col in [(np.log10(64), "64 B", NAVY),
@@ -128,30 +144,34 @@ def studiu1_regresie(df):
                          (np.log10(65536), "64 KB", GOLD)]:
         m = np.abs(df["log_payload"] - pv) < 0.01
         ax.scatter(jit[m], df["log_rtt"][m], s=50, alpha=0.7, color=col,
-                   label=f"payload {lab}", edgecolors="white", linewidth=0.6)
-    ax.set_xlabel("severitate retea (0=ideal ... 3=sever)")
-    ax.set_ylabel("log10(RTT p95)")
-    ax.set_title("177 masuratori reale: latenta creste cu severitatea",
-                 fontsize=11, color=NAVY, weight="bold")
-    ax.set_xticks([0, 1, 2, 3]); ax.legend(fontsize=9); ax.grid(alpha=0.2)
-    plt.tight_layout(); plt.savefig("figA_dataset.png", dpi=150); plt.close()
-    print("  [salvat] figA_dataset.png")
+                   label=f"sarcina utila {lab}", edgecolors="white", linewidth=0.6)
+    ax.set_xlabel("severitatea retelei (0 = ideal ... 3 = sever)", fontsize=11)
+    ax.set_ylabel("log10(RTT p95 [ms])", fontsize=11)
+    ax.set_title("Set de date PDIA: log10(RTT p95) vs severitatea retelei", fontsize=12)
+    ax.set_xticks([0, 1, 2, 3]); ax.legend(fontsize=9)
+    ax.grid(linestyle=":", linewidth=0.5, alpha=0.6); ax.set_axisbelow(True)
+    _savefig(fig, "figA_dataset",
+             f"SIL (loopback); {len(df)} masuratori (ml_dataset.csv); "
+             "severitate ordinala din conditia netem.")
 
     # ---- FIGURA B: predictie vs masuratoare ----
-    fig, ax = plt.subplots(figsize=(5.6, 4.0))
+    fig, ax = plt.subplots(figsize=(5.8, 4.2))
     ax.scatter(y_tr, model.predict(X_tr), c=GRAY, s=40, alpha=0.55,
                label=f"train (R2={r2_tr:.2f})", edgecolors="white", linewidth=0.5)
     ax.scatter(y_te, model.predict(X_te), c=GOLD, s=58, alpha=0.9, marker="D",
                label=f"test (R2={r2_te:.2f})", edgecolors=NAVY, linewidth=0.7)
     lims = [-0.2, 4.5]
     ax.plot(lims, lims, "--", c=NAVY, lw=1.3, label="predictie perfecta")
-    ax.set_xlabel("log10(RTT) masurat"); ax.set_ylabel("log10(RTT) prezis")
-    ax.set_title("Regresie Ridge: model stabil (train ~ test)",
-                 fontsize=11, color=NAVY, weight="bold")
-    ax.legend(fontsize=9, loc="upper left"); ax.grid(alpha=0.2)
+    ax.set_xlabel("log10(RTT p95) masurat", fontsize=11)
+    ax.set_ylabel("log10(RTT p95) prezis", fontsize=11)
+    ax.set_title("Regresie Ridge: predictie vs masuratoare (train/test)", fontsize=12)
+    ax.legend(fontsize=9, loc="upper left")
+    ax.grid(linestyle=":", linewidth=0.5, alpha=0.6); ax.set_axisbelow(True)
     ax.set_xlim(lims); ax.set_ylim(lims)
-    plt.tight_layout(); plt.savefig("figB_regresie.png", dpi=150); plt.close()
-    print("  [salvat] figB_regresie.png")
+    _savefig(fig, "figB_regresie",
+             f"SIL (loopback); regresie Ridge (lambda={RIDGE_LAMBDA:.0f}); "
+             f"split {int((1-TEST_SIZE)*100)}/{int(TEST_SIZE*100)} (seed {RANDOM_STATE}); "
+             f"R2 test={r2_te:.2f}.")
 
     return model
 
@@ -201,11 +221,11 @@ def studiu2_clasificare(df):
     df_out["P_utilizabil"]   = clf.predict_proba(X)[:, 1]
     df_out[["cond", "payload", "rtt_p95_ms",
             "eticheta_reala", "prezis", "P_utilizabil"]].to_csv(
-        "predictii_clasificare.csv", index=False)
-    print("  [salvat] predictii_clasificare.csv")
+        os.path.join(OUTDIR, "predictii_clasificare.csv"), index=False)
+    print(f"  [salvat] {os.path.join(OUTDIR, 'predictii_clasificare.csv')}")
 
     # ---- FIGURA C: frontiera de decizie ----
-    fig, ax = plt.subplots(figsize=(5.6, 4.0))
+    fig, ax = plt.subplots(figsize=(5.8, 4.2))
     xx, yy = np.meshgrid(np.linspace(-0.4, 3.4, 250), np.linspace(1.5, 5.0, 250))
     Z = clf.predict(np.c_[xx.ravel(), yy.ravel()]).reshape(xx.shape)
     ax.contourf(xx, yy, Z, alpha=0.12, colors=[RED, TEAL], levels=[-0.5, 0.5, 1.5])
@@ -213,22 +233,24 @@ def studiu2_clasificare(df):
     jit = df["severitate"] + rng.uniform(-0.12, 0.12, len(df))
     m1 = y == 1; m0 = y == 0
     ax.scatter(jit[m1], df["log_payload"][m1], c=TEAL, s=45, alpha=0.75,
-               label="utilizabil (RTT<500ms)", edgecolors="white", linewidth=0.5)
+               label="utilizabil (RTT < 500 ms)", edgecolors="white", linewidth=0.5)
     ax.scatter(jit[m0], df["log_payload"][m0], c=RED, s=45, alpha=0.75, marker="X",
-               label="degradat (RTT>=500ms)", edgecolors="white", linewidth=0.5)
-    ax.set_xlabel("severitate retea"); ax.set_ylabel("log10(payload)")
-    ax.set_title(f"Frontiera de decizie (acuratete test {acc_te:.0%})",
-                 fontsize=11, color=NAVY, weight="bold")
+               label="degradat (RTT >= 500 ms)", edgecolors="white", linewidth=0.5)
+    ax.set_xlabel("severitatea retelei", fontsize=11)
+    ax.set_ylabel("log10(sarcina utila [B])", fontsize=11)
+    ax.set_title("Clasificare 'link utilizabil': frontiera de decizie", fontsize=12)
     ax.set_xticks([0, 1, 2, 3]); ax.legend(fontsize=8.5, loc="lower left")
-    ax.grid(alpha=0.2)
-    plt.tight_layout(); plt.savefig("figC_frontiera.png", dpi=150); plt.close()
-    print("  [salvat] figC_frontiera.png")
+    ax.grid(linestyle=":", linewidth=0.5, alpha=0.6); ax.set_axisbelow(True)
+    _savefig(fig, "figC_frontiera",
+             f"SIL (loopback); regresie logistica; prag link utilizabil RTT < {PRAG_SAR_MS:.0f} ms; "
+             f"acuratete test {acc_te:.0%}.")
 
     return clf
 
 
 def main():
     print("Reproducere analiza PDIA - regresie + clasificare pe date reale")
+    os.makedirs(OUTDIR, exist_ok=True)
     df = incarca_date(CSV_PATH)
     print(f"Incarcate {len(df)} masuratori din '{CSV_PATH}'.")
 
@@ -242,8 +264,8 @@ def main():
     studiu2_clasificare(df)
 
     print("\n" + "=" * 64)
-    print("GATA. Verifica fisierele generate in folderul curent:")
-    print("  figuri:   figA_dataset.png, figB_regresie.png, figC_frontiera.png")
+    print(f"GATA. Fisiere regenerate in {OUTDIR}:")
+    print("  figuri:    figA_dataset, figB_regresie, figC_frontiera (.png + .pdf)")
     print("  predictii: predictii_regresie.csv, predictii_clasificare.csv")
     print("=" * 64)
 

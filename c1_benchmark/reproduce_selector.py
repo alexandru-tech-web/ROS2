@@ -166,7 +166,14 @@ def main(argv):
                      rs["always_zenoh_regret_mean"], rs["selector_regret_mean"]))
         print()
 
-    save_figure(results, os.path.join(HERE, "selector_regret.png"), objective)
+    reps_n = len({r.get("rep", "") for r in rows})
+    conds_n = len({r["cond"] for r in rows})
+    cap = "SIL (loopback); N=%d repetitii; %d conditii netem; %d celule (cond x payload).\n" % (
+        reps_n, conds_n, n)
+    cap += (("Obiectiv constient de pierdere, D=%.0f ms; regret mai mic e mai bine." % penalty)
+            if objective == "lossaware"
+            else "Obiectiv control (RTT p95, independent de pierderi); regret mai mic e mai bine.")
+    save_figure(results, os.path.join(HERE, "selector_regret.png"), objective, cap)
 
     reps = sorted({r.get("rep", "") for r in rows})
     loss_vals = {r.get("loss_pct", "0") for r in rows}
@@ -191,7 +198,22 @@ def main(argv):
     return 0
 
 
-def save_figure(results, path, objective="control"):
+# nume de afisare academice pentru strategiile de selectie a RMW-ului
+DISPLAY = {
+    "always-zenoh": "always-Zenoh",
+    "always-cyclonedds": "always-CycloneDDS",
+    "selector 1-NN": "selector 1-NN",
+    "selector tree": "selector arbore",
+    "oracol": "oracol",
+}
+
+
+def save_figure(results, path, objective="control", caption=""):
+    """Figura de publicatie: regret mediu pe strategie de selectie (LOCO).
+
+    Paleta sobra (reguli globale gri, selectoare albastru, oracol verde), etichete cu
+    unitate, valori pe bare, caption cu N / conditii / marcaj SIL. Iesire .png + .pdf.
+    """
     try:
         import matplotlib
         matplotlib.use("Agg")
@@ -199,17 +221,38 @@ def save_figure(results, path, objective="control"):
     except Exception:
         print("  (matplotlib indisponibil -- fara figura)")
         return
-    labels = [r[0] for r in results]
+    labels = [DISPLAY.get(r[0], r[0]) for r in results]
     vals = [r[1] for r in results]
-    unit = "cost" if objective == "lossaware" else "RTT p95"
-    fig, ax = plt.subplots(figsize=(7, 4))
-    ax.bar(labels, vals, color="#3a7")
-    ax.set_ylabel("regret mediu %s [ms] (mai mic = mai bine)" % unit)
-    ax.set_title("Selector vs reguli globale (LOCO; obiectiv %s)" % objective)
-    ax.tick_params(axis="x", rotation=20)
-    fig.tight_layout()
-    fig.savefig(path, dpi=110)
-    print("  figura salvata: %s" % path)
+    unit = "cost asteptat" if objective == "lossaware" else "RTT p95"
+    colors = []
+    for r in results:
+        if r[0].startswith("always"):
+            colors.append("#9e9e9e")          # reguli globale
+        elif r[0] == "oracol":
+            colors.append("#2e7d32")          # limita inferioara (oracol)
+        else:
+            colors.append("#1f77b4")          # selectoare invatate
+    fig, ax = plt.subplots(figsize=(7.2, 5.0))
+    bars = ax.bar(labels, vals, color=colors, edgecolor="black", linewidth=0.6)
+    for b, v in zip(bars, vals):
+        ax.annotate("%.0f" % v, (b.get_x() + b.get_width() / 2.0, v),
+                    ha="center", va="bottom", fontsize=9,
+                    xytext=(0, 2), textcoords="offset points")
+    ax.set_ylabel("regret mediu %s [ms]" % unit, fontsize=11)
+    ax.set_xlabel("strategie de selectie a middleware-ului (RMW)", fontsize=11)
+    ax.set_title("Selector vs reguli globale -- validare leave-one-condition-out", fontsize=12)
+    ax.tick_params(axis="x", labelsize=10, rotation=15)
+    ax.tick_params(axis="y", labelsize=10)
+    ax.margins(y=0.16)
+    ax.grid(axis="y", linestyle=":", linewidth=0.5, alpha=0.6)
+    ax.set_axisbelow(True)
+    fig.subplots_adjust(left=0.12, right=0.97, top=0.91, bottom=0.30 if caption else 0.16)
+    if caption:
+        fig.text(0.5, 0.045, caption, ha="center", va="bottom", fontsize=8.5)
+    stem = path.rsplit(".", 1)[0]
+    for ext in ("png", "pdf"):
+        fig.savefig(stem + "." + ext, dpi=200)
+    print("  figura salvata: %s.{png,pdf}" % stem)
 
 
 if __name__ == "__main__":

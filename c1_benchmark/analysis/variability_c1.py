@@ -54,14 +54,19 @@ if not conds:
 COL = {"cyclonedds": "#1f77b4", "zenoh": "#9467bd"}
 x = range(len(conds))
 w = 0.8/len(rmws)
-fig, ax = plt.subplots(figsize=(11, 5))
+allns = sorted({cv(data.get(r, {}).get(c, []))[1] for r in rmws for c in conds
+                if data.get(r, {}).get(c)})
+nlabel = str(allns[0]) if len(allns) == 1 else f"{allns[0]}..{allns[-1]}"
+
+fig, ax = plt.subplots(figsize=(11, 5.4))
 for i, r in enumerate(rmws):
-    cvs, ns = [], []
+    cvs, nns = [], []
     for c in conds:
         v, n = cv(data.get(r, {}).get(c, []))
-        cvs.append(v); ns.append(n)
+        cvs.append(v); nns.append(n)
     pos = [xi + i*w for xi in x]
-    bars = ax.bar(pos, cvs, w, label=r, color=COL.get(r, None), alpha=0.9)
+    bars = ax.bar(pos, cvs, w, label=r, color=COL.get(r, None),
+                  edgecolor="black", linewidth=0.5, alpha=0.95)
     for b, v in zip(bars, cvs):
         ax.text(b.get_x()+b.get_width()/2, b.get_height()+1, f"{v:.0f}%",
                 ha="center", va="bottom", fontsize=8)
@@ -70,16 +75,21 @@ ax.axhline(20, ls="--", color="gray", lw=1)
 ax.text(len(conds)-0.5, 22, "prag predictibilitate ~20%", fontsize=8,
         color="gray", ha="right")
 ax.set_xticks([xi + w*(len(rmws)-1)/2 for xi in x])
-ax.set_xticklabels(conds, rotation=20, ha="right")
-ax.set_ylabel("Coeficient de variatie al p95 [%]  (std/medie peste repetitii)")
-ax.set_title("Predictibilitatea latentei de coada (date curate, N=10)\n"
-             "jos = predictibil; sus = imprevizibil de la o rulare la alta")
-ax.legend(title="RMW")
-ax.grid(axis="y", alpha=0.3)
-plt.tight_layout()
+ax.set_xticklabels(conds, rotation=20, ha="right", fontsize=10)
+ax.set_xlabel("conditie de retea (tc netem)", fontsize=11)
+ax.set_ylabel("coeficient de variatie al p95 [%]", fontsize=11)
+ax.set_title("Predictibilitatea latentei de coada (date curate)\n"
+             "jos = predictibil; sus = imprevizibil de la o rulare la alta", fontsize=12)
+ax.legend(title="RMW", fontsize=10)
+ax.grid(axis="y", linestyle=":", linewidth=0.5, alpha=0.6); ax.set_axisbelow(True)
+fig.subplots_adjust(left=0.08, right=0.97, top=0.88, bottom=0.22)
+fig.text(0.5, 0.02, f"SIL (loopback); N={nlabel} repetitii; sarcina utila 4096 B; "
+         "CV = abaterea standard / media a p95 pe repetitii.",
+         ha="center", va="bottom", fontsize=8.5)
 out_dir = os.path.join(ROOT, "analysis"); os.makedirs(out_dir, exist_ok=True)
-out = os.path.join(out_dir, "fig_variability_c1.png")
-plt.savefig(out, dpi=150); print("[ok]", out)
+for ext in ("png", "pdf"):
+    plt.savefig(os.path.join(out_dir, f"fig_variability_c1.{ext}"), dpi=200)
+print("[ok]", os.path.join(out_dir, "fig_variability_c1") + ".{png,pdf}")
 for r in rmws:
     for c in conds:
         v, n = cv(data.get(r, {}).get(c, []))
