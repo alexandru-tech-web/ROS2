@@ -18,6 +18,24 @@ Suplimentar, depozitul contine emulatorul software al unui banc fizic cu sase
 servomotoare ABB cuplate in perechi (trei articulatii), destinat validarii hardware
 a controlului de impedanta prin legaturi degradate (tele-impedanta adaptiva).
 
+## Directii de cercetare
+
+- **Roiuri SAR.** Roi de patru drone autonome cu GCS, degradare de retea injectabila
+  si metrici de misiune (acoperire, victime, timp) -- `sar_swarm`, `sar_plugins`.
+- **Benchmark middleware (C1).** Microbenchmark de transport `rmw_zenoh` vs.
+  `rmw_cyclonedds_cpp` sub `tc netem`, plus stratul aplicativ adaptiv la legatura
+  -- `c1_benchmark`, `link_adaptive`.
+- **Retea MESH multi-hop.** Recuperarea telemetriei intr-un roi partitionat prin
+  relay hop-by-hop -- `mesh_plugin`.
+- **Exoschelet / tele-reabilitare.** Validarea hardware a impedantei adaptive prin
+  legaturi degradate -- `joint_emulator`, `rehab_exo_description`, `servo_control`.
+
+> **Datele experimentale NU sunt versionate.** Rezultatele campaniilor (`results_c1/`,
+> `sar_swarm/results/`, `teleop_rover/results/campaign_*/`, `stats_out/`, mediile
+> virtuale) se regenereaza cu scripturile si se arhiveaza in afara depozitului. In git
+> intra doar codul, scripturile de analiza, documentatia si cateva figuri reprezentative
+> din `*/docs/`.
+
 ## 1. Obiective
 
 | ID | Obiectiv | Pachet principal |
@@ -55,16 +73,22 @@ incat diferentele masurate apartin exclusiv middleware-ului.
 
 ## 3. Taxonomia pachetelor
 
+Fiecare nume trimite la README-ul pachetului.
+
 | Pachet | Tip | Rol | Verificari |
 |--------|-----|-----|------------|
-| `c1_benchmark` | script | benchmark transport + misiune, articolul A1 (SSRR 2026) | 11 + selftest figuri |
-| `sar_swarm` | script | roiul SAR: drone, GCS, injector, probe, dashboard | >100 (3 suite) |
-| `sar_plugins` | script | plugin-uri de mediu: canal, baterie, acoperire, victime | 55 |
-| `joint_emulator` | script | bancul cu 6 servomotoare: impedanta, encodere, vizualizare | 34 |
-| `teleop_rover` | script | roverul teleoperat: link degradat, pilot/manual, perceptie + go-to-goal | 22 + SIL |
-| `rehab_exo_description` | ament | exoscheletul de reabilitare (URDF, launch, failsafe) | tag `rehab-v0.3.0` |
-| `servo_control` | ament | demonstratorul istoric: motor Gazebo cu comanda tastatura | — |
-| `curs_ros2*` | ament | exercitii de curs (arhiva) | — |
+| [`c1_benchmark`](c1_benchmark/README.md) | script | benchmark transport + misiune, articolul A1 (SSRR 2026) | 11 + selftest figuri |
+| [`sar_swarm`](sar_swarm/README.md) | script | roiul SAR: 4 drone, GCS, injector, sonda, ecran de misiune | >100 (3 suite) |
+| [`sar_plugins`](sar_plugins/README.md) | script | plugin-uri de mediu: canal, baterie, acoperire, victime | 55 |
+| [`mesh_plugin`](mesh_plugin/README.md) | ament | retea MESH multi-hop peste roi (relay hop-by-hop, ETX) | selftest 31 |
+| [`link_adaptive`](link_adaptive/README.md) | ament | strat adaptiv la starea legaturii (NOMINAL/DEGRADED/CRITICAL) | selftest 22/22 |
+| [`joint_emulator`](joint_emulator/README.md) | script | bancul cu 6 servomotoare: impedanta, encodere, vizualizare | 34 |
+| [`teleop_rover`](teleop_rover/README.md) | script | roverul teleoperat: link degradat, pilot/manual, perceptie + go-to-goal | 22 + SIL |
+| [`rehab_exo_description`](rehab_exo_description/README.md) | ament | exoscheletul de reabilitare (URDF, launch, failsafe) | tag `rehab-v0.3.0` |
+| [`servo_control`](servo_control/README.md) | ament | demonstratorul istoric: motor Gazebo cu comanda tastatura | — |
+| [`curs_ros2`](curs_ros2/README.md) | ament | exercitii de curs ROS 2 (14 module) | test/ (lint + logica) |
+| [`curs_ros2_interfaces`](curs_ros2_interfaces/README.md) | ament | interfete custom (msg/srv/action) pentru curs | — |
+| [`gen_articol`](gen_articol/README.md) | script | generator de schelete de articole stiintifice (LaTeX) | — |
 
 ## 4. Metodologia experimentala
 
