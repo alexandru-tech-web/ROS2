@@ -4,7 +4,8 @@ de middleware din campania C1.
 
 Ridica analiza de la CARACTERIZATOR (reproduce_pdia.py: prezice RTT din severitate +
 payload, ARUNCA rmw) la SELECTOR: din parametrii de retea + payload, ALEGE rmw-ul care
-minimizeaza obiectivul. Obiectiv implementat: CONTROL = min RTT p95.
+minimizeaza obiectivul. Obiective: CONTROL = min RTT p95; CONSTIENT DE PIERDERE = min cost
+asteptat (un esantion livrat costa RTT p95; unul pierdut costa un deadline D de control).
 
 Fisier-FRATE; NU atinge reproduce_pdia.py si figurile PDIA.
 
@@ -82,6 +83,40 @@ def cell_winner(cell):
 def regret(choice, cell):
     """Penalizarea (in unitatea metricii, ex. ms) a alegerii fata de oracol (min)."""
     return cell[choice] - min(cell.values())
+
+
+def loss_aware_cost(rtt_p95, loss_frac, penalty_ms):
+    """Cost CONSTIENT DE PIERDERE pentru un (cond, payload, rmw).
+
+    Model de control: fiecare esantion fie soseste (cost = RTT p95 al cozii), fie e
+    pierdut (cost = penalty_ms, un deadline/stall). Costul ASTEPTAT pe esantion:
+        (1 - loss_frac) * rtt_p95 + loss_frac * penalty_ms
+    La loss_frac = 0 colapseaza la RTT p95 (== obiectivul control). penalty_ms reprezinta
+    deadline-ul de control si ar trebui ales >= cozile RTT, ca obiectivul sa fie monoton
+    crescator in pierdere (un drop = mai rau decat o livrare lenta).
+    """
+    return (1.0 - loss_frac) * rtt_p95 + loss_frac * penalty_ms
+
+
+def build_cost_cells(rows, penalty_ms, rtt_metric="rtt_p95_ms", loss_metric="loss_pct", agg=median):
+    """Ca build_cells, dar cu obiectiv CONSTIENT DE PIERDERE.
+
+    Agrega median(RTT p95) si median(loss %) peste repetitii per (cond, payload, rmw),
+    apoi cost = loss_aware_cost(med_rtt, med_loss/100, penalty_ms). Intoarce
+    {(cond, payload): {rmw: cost}} -- aceeasi forma ca build_cells, deci cell_winner /
+    regret / loco_folds / evaluate_selector / nn_predict merg neatins pe rezultat.
+    """
+    rtt_acc, loss_acc = {}, {}
+    for r in rows:
+        key = (r["cond"], int(r["payload"]), r["rmw"])
+        rtt_acc.setdefault(key, []).append(float(r[rtt_metric]))
+        loss_acc.setdefault(key, []).append(float(r[loss_metric]))
+    cells = {}
+    for key, rtts in rtt_acc.items():
+        cond, pl, rmw = key
+        loss_frac = agg(loss_acc[key]) / 100.0
+        cells.setdefault((cond, pl), {})[rmw] = loss_aware_cost(agg(rtts), loss_frac, penalty_ms)
+    return cells
 
 
 def loco_folds(keys):
@@ -223,6 +258,19 @@ def _selftest():
     # selectorul nu poate fi mai bun decat oracolul
     assert res["selector_regret_total"] >= 0.0
     assert 0.0 <= res["accuracy"] <= 1.0
+
+    # obiectiv constient de pierdere: cost asteptat cu deadline
+    assert loss_aware_cost(100.0, 0.0, 1000.0) == 100.0       # loss=0 -> pur RTT (== control)
+    assert loss_aware_cost(10.0, 1.0, 1000.0) == 1000.0       # pierdere totala -> deadline
+    assert loss_aware_cost(100.0, 0.2, 1000.0) == 280.0       # 0.8*100 + 0.2*1000
+    lossrows = [
+        {"cond": "loss_30", "payload": "64", "rmw": "cyclonedds", "rtt_p95_ms": "100", "loss_pct": "20"},
+        {"cond": "loss_30", "payload": "64", "rmw": "zenoh", "rtt_p95_ms": "10", "loss_pct": "60"},
+    ]
+    # control (min RTT): zenoh castiga (10 < 100), ignorand ca pierde 60%
+    assert cell_winner(build_cells(lossrows)[("loss_30", 64)]) == "zenoh"
+    # loss-aware (D=1000): cyclonedds castiga (280 < 604) -- winner-ul se INVERSEAZA
+    assert cell_winner(build_cost_cells(lossrows, 1000.0)[("loss_30", 64)]) == "cyclonedds"
 
     print("TOATE VERIFICARILE selector_core AU TRECUT")
 

@@ -84,22 +84,30 @@ rezultate. Daca un push esueaza, prima suspiciune: date brute / fisiere >100 MB.
 - check_repo.sh, smoke_all.sh -- verificare repo / smoke tests.
 
 ## 8. Focus curent (actualizeaza pe masura ce avanseaza)
-ISI-ul selectorului -- IMPLEMENTAT ca fisiere-frate: selector_core.py (nucleu pur +
-_selftest, 25/25 via test_selector_core.py) + reproduce_selector.py (driver). NU atinge
-reproduce_pdia.py / figurile PDIA. Obiectiv CONTROL = min RTT p95.
+ISI-ul selectorului -- IMPLEMENTAT ca fisiere-frate (NU atinge reproduce_pdia.py / figurile
+PDIA): selector_core.py (nucleu pur + _selftest, 30/30 via test_selector_core.py),
+reproduce_selector.py (driver, --objective control|lossaware --penalty D),
+build_selector_dataset.py (bridge campanie -> selector_dataset.csv). Validare leave-one-
+condition-out (LOCO), NU split aleator (repetitiile ar scurge info intre train/test).
 
-REZULTAT ONEST (validare leave-one-condition-out, NU split aleator): selectorul invatat
-(1-NN 33%, DecisionTree 39%) NU bate regula triviala always-CycloneDDS (56% acuratete,
-regret mediu 229 ms vs 549-567 ms). Cele 18 celule (6 cond x 3 payload, N=5) nu sustin un
-selector -- always-CycloneDDS domina pe acest set. Un split aleator ar fi scurs info intre
-repetitii si ar fi parut bun: de aceea LOCO e obligatoriu.
+DATE: veriga rupta REPARATA. ml_dataset.csv ramane un extract orfan (loss_pct=0, sent==recv,
+N=5) -- NU se mai foloseste pentru selector. Bridge-ul reconstruieste din campania reala:
+selector_dataset.csv = 478 randuri, N=10, 8 conditii, 3 payload-uri, loss MASURAT (333/478
+cu loss>0), 2 rulari zenoh/loss_30 sarite (pierdere ~totala, fara RTT). selector_dataset.csv
+si selector_regret.png sunt gitignorate (regenerabile):
+  python3 build_selector_dataset.py <campanie> -o selector_dataset.csv
 
-VERIGA RUPTA (de reparat): ml_dataset.csv NU are generator in repo -- e un extract orfan,
-deconectat de pipeline-ul campaniei (run_campaign.py -> analyze_campaign.py ->
-campaign_summary.csv). De-aici: loss_pct=0 si sent==recv peste tot (NU masoara pierdere),
-lipseste timpul de misiune, doar N=5 si 6 conditii. Reparatia = un bridge care construieste
-dataset-ul ML din iesirea REALA a campaniei (loss masurat + timp de misiune + N=10), ca
-selectorul sa ruleze pe date reale si sa devina posibil si obiectivul telemetrie.
+REZULTAT ONEST (24 celule = 8 cond x 3 payload, N=10):
+- obiectiv CONTROL (min RTT p95): always-CycloneDDS domina (regret mediu 142 ms, 17/24
+  celule); selectorul invatat NU-l bate (1-NN 66.7% acc dar regret 558 ms; tree 653 ms).
+- obiectiv CONSTIENT DE PIERDERE cost=(1-loss)*RTT_p95+loss*D: gapul se ingusteaza. La
+  D=1000 ms always-CycloneDDS inca castiga (90 vs 197 ms) DAR la D=5000 ms selectorul 1-NN
+  BATE always-CycloneDDS (104 vs 188 ms). Concluzie DEPENDENTA DE DEADLINE: un selector
+  invatat isi merita locul doar in regimul cu drop foarte scump (D mare, ex. control de
+  siguranta); pentru D mic/moderat, always-CycloneDDS ramane regula corecta.
+PROVIZORIU: loopback, N=10; D si forma costului sunt alegeri de modelare -- de inlocuit cu
+HIL / N mai mare inainte de articol.
 
-DE FACUT: (a) bridge campanie -> ml_dataset (loss real, timp misiune); (b) re-evalueaza
-selectorul pe datele reale; (c) obiectiv constient de pierdere, nu doar RTT p95.
+DE FACUT: (a) join cu timpii de misiune sar_swarm -> obiectiv 'telemetrie = min timp
+misiune'; (b) HIL pe doua masini fizice + N mai mare; (c) valideaza modelul de cost (D,
+forma functionala) cu un sweep mai fin.

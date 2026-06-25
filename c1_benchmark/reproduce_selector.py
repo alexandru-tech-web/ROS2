@@ -14,8 +14,9 @@ Ce face:
      always-zenoh / oracol, si salveaza selector_regret.png.
 
 Uz:
-  python3 reproduce_selector.py [ml_dataset.csv]
-  python3 reproduce_selector.py --selftest     # ruleaza nucleul pur, fara date
+  python3 reproduce_selector.py [date.csv]                                # obiectiv control (RTT p95)
+  python3 reproduce_selector.py selector_dataset.csv --objective lossaware [--penalty 1000]
+  python3 reproduce_selector.py --selftest                                # nucleul pur, fara date
 """
 import csv
 import os
@@ -55,8 +56,8 @@ def provenance_report(rows):
     print()
 
 
-def show_cells(cells):
-    print("== Castigator per (cond x payload), obiectiv control = min RTT p95 ==")
+def show_cells(cells, title="obiectiv control = min RTT p95"):
+    print("== Castigator per (cond x payload), %s ==" % title)
     wins = {r: 0 for r in sc.RMWS}
     for k in sorted(cells):
         cell = cells[k]
@@ -103,19 +104,31 @@ def main(argv):
         print("OK selftest (nucleu pur).")
         return 0
 
-    path = next((a for a in argv[1:] if not a.startswith("-")), DEFAULT_CSV)
+    skip = set()
+    objective, penalty = "control", 1000.0
+    if "--objective" in argv:
+        i = argv.index("--objective"); objective = argv[i + 1]; skip.add(i + 1)
+    if "--penalty" in argv:
+        i = argv.index("--penalty"); penalty = float(argv[i + 1]); skip.add(i + 1)
+    pos = [a for j, a in enumerate(argv) if j >= 1 and not a.startswith("-") and j not in skip]
+    path = pos[0] if pos else DEFAULT_CSV
     if not os.path.exists(path):
         print("FATAL: lipseste %s" % path)
         return 1
     rows = load_rows(path)
-    print("Incarcate %d randuri din %s\n" % (len(rows), path))
+    print("Incarcate %d randuri din %s (obiectiv: %s)\n" % (len(rows), path, objective))
 
     provenance_report(rows)
-    cells = sc.build_cells(rows, metric="rtt_p95_ms")
-    show_cells(cells)
+    if objective == "lossaware":
+        cells = sc.build_cost_cells(rows, penalty)
+        show_cells(cells, title="obiectiv loss-aware = min cost asteptat (D=%.0f ms)" % penalty)
+    else:
+        cells = sc.build_cells(rows, metric="rtt_p95_ms")
+        show_cells(cells, title="obiectiv control = min RTT p95")
 
     n = len([k for k in cells if len(cells[k]) >= 2])
-    print("== Baseline-uri de regret (RTT p95, ms; oracol = 0) ==")
+    unit = "cost ms" if objective == "lossaware" else "RTT p95, ms"
+    print("== Baseline-uri de regret (%s; oracol = 0) ==" % unit)
     for rmw in sc.RMWS:
         tot = sum(sc.regret(rmw, cells[k]) for k in cells if rmw in cells[k])
         print("  always-%-11s regret total=%8.0f  mediu=%6.1f ms" % (rmw, tot, tot / n))
@@ -139,14 +152,36 @@ def main(argv):
     results.append(("oracol", 0.0))
     print()
 
-    save_figure(results, os.path.join(HERE, "selector_regret.png"))
+    if objective == "lossaware":
+        print("== Sensibilitate la deadline D (winner counts + regret mediu, cost ms) ==")
+        for D in (200.0, 1000.0, 5000.0):
+            cc = sc.build_cost_cells(rows, D)
+            wins = {r: 0 for r in sc.RMWS}
+            for k in cc:
+                if len(cc[k]) >= 2:
+                    wins[sc.cell_winner(cc[k])] += 1
+            rs = sc.evaluate_selector(cc, sc.nn_predict)
+            print("  D=%6.0f ms -> wins=%s | always-cyc=%7.1f always-zen=%7.1f selector1NN=%7.1f"
+                  % (D, wins, rs["always_cyclonedds_regret_mean"],
+                     rs["always_zenoh_regret_mean"], rs["selector_regret_mean"]))
+        print()
+
+    save_figure(results, os.path.join(HERE, "selector_regret.png"), objective)
 
     reps = sorted({r.get("rep", "") for r in rows})
     loss_vals = {r.get("loss_pct", "0") for r in rows}
     loss_real = loss_vals - {"0.0", "0", ""} != set()
     print("== Note oneste ==")
-    print("  - obiectiv CONTROL (min RTT p95); 'telemetrie = min timp misiune' indisponibil")
-    print("    (fara timp de misiune in date) -- TODO: join cu stratul de misiune sar_swarm.")
+    if objective == "lossaware":
+        print("  - obiectiv CONSTIENT DE PIERDERE: cost = (1-loss)*RTT_p95 + loss*D, D=%.0f ms." % penalty)
+        if not loss_real:
+            print("    ATENTIE: loss=0 in date -> costul COLAPSEAZA la RTT p95 (== control);")
+            print("    are sens doar pe date cu pierdere reala (selector_dataset.csv din bridge).")
+        print("    D e un knob de modelare (deadline-ul de control); vezi sensibilitatea la D mai sus.")
+    else:
+        print("  - obiectiv CONTROL (min RTT p95); ignora pierderea -- vezi --objective lossaware.")
+    print("  - 'telemetrie = min timp misiune' indisponibil (fara timp de misiune in date)")
+    print("    -- TODO: join cu stratul de misiune sar_swarm.")
     if loss_real:
         print("  - loss MASURAT in date (coloana loss_pct variaza) -- semnal de pierdere REAL.")
     else:
@@ -156,7 +191,7 @@ def main(argv):
     return 0
 
 
-def save_figure(results, path):
+def save_figure(results, path, objective="control"):
     try:
         import matplotlib
         matplotlib.use("Agg")
@@ -166,10 +201,11 @@ def save_figure(results, path):
         return
     labels = [r[0] for r in results]
     vals = [r[1] for r in results]
+    unit = "cost" if objective == "lossaware" else "RTT p95"
     fig, ax = plt.subplots(figsize=(7, 4))
     ax.bar(labels, vals, color="#3a7")
-    ax.set_ylabel("regret mediu RTT p95 [ms] (mai mic = mai bine)")
-    ax.set_title("Selector vs reguli globale (LOCO; obiectiv control)")
+    ax.set_ylabel("regret mediu %s [ms] (mai mic = mai bine)" % unit)
+    ax.set_title("Selector vs reguli globale (LOCO; obiectiv %s)" % objective)
     ax.tick_params(axis="x", rotation=20)
     fig.tight_layout()
     fig.savefig(path, dpi=110)

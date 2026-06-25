@@ -76,6 +76,19 @@ def main():
     sc._selftest()
     ok(True, "selector_core._selftest() a trecut")
 
+    print("== 8. obiectiv constient de pierdere (cost asteptat cu deadline) ==")
+    ok(sc.loss_aware_cost(100.0, 0.0, 1000.0) == 100.0, "loss=0 -> cost = RTT (colapseaza la control)")
+    ok(sc.loss_aware_cost(10.0, 1.0, 1000.0) == 1000.0, "pierdere totala -> cost = deadline")
+    ok(sc.loss_aware_cost(100.0, 0.2, 1000.0) == 280.0, "0.8*100 + 0.2*1000 = 280")
+    lossrows = [
+        {"cond": "loss_30", "payload": "64", "rmw": "cyclonedds", "rtt_p95_ms": "100", "loss_pct": "20"},
+        {"cond": "loss_30", "payload": "64", "rmw": "zenoh", "rtt_p95_ms": "10", "loss_pct": "60"},
+    ]
+    ok(sc.cell_winner(sc.build_cells(lossrows)[("loss_30", 64)]) == "zenoh",
+       "control: zenoh castiga pe RTT mic, ignora ca pierde 60%")
+    ok(sc.cell_winner(sc.build_cost_cells(lossrows, 1000.0)[("loss_30", 64)]) == "cyclonedds",
+       "loss-aware: winner se inverseaza la cyclonedds (pierdere mai mica)")
+
     print("\nTOATE TESTELE SELECTOR_CORE AU TRECUT: %d verificari." % N)
 
 
