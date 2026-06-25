@@ -1,4 +1,4 @@
-# c1_benchmark — Documentatie tehnica
+# c1_benchmark -- Documentatie tehnica
 
 Benchmark `rmw_zenoh` vs. `rmw_cyclonedds_cpp` sub degradare de retea controlata
 (tc netem), pe doua straturi: transport (RTT pe ecou) si misiune SAR completa.
@@ -20,22 +20,28 @@ graph TB
     AN --> OUT[(campaign_summary.csv<br/>fig_transport / fig_mission / fig_cdf)]
 ```
 
-Bucla orchestratorului: `pentru fiecare RMW x conditie x repetitie`: aplica netem →
-porneste serverul si clientul (plus stratul de misiune) → colecteaza → curata tc
+Bucla orchestratorului: `pentru fiecare RMW x conditie x repetitie`: aplica netem ->
+porneste serverul si clientul (plus stratul de misiune) -> colecteaza -> curata tc
 (`finally`, garantat). Routerul Zenoh este supravegheat (`ZENOH_ROUTER_CHECK_ATTEMPTS`).
 
 ## 2. Inventarul fisierelor
 
 | Fisier | Rol | Verificare |
 |--------|-----|------------|
-| `bench_core.py` | nucleul pur: conditii, statistici RTT, plan, extractor misiune | `test_bench_core.py` (11) |
+| `bench_core.py` | nucleul pur: conditii, statistici RTT, plan, extractor misiune | `test_bench_core.py` (12) |
 | `bench_echo_server.py` / `bench_client.py` | microbenchmarkul de transport | rulare directa |
 | `netem.py` | aplica/curata/arata conditia pe interfata (`--dry` pentru plan) | idempotent |
 | `run_campaign.py` | orchestratorul campaniei | `--dry` |
 | `analyze_campaign.py` | agregare + figurile articolului | `--selftest` |
 | `preflight.sh` | garda de mediu (qdisc rezidual, procese vii) | verdict explicit |
-| `paper/main.tex`, `paper/references.bib` | scheletul IEEE (ipoteze H1–H4) | `pdflatex` |
-| `paper/experimental_protocol.md` | protocolul de laborator, cu bife | — |
+| `campaign_stats.py`, `crossover.py` | statistici suplimentare + analiza punctului de crossover | rulare directa |
+| `reproduce_pdia.py`, `ml_dataset.csv` | analiza ML (caracterizator RTT) + setul de date agregat | rulare directa |
+| `analysis/*.py`, `docs/` | scripturi de figuri auxiliare + REZUMAT_CAMPANIE_EXPERIMENTALA.md | rulare directa |
+| `NOTA_METODOLOGICA_C1.md` | nota de validitate (artefact de stare reziduala, limita loopback) | -- |
+
+TODO: directorul `paper/` (main.tex, references.bib, experimental_protocol.md,
+figs/) nu exista inca in pachet. Pana il creezi, sectiunile care il refera
+(integrarea figurilor, pdflatex, ipotezele H1-H4) raman de completat.
 
 ## 3. Definitia metricilor
 
@@ -56,7 +62,7 @@ ceasurilor intre publisher si subscriber.
 cd ~/ros2_ws/src/c1_benchmark
 
 # 0) verificarile fara ROS
-python3 test_bench_core.py                 # 11/11
+python3 test_bench_core.py                 # 12 verificari
 python3 analyze_campaign.py --selftest     # validarea fluxului de analiza
 
 # 1) garda de mediu (obligatoriu inaintea oricarei campanii)
@@ -69,7 +75,7 @@ python3 run_campaign.py --dry
 sudo -v
 python3 run_campaign.py --iface lo --reps 2 --duration 10 --out ~/c1_results
 
-# 4) campania completa (~3–4 h; masina ramane libera)
+# 4) campania completa (~3-4 h; masina ramane libera)
 python3 run_campaign.py --iface lo --reps 5 --out ~/c1_results_full
 
 # 5) analiza si figurile
@@ -77,50 +83,88 @@ python3 analyze_campaign.py ~/c1_results_full
 ls ~/c1_results_full/analysis/             # campaign_summary.csv + fig_*.png
 
 # 6) integrarea in articol
-cp ~/c1_results_full/analysis/fig_*.png paper/figs/
-cd paper && pdflatex main.tex && bibtex main && pdflatex main.tex && pdflatex main.tex
+# TODO: directorul paper/ nu exista inca; pasul de mai jos devine valabil
+# dupa ce este creat (paper/figs/, paper/main.tex, paper/references.bib).
+# cp ~/c1_results_full/analysis/fig_*.png paper/figs/
+# cd paper && pdflatex main.tex && bibtex main && pdflatex main.tex && pdflatex main.tex
 ```
 
 Argumentele orchestratorului:
 
 | Argument | Semnificatie | Implicit |
 |----------|--------------|----------|
-| `--iface` | interfata pe care se aplica netem | obligatoriu |
+| `--iface` | interfata pe care se aplica netem | `lo` |
 | `--reps` | repetitii per celula | 5 |
-| `--duration` | durata unei rulari de transport [s] | configurata in plan |
+| `--rmws` | RMW-urile comparate (virgula) | `cyclonedds,zenoh` |
+| `--conditions` | subset de conditii rulate (virgula); implicit toate | toate |
+| `--layers` | straturile masurate (virgula) | `transport,mission` |
+| `--duration` | durata unei rulari de transport [s] | `20.0` |
+| `--mission-timeout` | plafonul unei rulari de misiune [s] | `170.0` |
 | `--out` | directorul de rezultate (IN AFARA depozitului) | `results_c1/` |
-| `--dry` | tipareste planul fara executie | — |
+| `--dry` | tipareste planul fara executie | -- |
 
 ## 5. Conditiile de retea
 
-| Conditie | Comanda tc echivalenta |
-|----------|------------------------|
-| `ideal` | (fara qdisc) |
-| `loss_5` | `tc qdisc add dev <if> root netem loss 5%` |
-| `loss_15` | `tc qdisc add dev <if> root netem loss 15%` |
-| `loss_30` | `tc qdisc add dev <if> root netem loss 30%` |
-| `lat200_jit50` | `tc qdisc add dev <if> root netem delay 200ms 50ms` |
-| `lat200_l15` | `tc qdisc add dev <if> root netem delay 200ms loss 15%` |
+Definite in `bench_core.py` (`CONDITIONS`); comanda exacta o construieste
+`netem_cmd` (verificata in `test_bench_core.py`). Forma generala folosita este
+`tc qdisc replace dev <if> root netem delay <lat>ms <jit>ms loss <p>%`
+(idempotenta prin `replace`); pentru rafale se adauga corelatia `loss <p>% <corr>%`.
+
+| Conditie | delay | jitter | pierdere | corelatie (rafala) |
+|----------|-------|--------|----------|--------------------|
+| `ideal` | 0ms | 0ms | 0.0% | -- |
+| `loss_5` | 0ms | 0ms | 5.0% | -- |
+| `loss_15` | 0ms | 0ms | 15.0% | -- |
+| `loss_20` | 0ms | 0ms | 20.0% | -- |
+| `loss_25` | 0ms | 0ms | 25.0% | -- |
+| `loss_30` | 0ms | 0ms | 30.0% | -- |
+| `loss_20_burst` | 0ms | 0ms | 20.0% | 50.0% |
+| `loss_25_burst` | 0ms | 0ms | 25.0% | 50.0% |
+| `loss_30_burst` | 0ms | 0ms | 30.0% | 50.0% |
+| `lat200_jit50` | 200ms | 50ms | 0.0% | -- |
+| `lat200_l15` | 200ms | 50ms | 15.0% | -- |
+
+Exemplu (loss_15): `tc qdisc replace dev lo root netem delay 0ms 0ms loss 15.0%`.
 
 Nota: pierderea teoretica best-effort pe ecou la `loss_30` este 1-(1-0.3)^2 = 51%;
 valorile masurate sub 51% indica recuperare partiala prin mecanismele RMW.
 
-## 6. Rezultatele campaniei (sumar)
+Nota metodologica: conditiile `*_burst` sunt EXCLUSE din campania de referinta
+(netem corelat nu pastreaza media impusa; vezi `NOTA_METODOLOGICA_C1.md`).
 
-| Conditie | p95 DDS [ms] | p95 Zenoh [ms] | pierdere DDS | pierdere Zenoh | misiune DDS [s] | misiune Zenoh [s] |
-|---|---|---|---|---|---|---|
-| ideal | 1.5 | 1.7 | 0.0% | 0.0% | 120.8 | 135.2 |
-| loss_5 | 146 | 25 | 0.0% | 1.0% | 122.0 | 135.5 |
-| loss_15 | 1060 | 758 | 1.1% | 25.3% | 116.0 | 124.0 |
-| loss_30 | 2590 | 3748 | 42.2% | 36.6% | 123.2 | 150.5 |
-| lat200_jit50 | 913 | 481 | 4.2% | 2.7% | 138.0 | 126.0 |
-| lat200_l15 | 2540 | 2463 | 45.6% | 14.9% | 118.5 | 148.5 |
+## 6. Rezultatele campaniei (transport, loopback, N=10)
 
-Interpretare: (i) la degradare usoara, Zenoh ofera cozi de 3–6x mai mici la pierdere
-~0; (ii) la pierdere pura moderata, compromis explicit — DDS recupereaza (1.1%) cu
-pretul cozii, Zenoh livreaza proaspat cu pretul a 25% esantioane; (iii) in conditia
-combinata, la coada egala, DDS pierde 45.6% vs. 14.9% — separarea decisiva;
-(iv) la nivel de misiune diferentele se comprima — autonomia absoarbe degradarea.
+ATENTIE -- limita de validitate (vezi `NOTA_METODOLOGICA_C1.md` si
+`docs/REZUMAT_CAMPANIE_EXPERIMENTALA.md`): tabelul de mai jos este o referinta de
+LOOPBACK (un singur host, netem pe `lo`), nu o comparatie autoritara. O campanie
+initiala arata Zenoh aparent imun la pierdere mica; aceasta s-a dovedit un artefact
+de stare reziduala de mediu (router/proces ramas, conditii de cursa) si NU se
+foloseste. Cifrele finale de mai jos provin din campania curata peer-to-peer, mediu
+curat inainte de fiecare rulare, N=10 (9 pentru zenoh/loss_30), payload 4096 B.
+Comparatia echitabila Zenoh vs CycloneDDS necesita HIL pe doua masini fizice.
+
+p95 RTT [ms], CV = std/medie, CI95 = interval de incredere 95% (din
+`NOTA_METODOLOGICA_C1.md` sectiunea 7):
+
+| Conditie | N | p95 DDS [ms] | CV DDS | p95 Zenoh [ms] | CV Zenoh | pierdere DDS | pierdere Zenoh |
+|----------|---|--------------|--------|----------------|----------|--------------|----------------|
+| loss_15    | 10 | 1019 (+/-77) | 10%  | 560 (+/-91)   | 23%  | 1.4%  | 8.5%  |
+| loss_20    | 10 | 1746 (+/-73) | 6%   | 972 (+/-381)  | 55%  | 7.7%  | 16.9% |
+| loss_25    | 10 | 2145 (+/-43) | 3%   | 5392 (+/-3867)| 100% | 26.5% | 34.1% |
+| loss_30    | 10/9 | 2317 (+/-39) | 2% | 8709 (+/-4216)| 63%  | 41.0% | 57.8% |
+| lat200_l15 | 10 | 2548 (+/-23) | 1%   | 3893 (+/-1354)| 49%  | 36.0% | 20.8% |
+
+Interpretare (loopback, conform documentelor de metodologie):
+(i) CycloneDDS are latenta de coada mare dar PREDICTIBILA (CV sub 20%, CI95
+strans), monotona cu pierderea; (ii) Zenoh are latenta de coada mare SI
+imprevizibila (CV 50-100%; la loss_25 variatie de un ordin de marime, ~0.9-18.5 s
+intre rulari identice), imprevizibilitate reprodusa pe N=1 si pe N=10 -> trasatura
+reala pe acest montaj; (iii) pentru teleoperare in timp real, unde conteaza
+predictibilitatea, CycloneDDS este net preferabil pe loopback.
+
+TODO: stratul de misiune (timp de finalizare per conditie) si conditiile `ideal` /
+`loss_5` / `lat200_jit50` nu au cifre consolidate in pachet; de completat din
+campania reala inainte de orice submisie (vezi nota despre HIL).
 
 ## 7. Igiena datelor
 
@@ -129,7 +173,9 @@ combinata, la coada egala, DDS pierde 45.6% vs. 14.9% — separarea decisiva;
 mkdir -p ~/c1_archive && cp -r ~/c1_results_full ~/c1_archive/$(date +%F)_campanie/
 
 # in depozit intra numai sumarele si figurile
-git add paper/figs/ paper/main.tex
+# (figurile si rezumatul ilustrat sunt in docs/; campaign_summary.csv se
+#  genereaza de analyze_campaign.py si se copiaza in repo separat de datele brute)
+git add docs/
 git commit -m "C1: datele campaniei (sumar + figuri)"
 git tag c1-data-v1 && git push --tags && git push
 ```
