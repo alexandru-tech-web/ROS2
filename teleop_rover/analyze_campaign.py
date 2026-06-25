@@ -141,23 +141,27 @@ def main():
     # ---- figuri: bare grupate Zenoh vs Cyclone pe conditii ----
     xpos = np.arange(len(conds))
     width = 0.8 / max(1, len(rmws))
-    colors = {"zenoh": "#1f8fff", "cyclone": "#ff7f0e"}
+    colors = {"cyclone": "#1f77b4", "zenoh": "#9467bd"}  # consistent C1: cyclone albastru, zenoh mov
 
     def grouped(metric_fn, ylabel, title, fname, err_fn=None):
-        fig, ax = plt.subplots(figsize=(8, 4.5), dpi=130)
+        fig, ax = plt.subplots(figsize=(8, 4.5), dpi=200)
         for i, r in enumerate(rmws):
             ys = [metric_fn(agg.get((r, c), None)) for c in conds]
             errs = [err_fn(agg.get((r, c), None)) for c in conds] if err_fn else None
             ax.bar(xpos + i * width, ys, width, yerr=errs, capsize=3,
-                   label=r, color=colors.get(r, None), edgecolor="white")
+                   label=r, color=colors.get(r, None), edgecolor="black", linewidth=0.5)
         ax.set_xticks(xpos + width * (len(rmws) - 1) / 2)
         ax.set_xticklabels(conds, rotation=15)
+        ax.set_xlabel("conditie")
         ax.set_ylabel(ylabel); ax.set_title(title)
-        ax.legend(title="RMW"); ax.grid(axis="y", alpha=0.3)
+        ax.legend(title="RMW")
+        ax.grid(axis="y", linestyle=":", linewidth=0.5, alpha=0.6); ax.set_axisbelow(True)
         fig.tight_layout()
-        p = os.path.join(a.camp, fname)
-        fig.savefig(p); plt.close(fig)
-        print(f"[ok] {p}")
+        stem = os.path.splitext(os.path.join(a.camp, fname))[0]
+        for ext in ("png", "pdf"):
+            fig.savefig(stem + "." + ext)
+        plt.close(fig)
+        print(f"[ok] {stem}.{{png,pdf}}")
 
     def m_succ(v):
         return np.mean(v["success"]) * 100 if v and v["success"] else 0.0
