@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
-"""sweep_teleop.py — EXPERIMENTUL de teza: aceeasi teleoperare, maturata pe
+"""sweep_teleop.py -- EXPERIMENTUL de teza: aceeasi teleoperare, maturata pe
 grila latenta x pierdere (jitter = 20% din latenta), N seminte per conditie.
 
 Acum si pe doua regimuri de ACTUATOR (dimensiunea ceruta in README):
-  - "ideal"     : raspuns instantaneu (a_max=w_acc=None) — comportamentul de baza;
-  - "realistic" : limite de acceleratie (actuator real) — vedem daca pragul de
+  - "ideal"     : raspuns instantaneu (a_max=w_acc=None) -- comportamentul de baza;
+  - "realistic" : limite de acceleratie (actuator real) -- vedem daca pragul de
                   rupere latenta se MUTA cand roverul nu mai poate corecta instant.
 
 Iesiri:
   results/sweep.csv            (coloana 'accel' = ideal/realistic)
   results/teleop_sweep.png     (ca inainte: regimul IDEAL, 3 panouri vs latenta)
-  results/teleop_sweep_accel.png  (ideal vs realistic la pierdere 0% — efectul actuatorului)
+  results/teleop_sweep_accel.png  (ideal vs realistic la pierdere 0% -- efectul actuatorului)
 
 Rulare:  python3 sweep_teleop.py            (~150 de rulari, ~un minut)
 """
@@ -59,7 +59,7 @@ def main():
     # --- figura 1 (neschimbata): regimul IDEAL, metrici vs latenta ---
     ideal = [r for r in rows if r["accel"] == "ideal"]
     fig, ax = plt.subplots(1, 3, figsize=(14, 4.2))
-    fig.suptitle("Teleoperare in bucla inchisa sub degradare de retea — "
+    fig.suptitle("Teleoperare in bucla inchisa sub degradare de retea -- "
                  "metrici de APLICATIE (5 rulari/conditie, pilot identic)",
                  fontweight="bold")
     col = {0.0: "#2E8B57", 0.10: "#2E73CC", 0.30: "#c0392b"}
@@ -79,7 +79,8 @@ def main():
         a.grid(alpha=0.3)
         a.legend()
     fig.tight_layout()
-    fig.savefig("results/teleop_sweep.png", dpi=130)
+    for ext in ("png", "pdf"):
+        fig.savefig("results/teleop_sweep." + ext, dpi=200)
 
     # --- figura 2 (noua): ideal vs realistic la pierdere 0% ---
     fig2, bx = plt.subplots(1, 3, figsize=(14, 4.2))
@@ -103,8 +104,9 @@ def main():
         a.grid(alpha=0.3)
         a.legend()
     fig2.tight_layout()
-    fig2.savefig("results/teleop_sweep_accel.png", dpi=130)
-    print("[ok] results/sweep.csv + teleop_sweep.png + teleop_sweep_accel.png")
+    for ext in ("png", "pdf"):
+        fig2.savefig("results/teleop_sweep_accel." + ext, dpi=200)
+    print("[ok] results/sweep.csv + teleop_sweep.{png,pdf} + teleop_sweep_accel.{png,pdf}")
 
 
 if __name__ == "__main__":
