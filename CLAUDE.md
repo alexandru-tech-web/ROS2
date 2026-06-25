@@ -84,20 +84,22 @@ rezultate. Daca un push esueaza, prima suspiciune: date brute / fisiere >100 MB.
 - check_repo.sh, smoke_all.sh -- verificare repo / smoke tests.
 
 ## 8. Focus curent (actualizeaza pe masura ce avanseaza)
-ISI-ul selectorului: ridica analiza ML de la *caracterizator* la *selector*.
-Acum reproduce_pdia.py foloseste X = [severitate, log_payload] si ARUNCA `rmw` ->
-nu alege middleware, doar prezice "utilizabil / RTT". De facut, ca FISIER-FRATE
-(NU atinge reproduce_pdia.py si figurile PDIA):
-  - feature-uri: rmw + parametri netem reali (loss %, latenta ms, jitter ms) +
-    log_payload;
-  - eticheta: care rmw castiga per (cond x payload) per obiectiv
-    (control = min RTT p95; telemetrie = min timp misiune);
-  - validare leave-one-condition-out (NU split aleator -- repetitiile scurg si dau
-    scoruri optimiste);
-  - raporteaza acuratete + REGRET fata de always-zenoh / always-cyclonedds / oracol.
-Fapt din date reale: castigatorul se schimba cu payload-ul in interiorul aceleiasi
-conditii (cyclonedds 10/18 celule, zenoh 8/18) -- exista interactiune conditie x
-payload, deci o regula globala greseste in ~40% din celule.
-Provenance de verificat: ml_dataset.csv are loss_pct = 0 pe randurile agregate, vs
-pierderile din c1_benchmark/README.md sectiunea 6 -- clarifica ce masoara coloana
-inainte sa intre in articol.
+ISI-ul selectorului -- IMPLEMENTAT ca fisiere-frate: selector_core.py (nucleu pur +
+_selftest, 25/25 via test_selector_core.py) + reproduce_selector.py (driver). NU atinge
+reproduce_pdia.py / figurile PDIA. Obiectiv CONTROL = min RTT p95.
+
+REZULTAT ONEST (validare leave-one-condition-out, NU split aleator): selectorul invatat
+(1-NN 33%, DecisionTree 39%) NU bate regula triviala always-CycloneDDS (56% acuratete,
+regret mediu 229 ms vs 549-567 ms). Cele 18 celule (6 cond x 3 payload, N=5) nu sustin un
+selector -- always-CycloneDDS domina pe acest set. Un split aleator ar fi scurs info intre
+repetitii si ar fi parut bun: de aceea LOCO e obligatoriu.
+
+VERIGA RUPTA (de reparat): ml_dataset.csv NU are generator in repo -- e un extract orfan,
+deconectat de pipeline-ul campaniei (run_campaign.py -> analyze_campaign.py ->
+campaign_summary.csv). De-aici: loss_pct=0 si sent==recv peste tot (NU masoara pierdere),
+lipseste timpul de misiune, doar N=5 si 6 conditii. Reparatia = un bridge care construieste
+dataset-ul ML din iesirea REALA a campaniei (loss masurat + timp de misiune + N=10), ca
+selectorul sa ruleze pe date reale si sa devina posibil si obiectivul telemetrie.
+
+DE FACUT: (a) bridge campanie -> ml_dataset (loss real, timp misiune); (b) re-evalueaza
+selectorul pe datele reale; (c) obiectiv constient de pierdere, nu doar RTT p95.
