@@ -39,7 +39,11 @@ def provenance_report(rows):
     print("  coloane: %s" % cols)
     loss_vals = sorted({r.get("loss_pct", "") for r in rows})
     sent_eq_recv = all(int(r["sent"]) == int(r["recv"]) for r in rows if "sent" in r and "recv" in r)
-    print("  loss_pct distinct: %s" % loss_vals)
+    if len(loss_vals) > 12:
+        nums = sorted(float(v) for v in loss_vals if v not in ("", None))
+        print("  loss_pct: %d valori distincte, interval %.1f..%.1f" % (len(loss_vals), nums[0], nums[-1]))
+    else:
+        print("  loss_pct distinct: %s" % loss_vals)
     print("  sent == recv pe toate randurile: %s" % sent_eq_recv)
     if loss_vals == ["0.0"] and sent_eq_recv:
         print("  VERDICT: setul NU contine semnal de pierdere (livrare fiabila); netem")
@@ -137,11 +141,18 @@ def main(argv):
 
     save_figure(results, os.path.join(HERE, "selector_regret.png"))
 
+    reps = sorted({r.get("rep", "") for r in rows})
+    loss_vals = {r.get("loss_pct", "0") for r in rows}
+    loss_real = loss_vals - {"0.0", "0", ""} != set()
     print("== Note oneste ==")
-    print("  - obiectiv CONTROL (min RTT p95); 'telemetrie = min timp misiune' NU se poate")
-    print("    construi din acest set (lipseste timpul de misiune) -- TODO: join cu sar_swarm.")
-    print("  - 'loss %' provine din numele conditiei (coloana loss_pct e 0 peste tot).")
-    print("  - date N=5 repetitii, loopback; cifre de inlocuit cu campania N=10 / HIL la articol.")
+    print("  - obiectiv CONTROL (min RTT p95); 'telemetrie = min timp misiune' indisponibil")
+    print("    (fara timp de misiune in date) -- TODO: join cu stratul de misiune sar_swarm.")
+    if loss_real:
+        print("  - loss MASURAT in date (coloana loss_pct variaza) -- semnal de pierdere REAL.")
+    else:
+        print("  - loss_pct = 0 peste tot -> 'loss %' derivat din numele conditiei (set fara pierdere).")
+    print("  - %d repetitii, loopback; comparatia autoritara cere HIL pe doua masini fizice."
+          % len(reps))
     return 0
 
 
