@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Servo Teleop — control shaft din tastatura
-Sageata DREAPTA  → sens orar (viteza creste)
-Sageata STANGA   → sens antiorar (viteza creste)
-Sageata SUS      → creste viteza curenta
-Sageata JOS      → scade viteza curenta
-SPATIU           → stop imediat
-Q                → iesire
+Servo Teleop - control shaft din tastatura
+Sageata DREAPTA  > sens orar (viteza creste)
+Sageata STANGA   > sens antiorar (viteza creste)
+Sageata SUS      > creste viteza curenta
+Sageata JOS      > scade viteza curenta
+SPATIU           > stop imediat
+Q                > iesire
 
 Publicare pe: /model/servo1/joint/shaft_joint/cmd_vel
 """
@@ -26,16 +26,16 @@ MAX_SPEED  = 10.0   # rad/s maxim
 MIN_SPEED  = 0.5    # rad/s minim (sub asta consideram stop)
 
 BANNER = """
-╔══════════════════════════════════════════╗
-║       SERVO TELEOP — Tastatura           ║
-╠══════════════════════════════════════════╣
-║  ←  Sens antiorar                        ║
-║  →  Sens orar                            ║
-║  ↑  Creste viteza                        ║
-║  ↓  Scade viteza                         ║
-║  SPATIU  Stop                            ║
-║  Q       Iesire                          ║
-╚══════════════════════════════════════════╝
++==========================================+
+|       SERVO TELEOP - Tastatura           |
++==========================================+
+|  <  Sens antiorar                        |
+|  >  Sens orar                            |
+|  ^  Creste viteza                        |
+|  v  Scade viteza                         |
+|  SPATIU  Stop                            |
+|  Q       Iesire                          |
++==========================================+
 Viteza curenta: 0.0 rad/s  |  Directie: STOP
 """
 
@@ -58,7 +58,7 @@ class ServoTeleop(Node):
         self.velocity = 0.0   # valoare curenta publicata (+ orar, - antiorar)
         # Publicare periodica la 20Hz (chiar daca nu se apasa nimic)
         self.timer = self.create_timer(0.05, self.publish_vel)
-        self.get_logger().info(f'Servo Teleop pornit → topic: {TOPIC}')
+        self.get_logger().info(f'Servo Teleop pornit > topic: {TOPIC}')
 
     def publish_vel(self):
         msg = Float64()
@@ -81,21 +81,21 @@ class ServoTeleop(Node):
             while rclpy.ok():
                 key = get_key(settings)
 
-                if key == '\x1b[C':          # Sageata DREAPTA → orar
+                if key == '\x1b[C':          # Sageata DREAPTA > orar
                     self.velocity = self.speed
-                elif key == '\x1b[D':        # Sageata STANGA → antiorar
+                elif key == '\x1b[D':        # Sageata STANGA > antiorar
                     self.velocity = -self.speed
-                elif key == '\x1b[A':        # Sageata SUS → creste viteza
+                elif key == '\x1b[A':        # Sageata SUS > creste viteza
                     self.speed = min(self.speed + SPEED_STEP, MAX_SPEED)
                     if self.velocity != 0:
                         self.velocity = self.speed * (1 if self.velocity > 0 else -1)
-                elif key == '\x1b[B':        # Sageata JOS → scade viteza
+                elif key == '\x1b[B':        # Sageata JOS > scade viteza
                     self.speed = max(self.speed - SPEED_STEP, MIN_SPEED)
                     if self.velocity != 0:
                         self.velocity = self.speed * (1 if self.velocity > 0 else -1)
-                elif key == ' ':             # Spatiu → stop
+                elif key == ' ':             # Spatiu > stop
                     self.velocity = 0.0
-                elif key in ('q', 'Q'):      # Q → iesire
+                elif key in ('q', 'Q'):      # Q > iesire
                     self.velocity = 0.0
                     self.publish_vel()
                     print('\nOprit. Pa!')
