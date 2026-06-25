@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""gcs_node_ros.py — Ground Control Station: fuzioneaza hartile dronelor,
+"""gcs_node_ros.py -- Ground Control Station: fuzioneaza hartile dronelor,
 aloca frontiere (re-planificare la fiecare 1 s, doar dronelor vazute recent),
 confirma harta (ack monoton), publica starea misiunii si scrie metricile in
 ~/sar_data/mission_metrics.csv. Gating-ul legaturilor: la receptie."""
@@ -44,7 +44,7 @@ class GcsNode(Node):
         self.op_csv.write("t_s,cmd_id,drone,action,phase\n")
         self.t0 = time.time()
         self.get_logger().info(
-            f"GCS pornit — misiune: {self.ops.mission} "
+            f"GCS pornit -- misiune: {self.ops.mission} "
             f"(autostart={self.ops.mission == 'RUNNING'})")
 
     def link_up(self, d): return f"d-gcs".replace("d", d) not in self.links_down \

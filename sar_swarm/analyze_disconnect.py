@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""analyze_disconnect.py — CE SE INTAMPLA cand o drona pierde legatura cu GCS?
+"""analyze_disconnect.py -- CE SE INTAMPLA cand o drona pierde legatura cu GCS?
 
 Citeste jurnalul per-drona (scris local de drona, deci complet inclusiv in
-timpul deconectarii — exact perioada in care GCS-ul NU o mai vede) si
+timpul deconectarii -- exact perioada in care GCS-ul NU o mai vede) si
 produce o figura-cronologie cu 3 panouri + un rezumat in consola:
 
   1. starea de avarie in timp (LINKED / LOCAL_EXPLORE / RETURN_TO_LINK /
@@ -95,7 +95,7 @@ def main():
 
     fig, ax = plt.subplots(3, 1, figsize=(11, 8), sharex=True)
     name = os.path.basename(a.csv_path)
-    fig.suptitle(f"Pierderea legaturii cu GCS — cronologia dronei ({name})",
+    fig.suptitle(f"Pierderea legaturii cu GCS -- cronologia dronei ({name})",
                  fontweight="bold")
     for s, t0, t1 in segs:
         ax[0].barh(yi.get(s, len(states)), t1 - t0, left=t0, height=0.6,
@@ -125,7 +125,7 @@ def main():
 
     print(f"[ok] figura: {out}")
     print("intervale cu legatura cazuta:",
-          ", ".join(f"{s0:.0f}-{s1:.0f}s" for s0, s1 in spans) or "—")
+          ", ".join(f"{s0:.0f}-{s1:.0f}s" for s0, s1 in spans) or "--")
     print("tranzitiile starii:")
     for s, t0, t1 in segs:
         print(f"  {t0:7.1f}s -> {s:<16} ({t1 - t0:5.1f}s)")

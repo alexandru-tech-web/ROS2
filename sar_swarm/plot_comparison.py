@@ -68,7 +68,7 @@ ax[1,1].set_xticks(list(x)); ax[1,1].set_xticklabels([short[n] for n in names],
 ax[1,1].set_title("Deconectare, recuperare si coeziunea roiului")
 ax[1,1].legend(fontsize=8); ax[1,1].grid(axis="y", alpha=0.3)
 
-fig.suptitle("Misiune SAR multi-drona sub degradare de retea — metrici MASURATE in SIL "
+fig.suptitle("Misiune SAR multi-drona sub degradare de retea -- metrici MASURATE in SIL "
              "(4 drone, 60x60 m, ruine+fum, 5 victime; store-and-forward activ)",
              fontsize=12, fontweight="bold")
 fig.tight_layout(rect=[0,0,1,0.96])

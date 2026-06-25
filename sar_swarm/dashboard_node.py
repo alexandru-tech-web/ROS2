@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-dashboard_node.py — ECRANUL CU DATE al misiunii SAR (Tkinter).
+dashboard_node.py -- ECRANUL CU DATE al misiunii SAR (Tkinter).
 
-Stanga: harta live — ruine, zone de fum, victime (rosu = negasita,
+Stanga: harta live -- ruine, zone de fum, victime (rosu = negasita,
 auriu = gasita), dronele cu urme colorate si starea de fallback.
 Dreapta: scenariul activ si timpul, acoperirea, victimele, si PER DRONA:
 legatura (SUS/JOS), vechimea telemetriei, starea, RTT mediu/p95 si
@@ -77,7 +77,7 @@ class DashNode(Node):
 def build_gui(node: DashNode):
     W = WORLD["w_cells"] * SCALE
     root = tk.Tk()
-    root.title("SAR Swarm — ecranul cu date al misiunii")
+    root.title("SAR Swarm -- ecranul cu date al misiunii")
     cv = tk.Canvas(root, width=W, height=W, bg="#1b1b22")
     cv.grid(row=0, column=0, padx=6, pady=6)
     side = ttk.Frame(root)
@@ -120,7 +120,7 @@ def build_gui(node: DashNode):
         op({"type": "fault", "action": "set_all", "ms": 40, "jit": 0,
             "loss": 0, "down": False})
     ttk.Button(bar, text="Vindeca tot", command=_heal).pack(side="left", padx=1)
-    ttk.Button(bar, text="Defecte custom…", command=lambda:
+    ttk.Button(bar, text="Defecte custom...", command=lambda:
                fault_panel.open_panel(root, node.send_op)
                ).pack(side="left", padx=(8, 1))
 
@@ -131,7 +131,7 @@ def build_gui(node: DashNode):
     for d in IDS:
         f = ttk.LabelFrame(side, text=f"drona {d}")
         f.pack(fill="x", pady=4)
-        v = tk.StringVar(value="—")
+        v = tk.StringVar(value="--")
         ttk.Label(f, textvariable=v, justify="left",
                   foreground=COL[d]).pack(anchor="w", padx=6, pady=3)
         rows[d] = v
@@ -168,7 +168,7 @@ def build_gui(node: DashNode):
         for (vi, vj) in WORLD["victims"]:
             x, y = P(vi + 0.5, vj + 0.5)
             c = "#ffd24d" if (vi, vj) in found else "#d04444"
-            cv.create_text(x, y, text="★", fill=c, font=("TkDefaultFont", 16))
+            cv.create_text(x, y, text="*", fill=c, font=("TkDefaultFont", 16))
         # drone + urme
         down = set(map(tuple, [k.split("-") for k in ls.get("down", [])]))
         for d in IDS:
@@ -181,7 +181,7 @@ def build_gui(node: DashNode):
                            fill=COL[d], outline="white")
             gcs_down = tuple(sorted((d, "gcs"))) in down
             if gcs_down:
-                cv.create_text(cx, cy - 14, text="✕ GCS", fill="#ff6666",
+                cv.create_text(cx, cy - 14, text="x GCS", fill="#ff6666",
                                font=("TkDefaultFont", 9, "bold"))
             cv.create_text(cx + 12, cy, text=d, fill="white", anchor="w")
         # panoul lateral
@@ -199,9 +199,9 @@ def build_gui(node: DashNode):
                 f"legatura: {'SUS' if i.get('link', True) else 'JOS'}   "
                 f"stare: {i.get('state','?')}  mod: {i.get('mode','AUTO')}\n"
                 f"telemetrie acum {i.get('age_s','?')} s   "
-                f"RTT {q.get('rtt_mean_ms','—')} / p95 {q.get('rtt_p95_ms','—')} ms\n"
+                f"RTT {q.get('rtt_mean_ms','--')} / p95 {q.get('rtt_p95_ms','--')} ms\n"
                 f"pierdere (10 s): "
-                f"{'—' if q.get('loss_10s') is None else f'{100*q['loss_10s']:.0f}%'}")
+                f"{'--' if q.get('loss_10s') is None else f'{100*q['loss_10s']:.0f}%'}")
         root.after(200, tick)
 
     root.after(300, tick)

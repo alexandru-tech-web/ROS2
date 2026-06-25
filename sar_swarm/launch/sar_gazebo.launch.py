@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""sar_gazebo.launch.py — Misiunea SAR completa in Gazebo:
+"""sar_gazebo.launch.py -- Misiunea SAR completa in Gazebo:
 lumea apocaliptica + bridge-uri gz<->ROS per drona + 4 drone (use_gazebo)
 + GCS + injectorul de defecte (scenariul ales) + sonda de latenta + ecranul
 cu date. Zero-build: nodurile ruleaza direct cu python3.

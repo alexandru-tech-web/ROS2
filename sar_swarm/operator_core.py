@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""operator_core.py — starea de comanda a operatorului (om-in-bucla).
+"""operator_core.py -- starea de comanda a operatorului (om-in-bucla).
 
 Logica PURA (fara ROS), folosita de GCS: starea misiunii (IDLE / RUNNING /
 PAUSED / ABORTED), modul fiecarei drone (AUTO / HOLD / GOTO / RTH) si
@@ -7,7 +7,7 @@ traducerea comenzilor operatorului in comenzi catre drone. Comenzile catre
 drone pleaca pe acelasi canal /sar/cmd/{id} ca alocarile -> trec prin
 legatura degradata (gating + latenta + store-and-forward), deci raspunsul
 la comanda operatorului este MASURABIL sub degradare ("control la distanta
-in timp real" — miezul tezei).
+in timp real" -- miezul tezei).
 
 Schema comenzilor primite (JSON pe /sar/operator):
   {"type": "mission", "action": "start|pause|resume|abort"}

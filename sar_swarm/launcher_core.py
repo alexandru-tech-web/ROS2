@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""launcher_core.py — logica PURA a meniului de misiune (fara Tk, fara ROS):
+"""launcher_core.py -- logica PURA a meniului de misiune (fara Tk, fara ROS):
 ce middleware-uri RMW sunt instalate si ce comanda exacta porneste misiunea
 pentru fiecare combinatie (middleware x mod x scenariu x optiuni).
 

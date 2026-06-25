@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-drone_node.py — Nodul ROS 2 al unei drone SAR (localizare + navigatie +
+drone_node.py -- Nodul ROS 2 al unei drone SAR (localizare + navigatie +
 perceptie + comm bridge + health, intr-un singur nod compact).
 
 Acelasi nucleu ca SIL-ul (sar_core/swarm_core). Doua moduri:
@@ -127,7 +127,7 @@ class DroneNode(Node):
             self.get_logger().warn(f"{self.id}: legatura GCS PIERDUTA -> fallback")
         if not was_up and now_up and self.saf_buffer:
             self.get_logger().info(
-                f"{self.id}: legatura restabilita — livrez "
+                f"{self.id}: legatura restabilita -- livrez "
                 f"{len(self.saf_buffer)} mesaje din tamponul S&F")
             for m in self.saf_buffer:
                 self.tele_pub.publish(String(data=m))

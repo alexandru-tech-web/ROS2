@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""fault_injector_node.py — Injecteaza degradarea retelei din FISIERUL de
+"""fault_injector_node.py -- Injecteaza degradarea retelei din FISIERUL de
 scenariu YAML (aceleasi fisiere ca SIL-ul): publica starea legaturilor pe
 /sar/linkstate (gating + latenta aplicate de noduri la receptie) si, optional
-(use_tc:=true, iface:=wlan0), aplica tc netem REAL pe interfata — pentru
+(use_tc:=true, iface:=wlan0), aplica tc netem REAL pe interfata -- pentru
 rulari pe masini separate (masuratorile de teza)."""
 import json, os, subprocess, sys, time
 import rclpy

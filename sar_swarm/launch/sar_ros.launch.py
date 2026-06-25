@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""sar_ros.launch.py — Aceeasi misiune SAR FARA Gazebo (dronele integreaza
+"""sar_ros.launch.py -- Aceeasi misiune SAR FARA Gazebo (dronele integreaza
 cinematica intern): demo intr-un minut pe orice masina cu ROS 2 si bancul
 ideal pentru comparatia middleware (C1): aceleasi noduri, acelasi trafic,
 rulate o data cu CycloneDDS si o data cu rmw_zenoh:

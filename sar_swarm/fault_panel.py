@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""fault_panel.py — BANCUL DE DEFECTE CUSTOM (deschis din ecranul cu date).
+"""fault_panel.py -- BANCUL DE DEFECTE CUSTOM (deschis din ecranul cu date).
 
 Control fin, per-legatura, peste reteaua misiunii: pentru fiecare dintre
 cele 10 legaturi (gcs-d1..d4 si intre drone) poti seta LIVE latenta [ms],
@@ -35,7 +35,7 @@ def open_panel(parent, send):
         return
     win = tk.Toplevel(parent)
     _open["win"] = win
-    win.title("Banc de defecte — control per-legatura")
+    win.title("Banc de defecte -- control per-legatura")
     frm = ttk.Frame(win, padding=10)
     frm.pack(fill="both", expand=True)
 

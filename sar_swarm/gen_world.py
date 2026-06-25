@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""gen_world.py — genereaza worlds/apocalypse.sdf DIN world_config.py
+"""gen_world.py -- genereaza worlds/apocalypse.sdf DIN world_config.py
 (sursa unica de adevar: ruinele din Gazebo = obstacolele A* ale dronelor).
 
 Continut: teren 60x60, lumina joasa de amurg (vizibilitate variabila),
@@ -172,4 +172,4 @@ sdf = f"""<?xml version="1.0"?>
 open("worlds/apocalypse.sdf", "w").write(sdf)
 xml.dom.minidom.parse("worlds/apocalypse.sdf")  # validare XML
 n_models = sdf.count("<model name=")
-print(f"[ok] worlds/apocalypse.sdf — XML valid, {n_models} modele, {len(sdf)} bytes")
+print(f"[ok] worlds/apocalypse.sdf -- XML valid, {n_models} modele, {len(sdf)} bytes")

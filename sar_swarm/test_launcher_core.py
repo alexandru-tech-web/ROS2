@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""test_launcher_core.py — verificari pentru logica meniului de misiune."""
+"""test_launcher_core.py -- verificari pentru logica meniului de misiune."""
 import os, sys, tempfile
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from launcher_core import RMW, rmw_available, build_plan

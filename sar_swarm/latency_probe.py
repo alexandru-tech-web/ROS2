@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""latency_probe.py — Sonda de latenta/pierdere (descendenta directa a
+"""latency_probe.py -- Sonda de latenta/pierdere (descendenta directa a
 latency_pub/latency_sub din planul de benchmark al tezei): GCS-ul trimite
 ping (2 Hz) catre fiecare drona; pong-ul masoara RTT. Scrie
 ~/sar_data/rtt_log.csv si publica statistici pe /sar/probe/stats

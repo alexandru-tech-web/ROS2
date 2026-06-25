@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-sil_run.py — Simulator software-in-the-loop al misiunii SAR multi-drona,
+sil_run.py -- Simulator software-in-the-loop al misiunii SAR multi-drona,
 FARA ROS/Gazebo: aceeasi logica (nuclee identice cu nodurile ROS), rulabila
 oriunde, pentru experimente repetabile si figuri.
 
@@ -328,7 +328,7 @@ def render_map(world, gmap, drones, victims_found, path, title):
         xs, ys = zip(*dr.trail)
         ax.plot(xs, ys, color=c, lw=1.2, label=d)
         ax.plot(xs[-1], ys[-1], "o", color=c, ms=8, mec="k")
-    ax.set_title(f"Misiune SAR — {title}\n(verde=cartografiat, maro=ruine, "
+    ax.set_title(f"Misiune SAR -- {title}\n(verde=cartografiat, maro=ruine, "
                  f"gri=fum, stea galbena=victima gasita)", fontsize=10)
     ax.legend(loc="upper right", fontsize=8)
     ax.set_xlabel("x [m]"); ax.set_ylabel("y [m]")

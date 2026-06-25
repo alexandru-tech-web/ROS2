@@ -4,7 +4,7 @@ masurabil pe metricile de misiune.
 
 Ruleaza SIL-ul pe o scara de scenarii (de la nominal la sever) si verifica,
 cu repetitii pe seed-uri diferite, ca metricile se inrautatesc MONOTON cu
-severitatea -- adica reziliența e cuantificabila, nu zgomot. Daca acest test
+severitatea -- adica rezilienta e cuantificabila, nu zgomot. Daca acest test
 trece, ai dovada ca experimentul "vede" degradarea (raspunde la intrebarea:
 injectarea defectelor chiar conteaza pentru rezultate?).
 

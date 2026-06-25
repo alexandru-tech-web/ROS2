@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""test_operator_core.py — verificari pentru stratul de comanda al
+"""test_operator_core.py -- verificari pentru stratul de comanda al
 operatorului (om-in-bucla). Rulare: python3 test_operator_core.py"""
 import os
 import sys

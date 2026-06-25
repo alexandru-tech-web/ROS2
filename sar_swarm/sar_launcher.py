@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""sar_launcher.py — MENIUL DE MISIUNE (fara dependinta de ROS in proces).
+"""sar_launcher.py -- MENIUL DE MISIUNE (fara dependinta de ROS in proces).
 
 Dintr-o fereastra alegi:
   - middleware-ul: CycloneDDS / Zenoh / FastDDS (cele indisponibile apar
@@ -39,7 +39,7 @@ class Launcher:
         self.root = root
         self.proc = None
         self.router = None
-        root.title("SAR Swarm — meniul de misiune")
+        root.title("SAR Swarm -- meniul de misiune")
         frm = ttk.Frame(root, padding=10)
         frm.pack(fill="both", expand=True)
 
@@ -98,10 +98,10 @@ class Launcher:
         # ----- butoane + stare + jurnal -----
         bar = ttk.Frame(frm)
         bar.grid(row=r, column=0, columnspan=2, sticky="we", pady=8)
-        self.btn_start = ttk.Button(bar, text="▶ Porneste misiunea",
+        self.btn_start = ttk.Button(bar, text="> Porneste misiunea",
                                     command=self.start)
         self.btn_start.pack(side="left")
-        self.btn_stop = ttk.Button(bar, text="■ Opreste", state="disabled",
+        self.btn_stop = ttk.Button(bar, text="# Opreste", state="disabled",
                                    command=self.stop)
         self.btn_stop.pack(side="left", padx=6)
         self.status = tk.StringVar(value="pregatit")
@@ -154,7 +154,7 @@ class Launcher:
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         threading.Thread(target=self._reader, args=(self.proc,),
                          daemon=True).start()
-        self.status.set(f"RULEAZA — {cfg['mode']} / {cfg['rmw']} / {cfg['scenario']}")
+        self.status.set(f"RULEAZA -- {cfg['mode']} / {cfg['rmw']} / {cfg['scenario']}")
         self.btn_start.configure(state="disabled")
         self.btn_stop.configure(state="normal")
 
@@ -176,7 +176,7 @@ class Launcher:
     def _on_exit(self):
         self._kill_group(self.router, signal.SIGTERM)
         self.router = None
-        self.status.set("oprit — pregatit pentru urmatoarea rulare")
+        self.status.set("oprit -- pregatit pentru urmatoarea rulare")
         self.btn_start.configure(state="normal")
         self.btn_stop.configure(state="disabled")
 
