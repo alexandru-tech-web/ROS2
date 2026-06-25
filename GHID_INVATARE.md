@@ -195,5 +195,5 @@ ros2 pkg executables link_adaptive
 
 - **skill `sar-swarm-ros2`** -- contextul proiectului pentru sesiuni viitoare cu
   asistentul (convetii, cifre, gotchas).
-- **`ROADMAP_post_SSRR.md`** -- starea celor 9 pachete + pistele de dezvoltare.
-- **`ANALIZA_imbunatatiri.md`** -- ce mai poate fi imbunatatit, legat de articole.
+- **`ROADMAP_DEZVOLTARE.md`** -- starea pachetelor, pistele de dezvoltare si
+  imbunatatirile legate de articole.

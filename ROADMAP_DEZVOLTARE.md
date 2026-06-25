@@ -73,3 +73,21 @@ declansata de hardware, nu de calendar.
 3. Ecosistemul educational nu depaseste 1-2 h/sapt si nu intra in ferestre
    de sprint.
 4. Nu se pornesc T1+T2+T3 simultan — o singura pista activa.
+
+## 6. Datorii tehnice (audit 2026-06-25, de rezolvat inainte de submisie)
+
+Audit read-only pe tot src/. Repo sanatos; urmatoarele sunt amanate constient (nu
+blocheaza, dar de curatat inainte de orice articol):
+
+- DUPLICARE de core-uri vendorizate: sar_core.py, swarm_core.py, world_config.py,
+  netem_core.py sunt copii BYTE-IDENTICE in mesh_plugin / sar_swarm / sar_plugins /
+  teleop_rover (incarcate via sys.path.insert in SIL-uri). Risc de divergenta in timp.
+  Decizie arhitecturala: modul 'shared core' comun vs dual-track documentat.
+- ASCII in COD incalcat sistematic (CLAUDE.md sec 3): sar_swarm (~20 .py), joint_emulator,
+  servo_control, rehab_exo_description, gen_articol, curs_ros2. c1_benchmark / mesh_plugin /
+  link_adaptive sunt curate. De transliterat batch inainte de submisie.
+- servo_control (arhiva): package.xml are placeholder-uri (version 0.0.0, TODO description/
+  license) vs setup.py cu valori reale; servo_teleop.py are non-ASCII. De aliniat.
+- rehab_exo_description/CMakeLists.txt: blocuri install(DIRECTORY) si programe duplicate.
+- mesh_plugin: doua implementari paralele (MeshTopology intern vs MeshGraph root) -- de
+  marcat care e canonica / de consolidat (TODO existent in README).

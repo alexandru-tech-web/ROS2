@@ -43,7 +43,7 @@ free_gb=$(df -BG --output=avail "$HOME" 2>/dev/null | tail -1 | tr -dc '0-9')
                           || { echo "[X] sub 2 GB liberi in HOME"; ok=0; }
 
 python3 test_bench_core.py >/dev/null 2>&1 \
-  && echo "[ok] nucleul C1: 11 verificari trec" \
+  && echo "[ok] nucleul C1: 12 verificari trec" \
   || { echo "[X] test_bench_core.py ESUEAZA"; ok=0; }
 
 echo "=================="

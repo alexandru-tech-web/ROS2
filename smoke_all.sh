@@ -7,7 +7,7 @@
 #   ./smoke_all.sh            # rapid (~1-2 min): testele automate
 #   FULL=1 ./smoke_all.sh     # + rularile SIL mai lungi (sil_run, demo)
 #
-# Nivelurile urmatoare (cu ROS / cu Gazebo) sunt in GHID_PORNIRE.md.
+# Nivelurile urmatoare (cu ROS / cu Gazebo) sunt in GHID_INVATARE.md.
 set -u
 SRC="${SRC:-$HOME/ros2_ws/src}"
 FULL="${FULL:-0}"
@@ -63,7 +63,7 @@ done
 echo "  pasi: $TOT_OK ok, $TOT_FAIL fail"
 if [ "$TOT_FAIL" = 0 ]; then
   echo "  VERDICT: tot nivelul 0 e VERDE. Urmatorul nivel (cu ROS):"
-  echo "    GHID_PORNIRE.md -> Workflow 2/3, sau README-ul fiecarui pachet."
+  echo "    GHID_INVATARE.md -> Workflow 2/3, sau README-ul fiecarui pachet."
 else
   echo "  VERDICT: vezi log-urile /tmp/smoke_*.log pentru [FAIL]-uri."
 fi
