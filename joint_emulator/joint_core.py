@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""joint_core.py — nucleul PUR al emulatorului de articulatie (fara ROS,
+"""joint_core.py -- nucleul PUR al emulatorului de articulatie (fara ROS,
 fara hardware): doua servomotoare cuplate rigid pe acelasi ax = o
 articulatie. Motorul A actioneaza; motorul B citeste encoderul si aplica
 un cuplu de opozitie dupa o lege de IMPEDANTA, ca sa tina echilibrul.
@@ -8,12 +8,12 @@ Concepte:
   ImpedanceLaw   tau_B = -K*(th - th0) - B*om  (+ clamp, deadband, rampa)
   VirtualLimb    "pacientul" emulat de motorul B: inertie+amortizare+
                  rigiditate + optional "catch" spastic (rezistenta care
-                 creste brusc cu viteza — relevant pentru reabilitare)
+                 creste brusc cu viteza -- relevant pentru reabilitare)
   PairSim        fizica perechii pe ax comun: J*th'' = tau_A + tau_B - frec
-  DelayLine      intarziere de masura/comanda — CARLIGUL TEZEI: aceeasi
+  DelayLine      intarziere de masura/comanda -- CARLIGUL TEZEI: aceeasi
                  lege de impedanta devine instabila cand bucla trece
                  printr-o legatura cu latenta (teleoperare degradata)
-  EnergyMonitor  energia injectata de controler — semnal de pasivitate
+  EnergyMonitor  energia injectata de controler -- semnal de pasivitate
   SafetyGate     watchdog + limita de cuplu: orice dubiu => cuplu zero
 
 Conventii: SI (rad, rad/s, Nm, s). Integrare semi-implicita (Euler).

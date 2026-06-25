@@ -47,7 +47,7 @@ sim, mon, tr = run_equilibrium(
     ImpedanceLaw(k_nm_rad=10, b_nms_rad=0.6, tau_max=2.0), t_end=4.0)
 th_fin = sim.th
 ck(abs(th_fin - 0.05) < 0.01,
-   f"echilibru: th_final≈tau/K (={th_fin:.3f} rad la 0.5 Nm / 10 Nm/rad)")
+   f"echilibru: th_final~=tau/K (={th_fin:.3f} rad la 0.5 Nm / 10 Nm/rad)")
 ck(abs(sim.om) < 0.02, "echilibru: viteza finala ~0 (amortizat)")
 
 # ---- pasivitate: fara intarziere energia B e marginita ----

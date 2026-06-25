@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""state_to_jointstate_node.py — podul spre lumea ROS standard: traduce
+"""state_to_jointstate_node.py -- podul spre lumea ROS standard: traduce
 /joint/state (JSON-ul emulatorului) in sensor_msgs/JointState pe
 /joint_states, ca robot_state_publisher + RViz (sau orice unealta ROS)
 sa vada bancul miscandu-se. Perechea k -> articulatia pairk_joint."""

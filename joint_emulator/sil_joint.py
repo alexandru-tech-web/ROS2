@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""sil_joint.py — mediul de simulare COMPLET al bancului, fara ROS:
+"""sil_joint.py -- mediul de simulare COMPLET al bancului, fara ROS:
 scenarii numite, urme CSV, bilant in consola. Acelasi tipar ca sil_run /
 sil_teleop din restul repo-ului.
 

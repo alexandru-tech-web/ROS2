@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""gen_bench_model.py — generatorul GEOMETRIEI bancului, construita dupa
+"""gen_bench_model.py -- generatorul GEOMETRIEI bancului, construita dupa
 pozele standului real: piedestal albastru cu picioare evazate si talpi
 disc (perechea din fata), doua coloane albastre inalte (perechile din
 spate, nivelul de sus), suporti U albastri cu cuplaj portocaliu vizibil,
@@ -10,7 +10,7 @@ O SINGURA tabela de geometrie -> AMBELE fisiere:
                                   fiindca RViz2 nu rezolva mereu
                                   materialele definite doar global)
     gz/joint_bench_world.sdf     (Gazebo; modelul e ANCORAT de lume cu
-                                  un joint fix — altfel, fara coliziuni,
+                                  un joint fix -- altfel, fara coliziuni,
                                   cadea prin podea si "disparea")
 Ruleaza:  python3 tools/gen_bench_model.py
 """
@@ -112,7 +112,7 @@ def emit_urdf(V):
     for v in V:
         links.setdefault(v["link"], []).append(v)
     out = ['<?xml version="1.0"?>',
-           "<!-- GENERAT de tools/gen_bench_model.py — nu edita de mana -->",
+           "<!-- GENERAT de tools/gen_bench_model.py -- nu edita de mana -->",
            '<robot name="joint_bench">']
     for name in ["base_link", "shaft0", "shaft1", "shaft2"]:
         out.append(f'  <link name="{name}">')
@@ -168,7 +168,7 @@ def emit_sdf(V):
                                 f"{fmt(PAIRS[k])} {fmt(JRPY)}", 0.25)
                        for k in range(3))
     return f'''<?xml version="1.0"?>
-<!-- GENERAT de tools/gen_bench_model.py — nu edita de mana -->
+<!-- GENERAT de tools/gen_bench_model.py -- nu edita de mana -->
 <sdf version="1.9">
   <world name="bench_world">
     <gravity>0 0 -9.81</gravity>

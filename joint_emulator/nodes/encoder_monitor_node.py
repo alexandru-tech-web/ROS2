@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""encoder_monitor_node.py — pluginul de cinematica al bancului: ia
+"""encoder_monitor_node.py -- pluginul de cinematica al bancului: ia
 pozitia (encoderul) din /joint/state, o trece prin estimatorul
 alpha-beta-gamma si publica viteza + acceleratia CURATE, cu jurnal CSV
 pentru grafice. Functioneaza identic peste simulare si peste fier

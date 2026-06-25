@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""plot_joint.py — figurile bancului din mediul de simulare:
+"""plot_joint.py -- figurile bancului din mediul de simulare:
   figs/joint_sweep.png  E_max vs latenta: fix-total-remote vs adaptiv+
                         amortizare locala (FIGURA-CHEIE pentru C4)
   figs/joint_duel.png   pozitia in timp la 60 ms: fix vs adaptiv

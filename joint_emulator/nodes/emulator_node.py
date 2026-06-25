@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-"""emulator_node.py — nodul ROS2 al bancului (acelasi cod peste SimBackend
+"""emulator_node.py -- nodul ROS2 al bancului (acelasi cod peste SimBackend
 azi si peste ModbusBackend cand identificam drive-urile). Per pereche:
 A primeste comenzi de cuplu; B ruleaza legea de impedanta (fixa sau
-adaptiva) cu amortizarea LOCALA — lectia verificata in teste.
+adaptiva) cu amortizarea LOCALA -- lectia verificata in teste.
 
-Topicuri (std_msgs/String, JSON — stilul repo-ului):
+Topicuri (std_msgs/String, JSON -- stilul repo-ului):
   sub /joint/cmd_a      {"pair":0,"tau":0.5}        cuplul motorului A
   sub /joint/impedance  {"pair":0,"k":20,"b":0.8,"th0":0,"adaptive":true}
   sub /joint/estop      orice mesaj => cuplu zero pe tot
   sub /teleop/linkstate {"ms":..,"jit":..,"loss":..,"down":..} (optional:
-                        degradarea masurii spre legea B — tele-impedanta)
+                        degradarea masurii spre legea B -- tele-impedanta)
   pub /joint/state      {"0":{"t":..,"th":..,"om":..,"tau_b":..,"k_ef":..},..}
 Parametri: backend:=sim, n_pairs:=3, rate_hz:=200, k:=20.0, b:=0.8,
 tau_max:=2.0, adaptive:=false, state_hz:=50

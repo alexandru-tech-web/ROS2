@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""drive_iface.py — TAIETURA dintre logica si fier: interfata unica pe
+"""drive_iface.py -- TAIETURA dintre logica si fier: interfata unica pe
 care o vor implementa backend-urile. Azi exista doar SimBackend (pentru
 dezvoltare oriunde); backend-ul real (EtherCAT/analog/vendor) se scrie
-DUPA ce stim modelul drive-urilor ABB de pe stand — fara sa schimbam
+DUPA ce stim modelul drive-urilor ABB de pe stand -- fara sa schimbam
 nimic deasupra acestei interfete.
 
 Contract (toate marimile SI):
@@ -10,7 +10,7 @@ Contract (toate marimile SI):
   read(id) -> (t, th, om)             timpul masurii + pozitie + viteza
   set_torque(id, tau)                 comanda de cuplu (clamp in backend)
   estop()                             cuplu zero pe TOT, imediat
-Regula de fier: motorul B NU ruleaza niciodata in mod pozitie —
+Regula de fier: motorul B NU ruleaza niciodata in mod pozitie --
 pozitie-contra-pozitie pe ax rigid = oscilatie si supracurent.
 """
 import time

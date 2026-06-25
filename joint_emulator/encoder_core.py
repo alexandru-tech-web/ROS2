@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""encoder_core.py — stratul de ENCODER al bancului: de la impulsuri
+"""encoder_core.py -- stratul de ENCODER al bancului: de la impulsuri
 cuantizate la viteza si acceleratie CURATE, plus jurnalul pentru grafice.
 
 Problema reala: encoderul da pozitie in pasi (counts). Derivata numerica
 bruta a unei pozitii cuantizate = zgomot urias pe viteza (saltul de un
 pas / dt) si inutilizabil pe acceleratie. Solutia: filtrul de urmarire
-alpha-beta-gamma — estimeaza simultan pozitie/viteza/acceleratie, fara
+alpha-beta-gamma -- estimeaza simultan pozitie/viteza/acceleratie, fara
 numpy/scipy, rulabil si pe Raspberry Pi la 1 kHz.
 
   EncoderModel        cuantizare la counts_per_rev (+ zgomot optional)
@@ -41,7 +41,7 @@ class EncoderModel:
 
 class NaiveDiff:
     """Derivata bruta: (x - x_prec)/dt, de doua ori pentru acceleratie.
-    Exista doar ca martor al problemei — NU pentru control."""
+    Exista doar ca martor al problemei -- NU pentru control."""
 
     def __init__(self):
         self.th_p = None

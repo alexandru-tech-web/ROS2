@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""operator_panel_node.py — PANOUL OPERATORULUI: cuplul motoarelor de
+"""operator_panel_node.py -- PANOUL OPERATORULUI: cuplul motoarelor de
 comanda (A) pe slidere, impedanta (K, B) si degradarea legaturii (ms)
 reglabile live, ESTOP rosu, si GRAFICELE DE REACTIE citite de encoderele
 motoarelor slave (B): pozitie, viteza filtrata (+bruta), acceleratie si
@@ -89,11 +89,11 @@ class PanelNode(Node):
 
 
 def build_ui(node):
-    fig = plt.figure("Panoul operatorului — joint_emulator", figsize=(13, 7.5))
+    fig = plt.figure("Panoul operatorului -- joint_emulator", figsize=(13, 7.5))
     gs = fig.add_gridspec(4, 2, left=0.32, right=0.98, hspace=0.45)
     ax_th = fig.add_subplot(gs[0, :]); ax_th.set_ylabel("pozitie [rad]")
     ax_om = fig.add_subplot(gs[1, :]); ax_om.set_ylabel("viteza [rad/s]")
-    ax_ac = fig.add_subplot(gs[2, :]); ax_ac.set_ylabel("accel [rad/s²]")
+    ax_ac = fig.add_subplot(gs[2, :]); ax_ac.set_ylabel("accel [rad/s^2]")
     ax_tb = fig.add_subplot(gs[3, :]); ax_tb.set_ylabel("reactia tau_b [Nm]")
     ax_tb.set_xlabel("timpul simularii [s]")
     axes = (ax_th, ax_om, ax_ac, ax_tb)

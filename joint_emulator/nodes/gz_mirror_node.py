@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""gz_mirror_node.py — oglinda Gazebo: citeste /joint/state (emulator sau
+"""gz_mirror_node.py -- oglinda Gazebo: citeste /joint/state (emulator sau
 fier) si publica pozitiile spre JointPositionController-ele din lumea
-gz (prin ros_gz_bridge). Gazebo NU simuleaza fizica articulatiilor —
+gz (prin ros_gz_bridge). Gazebo NU simuleaza fizica articulatiilor --
 doar urmareste; o singura sursa de adevar."""
 import json
 

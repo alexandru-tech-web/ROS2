@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""teleimpedance.py — stratul de TELE-impedanta al emulatorului:
+"""teleimpedance.py -- stratul de TELE-impedanta al emulatorului:
 masura encoderului trece printr-o legatura degradata (aceeasi schema
 {ms, jit, loss, down} ca in tot repo-ul), iar legea de impedanta se
-poate ADAPTA la calitatea legaturii — intrebarea de cercetare a
+poate ADAPTA la calitatea legaturii -- intrebarea de cercetare a
 bancului: K scade si B creste cand masura imbatraneste, ca bucla sa
 ramana stabila acolo unde impedanta fixa explodeaza.
 """
@@ -54,7 +54,7 @@ class DegradedMeasure:
 class AdaptiveImpedance:
     """Impedanta adaptata la varsta masurii: K_ef = K0/(1+ck*age_ms),
     B_ef = B0*(1+cb*age_ms). Masura veche => articulatie mai moale si
-    mai amortizata — schimbam transparenta pe stabilitate, controlat."""
+    mai amortizata -- schimbam transparenta pe stabilitate, controlat."""
 
     def __init__(self, k0=40.0, b0=1.2, th0=0.0, tau_max=8.0,
                  ck=0.10, cb=0.03, age_floor_ms=0.0):
@@ -67,7 +67,7 @@ class AdaptiveImpedance:
 
     def torque(self, th, om, age_s=0.0, dt=None, om_local=None):
         """LECTIA DE ARHITECTURA (verificata in teste): amortizarea pe o
-        viteza INTARZIATA pompeaza energie — de aceea pe banc bucla de
+        viteza INTARZIATA pompeaza energie -- de aceea pe banc bucla de
         amortizare traieste LOCAL (pe Pi, langa drive), iar prin legatura
         degradata calatoreste doar rigiditatea/referinta. om_local, daca
         e dat, e viteza masurata local; om ramane cea sosita prin link."""

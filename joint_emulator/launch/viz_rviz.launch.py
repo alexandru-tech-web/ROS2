@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""viz_rviz.launch.py — vizualizarea bancului in RViz:
+"""viz_rviz.launch.py -- vizualizarea bancului in RViz:
 robot_state_publisher (URDF) + podul /joint/state -> /joint_states + RViz.
 Porneste SEPARAT emulatorul (nodes/emulator_node.py).
     ros2 launch launch/viz_rviz.launch.py
