@@ -11,14 +11,27 @@ __pycache__/
 .vscode/
 .idea/
 *.swp
-teleop_rover/results/
-c1_benchmark/results_c1/
-c1_benchmark/selftest_out/
-c1_benchmark/__pycache__/
+
+# === date experimentale / output (NU se versioneaza) ===
+# Figurile din */docs/ RAMAN versionate -- nu exista un *.png global aici.
+
+# directoare de rezultate / campanii / selftest
+results_c1/
+c1_results*/
+selftest_out/
+stats_out/
 sar_swarm/results/
+teleop_rover/results/campaign_*/
+
+# date de iesire ale nodurilor (CSV de rulare)
+**/sar_data/
+
+# medii virtuale
+venv_pdia/
+
+# figuri intermediare la radacina pachetului (docs/ ramane versionat)
 mesh_plugin/*.png
-c1_benchmark/results_c1/
-c1_benchmark/selftest_out/
-c1_benchmark/__pycache__/
-sar_swarm/results/
-mesh_plugin/*.png
+
+# inregistrari ROS bag
+*.bag
+*.db3
