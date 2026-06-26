@@ -52,7 +52,34 @@ Contributii: (i) un benchmark reproductibil CycloneDDS vs Zenoh sub \texttt{tc n
 un selector ar deveni justificat; (iv) un drum SIL$\rightarrow$HIL identic ca schema de date.
 
 \section{Lucrari conexe}
-% TODO: DDS/QoS, Zenoh, emulare de retea (netem), selectie de middleware. Vezi references.bib.
+
+\textbf{Middleware ROS 2 si abstractia rmw.} ROS 2 introduce un strat de abstractizare a
+middleware-ului (rmw) care permite schimbarea implementarii de comunicatie fara modificarea
+codului aplicatiei \cite{macenski2022ros2}. Implementarea implicita se bazeaza pe Data Distribution
+Service (DDS), un standard publish-subscribe centrat pe date, cu politici de calitate a serviciului
+(QoS) configurabile -- fiabilitate, durabilitate, termen-limita \cite{omg2015dds}. Lucrarea de fata
+compara doua implementari rmw sub aceeasi sarcina si aceleasi conditii de retea.
+
+\textbf{Zenoh ca transport alternativ.} Zenoh este un protocol publish-subscribe / query proiectat
+sa unifice comunicatia de la cloud la microcontroler, cu accent pe amprenta redusa si rutare
+eficienta \cite{corsaro2023zenoh}; este disponibil ca implementare rmw pentru ROS 2. Il evaluam
+alaturi de DDS (CycloneDDS) pentru a-i intelege comportamentul sub degradare, nu doar in conditii
+ideale.
+
+\textbf{Emulare de retea controlata.} Degradarea reproductibila a legaturii se obtine cu netem,
+extensia de control al traficului din Linux care adauga intarziere, jitter si pierdere (inclusiv
+pierdere corelata) pe o interfata \cite{hemminger2005netem}. netem ne da conditii identice in
+simulare (loopback) si pe hardware (legatura fizica), ceea ce sustine paritatea SIL/HIL.
+
+\textbf{Selectie si regret.} Cand evaluam un selector care alege transportul in functie de starea
+legaturii, masuram performanta prin regret -- diferenta fata de alegerea oracol -- o notiune
+imprumutata din invatarea online si teoria bandit \cite{lattimore2020bandit}. Folosim validare
+leave-one-condition-out pentru a evita scurgerea de informatie intre conditii.
+
+\textbf{Teleoperare in cautare-salvare.} Domeniul aplicativ este teleoperarea robotilor in
+interventii de dezastru, unde legatura de comunicatie e adesea degradata si intermitenta
+\cite{murphy2014disaster}. Pentru control in timp real, predictibilitatea latentei conteaza mai
+mult decat media ei, ceea ce motiveaza metrica si conditiile alese aici.
 
 \section{Metodologie}
 \subsection{Nucleu pur + selftest}

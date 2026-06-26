@@ -1,26 +1,67 @@
-% references.bib -- SEED de bibliografie pentru articolul A1.
-% CLAUDE.md sec 0: NU inventa citari. Intrarile de mai jos sunt PLACEHOLDER comentate;
-% completeaza-le cu referintele reale (titlu, autori, an, DOI) inainte de submisie.
-% Cand adaugi \cite{...} in main.tex, decomenteaza si completeaza intrarea corespunzatoare.
+% references.bib -- bibliografie pentru articolul A1.
+% CLAUDE.md sec 0: NU se inventa citari. Intrarile de mai jos sunt VERIFICATE in surse reale
+% (vezi campul note/doi). ASCII 100%. Daca o intrare nu poate fi verificata, ramane TODO explicit.
 
 % --- ROS 2 / rmw (abstractia de middleware) ---
-% @inproceedings{TODO_ros2,
-%   title   = {TODO},
-%   author  = {TODO},
-%   year    = {TODO}
-% }
+% Verificat: Science Robotics 7(66), 2022; dblp MacenskiFGLW22; DOI 10.1126/scirobotics.abm6074.
+@article{macenski2022ros2,
+  title   = {Robot Operating System 2: Design, architecture, and uses in the wild},
+  author  = {Macenski, Steven and Foote, Tully and Gerkey, Brian and Lalancette, Chris and Woodall, William},
+  journal = {Science Robotics},
+  volume  = {7},
+  number  = {66},
+  pages   = {eabm6074},
+  year    = {2022},
+  doi     = {10.1126/scirobotics.abm6074}
+}
 
 % --- DDS si QoS ---
-% @article{TODO_dds_qos, title = {TODO}, author = {TODO}, year = {TODO} }
+% Verificat: specificatia oficiala OMG, document formal/2015-04-11, aprilie 2015.
+@techreport{omg2015dds,
+  title       = {Data Distribution Service (DDS), Version 1.4},
+  author      = {{Object Management Group}},
+  institution = {Object Management Group},
+  number      = {formal/2015-04-11},
+  year        = {2015},
+  note        = {Available: https://www.omg.org/spec/DDS/1.4/}
+}
 
 % --- Zenoh ---
-% @misc{TODO_zenoh, title = {TODO}, author = {TODO}, year = {TODO} }
+% Verificat: DSD 2023, pp. 422-428; lista de autori din dblp (search/publ/api).
+@inproceedings{corsaro2023zenoh,
+  title     = {Zenoh: Unifying Communication, Storage and Computation from the Cloud to the Microcontroller},
+  author    = {Corsaro, Angelo and Cominardi, Luca and Hecart, Olivier and Baldoni, Gabriele and Avital, Julien Enoch Pierre and Loudet, Julien and Guimaraes, Carlos and Ilyin, Michael and Bannov, Dmitrii},
+  booktitle = {2023 26th Euromicro Conference on Digital System Design (DSD)},
+  pages     = {422--428},
+  year      = {2023},
+  publisher = {IEEE}
+}
 
 % --- Emulare de retea: Linux tc / netem ---
-% @misc{TODO_netem, title = {TODO}, author = {TODO}, year = {TODO} }
+% Verificat: Hemminger, "Network Emulation with NetEm", linux.conf.au (6th Australian National
+% Linux Conference), Canberra, aprilie 2005.
+@inproceedings{hemminger2005netem,
+  title     = {Network Emulation with NetEm},
+  author    = {Hemminger, Stephen},
+  booktitle = {Proceedings of the 6th Australia's National Linux Conference (linux.conf.au)},
+  address   = {Canberra, Australia},
+  year      = {2005}
+}
 
-% --- Selectie de algoritmi, regret, validare grupata (leave-one-group-out) ---
-% @article{TODO_selection_regret, title = {TODO}, author = {TODO}, year = {TODO} }
+% --- Selectie / regret (invatare online, teoria bandit) ---
+% Verificat: Lattimore & Szepesvari, "Bandit Algorithms", Cambridge University Press, 2020.
+@book{lattimore2020bandit,
+  title     = {Bandit Algorithms},
+  author    = {Lattimore, Tor and Szepesvari, Csaba},
+  publisher = {Cambridge University Press},
+  year      = {2020}
+}
 
-% --- SAR / roiuri de drone / teleoperare sub degradare ---
-% @inproceedings{TODO_sar_teleop, title = {TODO}, author = {TODO}, year = {TODO} }
+% --- SAR / teleoperare in dezastru ---
+% Verificat: Robin R. Murphy, "Disaster Robotics", MIT Press, 2014.
+@book{murphy2014disaster,
+  title     = {Disaster Robotics},
+  author    = {Murphy, Robin R.},
+  publisher = {MIT Press},
+  year      = {2014}
+}
