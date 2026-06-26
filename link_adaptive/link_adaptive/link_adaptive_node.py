@@ -85,12 +85,14 @@ class LinkAdaptiveNode(Node):
     # ---- decizie periodica ----
     def tick_decide(self):
         rtt_p95, loss = self.mon.metrics()
+        burst = self.mon.max_run_of_gaps()
         prev = self.ctrl.mode
-        mode, pol = self.ctrl.update(rtt_p95, loss, self._t)
+        mode, pol = self.ctrl.update(rtt_p95, loss, self._t, burst=burst)
         self._t += self._period
         self.pub_policy.publish(String(data=json.dumps(pol.as_dict())))
         self.pub_state.publish(String(data=json.dumps({
             "rtt_p95_ms": round(rtt_p95, 1), "loss": round(loss, 3),
+            "max_burst": burst,
             "mode": mode, "transitions": self.ctrl.transitions})))
         if mode != prev:
             self.get_logger().info(

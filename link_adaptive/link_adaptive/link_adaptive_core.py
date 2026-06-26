@@ -59,6 +59,7 @@ POLICIES = {
 # Banda dintre iesire si intrare absoarbe zgomotul si previne palpairea.
 DEG_ENTER_RTT = 150.0;  DEG_ENTER_LOSS = 0.05    # NOMINAL  -> DEGRADED
 CRIT_ENTER_RTT = 800.0; CRIT_ENTER_LOSS = 0.20   # ... -> CRITICAL
+CRIT_ENTER_BURST = 8     # rafala de >= 8 pierderi consecutive -> CRITICAL (chiar la pierdere medie mica)
 DEG_EXIT_RTT = 100.0;   DEG_EXIT_LOSS = 0.02     # DEGRADED -> NOMINAL
 CRIT_EXIT_RTT = 500.0;  CRIT_EXIT_LOSS = 0.12    # CRITICAL -> DEGRADED
 MIN_DWELL_S = 2.0                                # timp minim intre schimbari
@@ -109,6 +110,23 @@ class LinkMonitor:
             return 0.0
         return max(0.0, 1.0 - received / expected)
 
+    def max_run_of_gaps(self):
+        """Cea mai lunga secventa de numere de secventa LIPSA consecutiv pe fereastra
+        -- detector de RAFALE (burstiness). 0 daca nu lipseste niciunul."""
+        if len(self.seq) < 2:
+            return 0
+        present = set(self.seq)
+        lo, hi = min(self.seq), max(self.seq)
+        best = run = 0
+        for s in range(lo, hi + 1):
+            if s in present:
+                run = 0
+            else:
+                run += 1
+                if run > best:
+                    best = run
+        return best
+
     def metrics(self):
         return self.rtt_p95(), self.loss()
 
@@ -123,12 +141,16 @@ class AdaptiveController:
         self.last_change = -1e9
         self.transitions = 0
 
-    def _target(self, rtt, loss):
+    def _target(self, rtt, loss, burst=0):
         """Modul tinta pentru masuratorile curente, tinand cont de modul curent
         (praguri de intrare la inrautatire, de iesire la imbunatatire).
         Intrarea foloseste '>' strict: valoarea pragului e plafonul modului mai
-        bun (ex. pana la 5% pierdere inclusiv = inca NOMINAL)."""
+        bun (ex. pana la 5% pierdere inclusiv = inca NOMINAL).
+        burst = lungimea celei mai lungi rafale de pierderi: o rafala lunga escaladeaza
+        direct la CRITICAL (stall de control pe care pierderea MEDIE il rateaza)."""
         m = self.mode
+        if burst >= CRIT_ENTER_BURST:
+            return CRITICAL
         if m == NOMINAL:
             if rtt > CRIT_ENTER_RTT or loss > CRIT_ENTER_LOSS:
                 return CRITICAL
@@ -146,8 +168,8 @@ class AdaptiveController:
             return DEGRADED
         return CRITICAL
 
-    def update(self, rtt_p95_ms, loss_frac, now_s):
-        target = self._target(rtt_p95_ms, loss_frac)
+    def update(self, rtt_p95_ms, loss_frac, now_s, burst=0):
+        target = self._target(rtt_p95_ms, loss_frac, burst)
         if target != self.mode and (now_s - self.last_change) >= self.min_dwell_s:
             self.mode = target
             self.last_change = now_s
@@ -249,6 +271,29 @@ def _selftest():
     check("pragul de prospetime scade cu severitatea",
           stale[0] > stale[1] > stale[2], f"{stale}")
     check("CRITICAL renunta la fiabilitate", POLICIES[CRITICAL].reliable is False)
+
+    # --- burstiness: max_run_of_gaps + escaladare la rafala ---
+    monb = LinkMonitor()
+    for s in [1, 2, 3, 10, 11, 12]:        # lipsesc 4..9 = rafala de 6
+        monb.ingest_seq(s)
+    check("max_run_of_gaps detecteaza rafala de 6", monb.max_run_of_gaps() == 6,
+          f"a dat {monb.max_run_of_gaps()}")
+    mon_ok = LinkMonitor()
+    for s in [1, 2, 3, 4, 5]:
+        mon_ok.ingest_seq(s)
+    check("fara goluri -> max_run_of_gaps 0", mon_ok.max_run_of_gaps() == 0)
+    cb = AdaptiveController()
+    t = 0.0
+    for _ in range(3):
+        cb.update(20, 0.03, t, burst=10)   # loss mediu sub prag, dar rafala de 10
+        t += MIN_DWELL_S
+    check("rafala lunga -> CRITICAL desi loss mediu mic", cb.mode == CRITICAL, f"mod={cb.mode}")
+    cc = AdaptiveController()
+    t = 0.0
+    for _ in range(3):
+        cc.update(20, 0.03, t)             # acelasi loss mic, fara burst
+        t += MIN_DWELL_S
+    check("fara burst, loss mic -> NOMINAL (backward-compat)", cc.mode == NOMINAL, f"mod={cc.mode}")
 
     print(f"[selftest] {ok} verificari trecute"
           + (f", {len(fail)} ESUATE:" if fail else ", toate OK"))
