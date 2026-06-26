@@ -40,6 +40,8 @@ class PanelNode(Node):
                       ("t", "th", "om", "om_raw", "acc", "tau_b")}
         self.buf = [mk() for _ in range(N_PAIRS)]
         self.k_ef = [0.0] * N_PAIRS
+        self.win_e = [0.0] * N_PAIRS
+        self.estopped = [False] * N_PAIRS
         self.pub_cmd = self.create_publisher(String, "/joint/cmd_a", 10)
         self.pub_imp = self.create_publisher(String, "/joint/impedance", 10)
         self.pub_lnk = self.create_publisher(String, "/teleop/linkstate", 10)
@@ -56,6 +58,8 @@ class PanelNode(Node):
                     self.buf[k]["tau_b"].append(
                         (float(st["t"]), float(st.get("tau_b", 0.0))))
                     self.k_ef[k] = float(st.get("k_ef", 0.0))
+                    self.win_e[k] = float(st.get("win_energy", 0.0))
+                    self.estopped[k] = bool(st.get("estopped", False))
 
     def on_kin(self, msg):
         d = json.loads(msg.data)
@@ -154,7 +158,10 @@ def build_ui(node):
                 lines[("om_raw", 0)].set_data([p[0] for p in pts],
                                               [p[1] for p in pts])
             kef = ", ".join(f"p{k}: {node.k_ef[k]:.1f}" for k in range(N_PAIRS))
-        titlu.set_text(f"K_ef [{kef}]   link: {s_ms.val:.0f} ms")
+            win_max = max(node.win_e) if node.win_e else 0.0
+            any_estop = any(node.estopped)
+        margin = f"   stabilitate (E pe 1s): {win_max:.2f} J" + ("   [ESTOP]" if any_estop else "")
+        titlu.set_text(f"K_ef [{kef}]   link: {s_ms.val:.0f} ms{margin}")
         for ax in axes:
             ax.relim(); ax.autoscale_view()
         fig.canvas.draw_idle()

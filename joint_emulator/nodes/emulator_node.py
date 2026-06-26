@@ -24,7 +24,7 @@ from std_msgs.msg import String
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from drive_iface import SimBackend
-from joint_core import ImpedanceLaw, SafetyGate
+from joint_core import ImpedanceLaw, SafetyGate, EnergyMonitor
 from teleimpedance import DegradedMeasure, AdaptiveImpedance
 
 
@@ -34,7 +34,7 @@ class EmulatorNode(Node):
         p = self.declare_parameter
         p("backend", "sim"); p("n_pairs", 3); p("rate_hz", 200.0)
         p("k", 20.0); p("b", 0.8); p("tau_max", 2.0)
-        p("adaptive", False); p("state_hz", 50.0)
+        p("adaptive", False); p("state_hz", 50.0); p("estop_energy", 0.0)
         g = lambda n: self.get_parameter(n).value
         self.n = int(g("n_pairs"))
         if g("backend") != "sim":
@@ -52,6 +52,14 @@ class EmulatorNode(Node):
         self.links = [DegradedMeasure() for _ in range(self.n)]
         self.gates = [SafetyGate(timeout_s=0.1, tau_max=self.tau_max)
                       for _ in range(self.n)]
+        # margine de stabilitate glisanta (integ tau_B*om pe fereastra 1s) -> ESTOP optional.
+        # estop_energy=0 (implicit) => prag 1e9 => doar monitorizeaza (win_energy informativ),
+        # comportament neschimbat; estop_energy>0 => auto-ESTOP cand energia pe fereastra trece pragul.
+        self.estop_energy = float(g("estop_energy"))
+        thr = self.estop_energy if self.estop_energy > 0 else 1e9
+        self.energy = [EnergyMonitor(window_s=1.0, estop_energy=thr)
+                       for _ in range(self.n)]
+        self.dt = 1.0 / float(g("rate_hz"))
         for k in range(self.n):
             self.hw.enable(2 * k); self.hw.enable(2 * k + 1)
 
@@ -111,10 +119,16 @@ class EmulatorNode(Node):
                     tau = law.torque(th_m, om_m)
                 tau = gate.gate(t, tau)
             self.hw.set_torque(2 * k + 1, tau)
+            em = self.energy[k]
+            em.step(tau, om, self.dt)
+            if self.estop_energy > 0 and em.estopped:
+                self.hw.estop()
             self.last[str(k)] = {"t": round(t, 4), "th": round(th, 5),
                                  "om": round(om, 4), "tau_b": round(tau, 4),
                                  "k_ef": round(getattr(self.laws[k], "k_ef",
-                                               getattr(self.laws[k], "k", 0)), 2)}
+                                               getattr(self.laws[k], "k", 0)), 2),
+                                 "win_energy": round(em.win_energy, 4),
+                                 "estopped": bool(em.estopped)}
 
     def report(self):
         self.pub.publish(String(data=json.dumps(self.last)))
