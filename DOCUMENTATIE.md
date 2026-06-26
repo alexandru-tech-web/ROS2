@@ -17,6 +17,16 @@ doua straturi de masura: transport (RTT) si misiune (metrici operationale).
 - [sar_plugins](sar_plugins/README.md) -- etajul de misiune (degradare dependenta de
   distanta + telemetrie: baterie, acoperire, victime).
 
+Tooling C1 (in `c1_benchmark/`):
+- Selector de middleware: `selector_core.py` (nucleu pur + LOCO + regret) cu
+  `reproduce_selector.py` (obiective CONTROL si CONSTIENT DE PIERDERE) si
+  `reproduce_selector_mission.py` (obiectiv TELEMETRIE); `build_selector_dataset.py`
+  reconstruieste dataset-ul din campania reala. Caracterizator ML: `reproduce_pdia.py`.
+- [GHID_TESTARE.md](c1_benchmark/GHID_TESTARE.md) -- rulare pas-cu-pas a pipeline-ului si ce iese.
+- [HIL_RUNBOOK.md](c1_benchmark/HIL_RUNBOOK.md) -- campanie pe doua masini (PC + RPi);
+  `run_campaign.py --mode sil|hil` pastreaza schema de date identica SIL/HIL.
+- [paper/](c1_benchmark/paper/) -- schelet articol A1 (DRAFT; cifre PROVIZORII SIL).
+
 ## C3 -- adaptare si rezilienta a legaturii
 
 - [link_adaptive](link_adaptive/README.md) -- adaptare link-aware (NOMINAL / DEGRADED /
@@ -51,6 +61,8 @@ doua straturi de masura: transport (RTT) si misiune (metrici operationale).
 - Datele experimentale (campanii, rezultate brute, figuri de rulare) NU se versioneaza;
   vezi [.gitignore](.gitignore) si [CONTRIBUTING.md](CONTRIBUTING.md). In git intra codul,
   scripturile de analiza si figurile reprezentative din `*/docs/`.
-- Rezultatele SIL sunt provizorii (N=1, deterministe pe seed) si trebuie inlocuite cu date
-  de campanie (N=5) inainte de orice submisie; fiecare README marcheaza explicit aceste cifre.
+- Rezultatele SIL (loopback, o singura masina) sunt PROVIZORII: campania de transport C1
+  e N=10 pe loopback. HIL (doua masini + legatura reala, PC + RaspberryPi 4B) ramane
+  comparatia AUTORITARA -- vezi [HIL_RUNBOOK.md](c1_benchmark/HIL_RUNBOOK.md). Fiecare
+  README / figura / caption marcheaza explicit ca cifrele sunt SIL.
 - TODO: contributia C2 nu este mapata explicit pe un pachet in sursele curente -- de clarificat.
