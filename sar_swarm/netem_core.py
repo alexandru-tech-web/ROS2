@@ -31,6 +31,7 @@ class LinkState:
         self.base_ms = float(base_ms)
         self.jitter_ms = float(jitter_ms)
         self.loss = float(loss)
+        self.burst = None              # optional: proces de rafale (.draw()); None = memoryless
         self.up = True
         # statistici (modulul de inregistrare)
         self.sent = self.lost = self.delivered = self.buffered = 0
@@ -38,6 +39,11 @@ class LinkState:
         self.down_since = None
         self.down_total = 0.0
         self.recovery_times = []       # s: restabilire -> prima livrare
+
+    def drops(self, rng):
+        """True = pachet pierdut. Memoryless (Bernoulli pe self.loss); daca self.burst e setat
+        (proces duck-typed cu .draw(), ex. rf_interference.BurstProcess) -> pierdere CORELATA."""
+        return self.burst.draw() if self.burst is not None else (rng.random() < self.loss)
 
     def snapshot(self):
         lat = sorted(self.lat_samples)
@@ -126,7 +132,7 @@ class Channel:
             else:
                 L.lost += 1
             return
-        if self.rng.random() < L.loss:
+        if L.drops(self.rng):
             L.lost += 1
             return
         lat = max(1.0, L.base_ms + self.rng.gauss(0.0, L.jitter_ms))
