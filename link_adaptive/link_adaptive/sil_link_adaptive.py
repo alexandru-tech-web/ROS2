@@ -108,7 +108,7 @@ def _plot(rows):
     ts = [r["t"] for r in rows]
     yv = {NOMINAL: 0, DEGRADED: 1, CRITICAL: 2}
 
-    fig = plt.figure(figsize=(13.5, 3.8), dpi=130)
+    fig = plt.figure(figsize=(13.5, 3.8), dpi=200)
     gs = fig.add_gridspec(1, 3, width_ratios=[1.1, 1.1, 1.0], wspace=0.34)
 
     axA = fig.add_subplot(gs[0, 0])
