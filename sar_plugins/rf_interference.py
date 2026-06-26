@@ -128,6 +128,20 @@ def conditions_gilbert(steady_losses=(0.20, 0.25, 0.30), burst_lens=(5.0, 5.0, 5
     return out
 
 
+def linkstate_to_netem(ls, iface):
+    """Din un /sar/linkstate dict {lat_ms, jit_ms, loss[, p, r]} -> comanda tc netem.
+    Daca p,r prezenti -> gemodel (Gilbert-Elliott, paritate SIL<->HIL); altfel memoryless.
+    Logica PURA a puntii SIL->HIL (netem_bridge_node o foloseste)."""
+    lat = float(ls.get("lat_ms", 0.0))
+    jit = float(ls.get("jit_ms", 0.0))
+    if "p" in ls and "r" in ls:
+        loss_tok = BurstProcess(float(ls["p"]), float(ls["r"])).to_netem_gemodel()
+    else:
+        loss_tok = "loss %.3f%%" % (100.0 * float(ls.get("loss", 0.0)))
+    return ("tc qdisc replace dev %s root netem delay %gms %gms %s"
+            % (iface, lat, jit, loss_tok))
+
+
 def _selftest():
     """Verificari pure, fara I/O. Apelat din test_rf_interference.py si din __main__."""
     bp = BurstProcess(p=0.1, r=0.4, loss_bad=1.0, loss_good=0.0, seed=1)
@@ -165,6 +179,12 @@ def _selftest():
     # conditions_gilbert
     cg = conditions_gilbert()
     assert "gilbert_30" in cg and abs(cg["gilbert_30"]["loss"] - 0.30) < 1e-9
+
+    # linkstate_to_netem: gemodel cu p,r; memoryless fara
+    ng = linkstate_to_netem({"lat_ms": 40, "jit_ms": 8, "p": 0.05, "r": 0.2}, "eth0")
+    assert "delay 40ms 8ms loss gemodel" in ng and "dev eth0" in ng, ng
+    nm = linkstate_to_netem({"lat_ms": 0, "jit_ms": 0, "loss": 0.3}, "lo")
+    assert nm == "tc qdisc replace dev lo root netem delay 0ms 0ms loss 30.000%", nm
 
     print("TOATE VERIFICARILE rf_interference AU TRECUT")
 
