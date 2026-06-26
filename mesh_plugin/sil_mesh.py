@@ -162,7 +162,8 @@ def run(profile="urban_rubble", t_max=120.0, dt=1.0, seed=4, out_dir=None):
                      "zona verde = drone recuperate de mesh")
         ax.legend(loc="lower left"); ax.grid(alpha=0.3)
         fig.tight_layout()
-        fig.savefig(os.path.join(out_dir, "mesh_reachability.png"), dpi=150)
+        for ext in ("png", "pdf"):
+            fig.savefig(os.path.join(out_dir, "mesh_reachability." + ext), dpi=200)
         plt.close(fig)
 
         # 2. pachete livrate cumulat
@@ -174,7 +175,8 @@ def run(profile="urban_rubble", t_max=120.0, dt=1.0, seed=4, out_dir=None):
         ax.set_title("Telemetrie livrata: mesh recupereaza ce pierde steaua")
         ax.legend(loc="upper left"); ax.grid(alpha=0.3)
         fig.tight_layout()
-        fig.savefig(os.path.join(out_dir, "mesh_delivery.png"), dpi=150)
+        for ext in ("png", "pdf"):
+            fig.savefig(os.path.join(out_dir, "mesh_delivery." + ext), dpi=200)
         plt.close(fig)
 
         # 3. topologia la final (cine vede pe cine + rutele mesh)
@@ -207,7 +209,8 @@ def run(profile="urban_rubble", t_max=120.0, dt=1.0, seed=4, out_dir=None):
                          "(linii verzi = muchii radio utilizabile)")
             ax.grid(alpha=0.3); ax.set_aspect("equal", "box")
             fig.tight_layout()
-            fig.savefig(os.path.join(out_dir, "mesh_topology.png"), dpi=150)
+            for ext in ("png", "pdf"):
+                fig.savefig(os.path.join(out_dir, "mesh_topology." + ext), dpi=200)
             plt.close(fig)
 
         print(f"\n[ok] 3 figuri scrise in {out_dir}")

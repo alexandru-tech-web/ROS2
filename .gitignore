@@ -31,6 +31,7 @@ venv_pdia/
 
 # figuri intermediare la radacina pachetului (docs/ ramane versionat)
 mesh_plugin/*.png
+mesh_plugin/*.pdf
 # figuri demo regenerabile din sar_plugins/demo_plugins_sim.py
 sar_plugins/demo_*.png
 # figuri SIL regenerabile la radacina link_adaptive (docs/ ramane versionat)
