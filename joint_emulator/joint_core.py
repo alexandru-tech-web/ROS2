@@ -83,16 +83,37 @@ class EnergyMonitor:
     """Energia injectata de motorul B in ax: integ(tau_B * om) dt.
     Un controler pasiv (impedanta pura, fara intarziere) doar DISIPA:
     energia ramane marginita. Cresterea nemarginita = semn de
-    instabilitate (exact ce cauta experimentul cu legatura degradata)."""
+    instabilitate (exact ce cauta experimentul cu legatura degradata).
 
-    def __init__(self):
+    win_energy = energia pe ultima fereastra de window_s (margine de stabilitate
+    glisanta); daca depaseste estop_energy -> estopped=True (declanseaza ESTOP).
+    Parametrii au valori implicite -> backward-compatibil (EnergyMonitor() merge ca inainte)."""
+
+    def __init__(self, window_s=1.0, estop_energy=0.5):
         self.e = 0.0
         self.e_max = 0.0
+        self.window_s = float(window_s)
+        self.estop_energy = float(estop_energy)
+        self._win = deque()       # (t, putere_increment) pe ultima fereastra
+        self._t = 0.0
+        self.win_energy = 0.0
+        self.estopped = False
 
     def step(self, tau, om, dt):
-        self.e += tau * om * dt
+        p = tau * om * dt
+        self.e += p
         self.e_max = max(self.e_max, self.e)
+        self._t += dt
+        self._win.append((self._t, p))
+        while self._win and self._t - self._win[0][0] > self.window_s:
+            self._win.popleft()
+        self.win_energy = sum(x[1] for x in self._win)
+        if self.win_energy > self.estop_energy:
+            self.estopped = True
         return self.e
+
+    def reset_estop(self):
+        self.estopped = False
 
 
 class SafetyGate:

@@ -154,4 +154,20 @@ for _ in range(2000):
 ck(abs(ke2.th - 0.7) < 1e-3 and abs(ke2.om) < 1e-3 and abs(ke2.acc) < 0.05,
    "estimator: pe pozitie constanta converge la om=0, acc=0")
 
+# --- margine de stabilitate glisanta (fereastra 1s) + ESTOP ---
+em = EnergyMonitor(window_s=1.0, estop_energy=0.5)
+for _ in range(500):
+    em.step(2.0, 0.5, 0.001)          # putere tau*om = 1.0 W timp de 0.5 s -> 0.5 J
+ck(abs(em.win_energy - 0.5) < 0.02 and not em.estopped,
+   f"EnergyMonitor: energie pe fereastra ~0.5J, fara ESTOP ({em.win_energy:.2f})")
+for _ in range(1500):
+    em.step(0.0, 0.0, 0.001)          # fereastra gliseaza peste putere 0
+ck(em.win_energy < 0.05, f"EnergyMonitor: fereastra gliseaza, energia scade ({em.win_energy:.3f})")
+em2 = EnergyMonitor(window_s=1.0, estop_energy=0.5)
+for _ in range(800):
+    em2.step(3.0, 0.5, 0.001)         # 1.5 W * 0.8 s = 1.2 J > prag 0.5
+ck(em2.estopped, "EnergyMonitor: energie pe fereastra peste prag -> ESTOP declansat")
+em2.reset_estop()
+ck(not em2.estopped, "EnergyMonitor: reset_estop curata flag-ul")
+
 print(f"\n=== {OK}/{OK} verificari trecute ===")
