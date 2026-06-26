@@ -32,13 +32,23 @@ COND_NETEM = {
     "loss_20":       (20.0,  0.0,  0.0),
     "loss_25":       (25.0,  0.0,  0.0),
     "loss_30":       (30.0,  0.0,  0.0),
-    # variante 'burst' = aceeasi pierdere, cu corelatie (rafale). Burstiness NU e inca un
-    # feature -> au aceleasi (loss, lat, jit) ca varianta de baza (TODO: feature de corelatie).
+    # variante CORELATE (rafale): aceeasi (loss, lat, jit), dar le distinge feature-ul
+    # mean_burst_len (vezi COND_BURST). gilbert_* = sweep sintetic (rf_interference.BurstProcess).
     "loss_20_burst": (20.0,  0.0,  0.0),
     "loss_25_burst": (25.0,  0.0,  0.0),
     "loss_30_burst": (30.0,  0.0,  0.0),
+    "gilbert_20":    (20.0,  0.0,  0.0),
+    "gilbert_25":    (25.0,  0.0,  0.0),
+    "gilbert_30":    (30.0,  0.0,  0.0),
     "lat200_jit50":  (0.0, 200.0, 50.0),
     "lat200_l15":    (15.0, 200.0,  0.0),
+}
+
+# Lungimea medie a rafalei de pierderi per conditie (feature de BURSTINESS). Default 1.0 =
+# pierdere INDEPENDENTA. Corelate: gilbert_* (sweep sintetic) + vechile *_burst (netem corr).
+COND_BURST = {
+    "gilbert_20": 5.0, "gilbert_25": 5.0, "gilbert_30": 5.0,
+    "loss_20_burst": 2.0, "loss_25_burst": 2.0, "loss_30_burst": 2.0,
 }
 
 
@@ -50,9 +60,13 @@ def parse_cond(cond):
 
 
 def cell_features(cond, payload):
-    """Vectorul de feature-uri al unei celule: [loss, lat, jit, log10(payload)]."""
+    """Vectorul de feature-uri: [loss, lat, jit, log10(payload), mean_burst_len].
+
+    mean_burst_len (lungimea medie a rafalei de pierderi; 1.0 = independent) distinge conditiile
+    corelate (gilbert_*, *_burst) de pierderea independenta -- inchide TODO-ul de burstiness al
+    selectorului (conditiile cu aceeasi loss/lat/jit nu mai sunt indistinctibile)."""
     loss, lat, jit = parse_cond(cond)
-    return [loss, lat, jit, math.log10(float(payload))]
+    return [loss, lat, jit, math.log10(float(payload)), COND_BURST.get(cond, 1.0)]
 
 
 def median(xs):

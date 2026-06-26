@@ -104,6 +104,15 @@ def main():
     ok("zenoh" not in mc[("ideal", 4096)],
        "randul cu mission_time_s gol (cenzurat) e sarit")
 
+    print("== 10. feature de burstiness (gilbert_* vs loss_*) ==")
+    ok(len(sc.cell_features("loss_30", 4096)) == 5, "vectorul de feature are 5 elemente (cu burst)")
+    ok(sc.cell_features("loss_30", 4096)[4] == 1.0, "loss_30 = pierdere independenta (burst=1)")
+    ok(sc.cell_features("gilbert_30", 4096)[4] == 5.0, "gilbert_30 are mean_burst_len=5")
+    f_loss = sc.cell_features("loss_30", 4096)
+    f_gil = sc.cell_features("gilbert_30", 4096)
+    ok(f_loss[:4] == f_gil[:4] and f_loss[4] != f_gil[4],
+       "gilbert_30 vs loss_30: identice pe loss/lat/jit/payload, distincte pe burst")
+
     print("\nTOATE TESTELE SELECTOR_CORE AU TRECUT: %d verificari." % N)
 
 
