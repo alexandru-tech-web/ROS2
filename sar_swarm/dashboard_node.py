@@ -23,6 +23,7 @@ from std_msgs.msg import String
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from world_config import WORLD, DRONES
+from rf_status_core import rf_status, link_summary
 import fault_panel
 
 try:
@@ -44,11 +45,13 @@ class DashNode(Node):
         self.status = {}
         self.linkstate = {}
         self.probe = {}
+        self.la_state = {}
         self.pose = {d: DRONES[d] + (0,) for d in IDS}
         self.trail = {d: [] for d in IDS}
         self.create_subscription(String, "/sar/status", self._mk("status"), 10)
         self.create_subscription(String, "/sar/linkstate", self._mk("linkstate"), 10)
         self.create_subscription(String, "/sar/probe/stats", self._mk("probe"), 10)
+        self.create_subscription(String, "/link_adaptive/state", self._mk("la_state"), 10)
         self.op_pub = self.create_publisher(String, "/sar/operator", 10)
         for d in IDS:
             self.create_subscription(String, f"/sar/pose/{d}",
@@ -154,6 +157,7 @@ def build_gui(node: DashNode):
     def tick():
         with node.lock:
             st, ls, pr = dict(node.status), dict(node.linkstate), dict(node.probe)
+            la = dict(node.la_state)
             pose = dict(node.pose)
             trail = {d: list(node.trail[d]) for d in IDS}
         cv.delete("all")
@@ -190,7 +194,8 @@ def build_gui(node: DashNode):
                      f"Misiune: {st.get('mission','?')}   "
                      f"Acoperire: {100*st.get('coverage',0):.1f}%   "
                      f"Victime: {len(st.get('victims',[]))}/"
-                     f"{st.get('victims_total','?')}")
+                     f"{st.get('victims_total','?')}\n"
+                     f"{rf_status(ls)['text']}\n{link_summary(la)}")
         dr = st.get("drones", {})
         for d in IDS:
             i = dr.get(d, {})
