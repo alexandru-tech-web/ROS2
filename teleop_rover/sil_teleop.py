@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""sil_teleop.py — teleoperare in BUCLA INCHISA prin reteaua degradata,
+"""sil_teleop.py -- teleoperare in BUCLA INCHISA prin reteaua degradata,
 fara ROS: pilotul (operatorul-model) vede DOAR pozele care au supravietuit
 canalului (latenta+jitter+pierdere la intors), iar robotul primeste DOAR
 comenzile care au supravietuit canalului la dus si trec de stratul de
@@ -97,11 +97,11 @@ def plot(rows, res, out):
     import matplotlib.pyplot as plt
     c = Course()
     fig, ax = plt.subplots(1, 2, figsize=(12, 4.5))
-    fig.suptitle(f"Teleoperare prin canal degradat — lat={res['lat_ms']:.0f} ms, "
+    fig.suptitle(f"Teleoperare prin canal degradat -- lat={res['lat_ms']:.0f} ms, "
                  f"jitter={res['jit_ms']:.0f} ms, pierdere={100*res['loss']:.0f}%  "
                  f"(CTE p95={res['cte_p95']:.2f} m, "
                  f"{res['time_s']:.0f} s, opriri={res['stops']})",
-                 fontweight="bold")
+                 fontweight="bold", fontsize=11)
     cx = [p[0] for p in c.pts]
     cy = [p[1] for p in c.pts]
     ax[0].plot(cx, cy, "o--", color="#888", label="traseul (porti)")
@@ -112,19 +112,24 @@ def plot(rows, res, out):
         ax[0].plot([p[0] for p in st], [p[1] for p in st], ".",
                    color="#c0392b", ms=3, label="oprit (watchdog)")
     ax[0].set_aspect("equal")
-    ax[0].legend()
+    ax[0].set_xlabel("x [m]", fontsize=11); ax[0].set_ylabel("y [m]", fontsize=11)
+    ax[0].grid(linestyle=":", linewidth=0.5, alpha=0.6); ax[0].set_axisbelow(True)
+    ax[0].legend(fontsize=9)
     ax[0].set_title("traiectoria")
     t = [r[0] for r in rows]
     ax[1].plot(t, [r[3] for r in rows], color="#d8702e", label="CTE [m]")
     ax[1].plot(t, [r[5] for r in rows], color="#2E8B57", ls="--",
                label="varsta feedback-ului [s]")
-    ax[1].set_xlabel("timp [s]")
-    ax[1].legend()
-    ax[1].grid(alpha=0.3)
+    ax[1].set_xlabel("timp [s]", fontsize=11)
+    ax[1].set_ylabel("CTE [m] / varsta feedback [s]", fontsize=11)
+    ax[1].legend(fontsize=9)
+    ax[1].grid(linestyle=":", linewidth=0.5, alpha=0.6); ax[1].set_axisbelow(True)
     ax[1].set_title("eroarea si prospetimea")
+    stem = os.path.splitext(out)[0]
     fig.tight_layout()
-    fig.savefig(out, dpi=130)
-    print(f"[ok] figura: {out}")
+    for ext in ("png", "pdf"):
+        fig.savefig(stem + "." + ext, dpi=200)
+    print(f"[ok] figura: {stem}.{{png,pdf}}")
 
 
 def main():
