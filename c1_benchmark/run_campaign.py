@@ -78,6 +78,14 @@ def main():
         conditions = [c for c in CONDITIONS if c["name"] in want]
     else:
         conditions = CONDITIONS
+    # HIL: exclude conditiile de interferenta INGHETATE -- pe legatura fizica vrem comparatia
+    # AUTORITARA memoryless + latenta. *_burst (corr) nu pastreaza media; gilbert_* fac parte din
+    # suprafata RF inghetata (in afara drumului critic A1). Vezi NOTA_METODOLOGICA_C1.md / HIL_RUNBOOK.md.
+    if a.mode == "hil":
+        excluse = [c["name"] for c in conditions if c.get("type") == "gilbert" or "corr" in c]
+        if excluse:
+            conditions = [c for c in conditions if c.get("type") != "gilbert" and "corr" not in c]
+            print(f"[hil] exclus (inghetat, interferenta corelata): {excluse}")
     plan = build_plan(rmws, conditions, a.reps, layers)
     print(f"plan: {len(plan)} rulari ({len(rmws)} RMW x {len(conditions)} "
           f"conditii x {a.reps} rep x {len(layers)} straturi)")
