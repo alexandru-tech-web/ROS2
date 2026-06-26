@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""bench_core.py — nucleul PUR al campaniei C1 (fara ROS, testat automat):
+"""bench_core.py -- nucleul PUR al campaniei C1 (fara ROS, testat automat):
 conditiile de retea SAR-realiste, statisticile de transport, comenzile tc
 netem, planul de campanie si extragerea timpului de finalizare a misiunii.
 
 Metodologia C1 (cheia articolului): degradarea este REALA (tc netem pe
-interfata), nu simulata — de aceea misiunea ruleaza cu scenario:=none.yaml
+interfata), nu simulata -- de aceea misiunea ruleaza cu scenario:=none.yaml
 (injectorul publica stare curata; singura degradare e cea fizica), iar
 diferentele masurate apartin EXCLUSIV middleware-ului (RMW) sub acea retea.
 """
@@ -18,7 +18,7 @@ RMWS = {"cyclonedds": "rmw_cyclonedds_cpp",
         "fastdds": "rmw_fastrtps_cpp"}     # optional, al treilea punct
 
 # Conditiile SAR-realiste: planul original (pierderi 0/5/15/30%) + doua
-# combinatii cu latenta (vârful descoperit in simulari: latenta doare).
+# combinatii cu latenta (varful descoperit in simulari: latenta doare).
 CONDITIONS = [
     dict(name="ideal",        base_ms=0,   jitter_ms=0,  loss=0.00),
     dict(name="loss_5",       base_ms=0,   jitter_ms=0,  loss=0.05),
@@ -26,13 +26,17 @@ CONDITIONS = [
     dict(name="loss_20",      base_ms=0,   jitter_ms=0,  loss=0.20),
     dict(name="loss_25",      base_ms=0,   jitter_ms=0,  loss=0.25),
     dict(name="loss_30",      base_ms=0,   jitter_ms=0,  loss=0.30),
-    # rafale: pierdere CORELATA, aceeasi medie ca geamanul independent
+    # rafale simple (netem 'loss p% r%'): pierdere CORELATA, aceeasi medie
     dict(name="loss_20_burst", base_ms=0,   jitter_ms=0,  loss=0.20, corr=0.50),
     dict(name="loss_25_burst", base_ms=0,   jitter_ms=0,  loss=0.25, corr=0.50),
     dict(name="loss_30_burst", base_ms=0,   jitter_ms=0,  loss=0.30, corr=0.50),
+    # gilbert_*: Gilbert-Elliott nativ netem ('loss gemodel'); aceeasi medie ca loss_*,
+    # mean_burst_len=5 -> p, r din rf_interference.BurstProcess.from_steady (paritate SIL<->HIL).
+    dict(name="gilbert_20",   base_ms=0,   jitter_ms=0,  loss=0.20, type="gilbert", p=0.0500, r=0.2000),
+    dict(name="gilbert_25",   base_ms=0,   jitter_ms=0,  loss=0.25, type="gilbert", p=0.0667, r=0.2000),
+    dict(name="gilbert_30",   base_ms=0,   jitter_ms=0,  loss=0.30, type="gilbert", p=0.0857, r=0.2000),
     dict(name="lat200_jit50", base_ms=200, jitter_ms=50, loss=0.00),
     dict(name="lat200_l15",   base_ms=200, jitter_ms=50, loss=0.15),
-    
 ]
 
 
@@ -64,11 +68,16 @@ def rtt_stats(rtts_ms, sent, received):
 
 def netem_cmd(iface: str, c: dict) -> str:
     """Comanda tc care aplica o conditie (replace = idempotent).
-    Daca 'corr' > 0, pierderea e CORELATA (rafale): netem 'loss p% r%' —
-    aceeasi medie p, dar pierderi grupate temporal (model de fading)."""
-    loss_tok = f"loss {100 * c.get('loss', 0.0):.1f}%"
-    if c.get("corr", 0.0):
-        loss_tok += f" {100 * c['corr']:.1f}%"
+    type=='gilbert': pierdere CORELATA prin Gilbert-Elliott nativ netem
+    ('loss gemodel p% r% loss_bad% loss_good%') -- paritate de model SIL<->HIL cu
+    rf_interference.BurstProcess. Altfel 'corr'>0: rafale simple ('loss p% r%');
+    implicit memoryless ('loss p%')."""
+    if c.get("type") == "gilbert":
+        loss_tok = "loss gemodel %.3f%% %.3f%% 100%% 0%%" % (100 * c["p"], 100 * c["r"])
+    else:
+        loss_tok = f"loss {100 * c.get('loss', 0.0):.1f}%"
+        if c.get("corr", 0.0):
+            loss_tok += f" {100 * c['corr']:.1f}%"
     return (f"tc qdisc replace dev {iface} root netem "
             f"delay {c.get('base_ms', 0)}ms {c.get('jitter_ms', 0)}ms "
             f"{loss_tok}")
