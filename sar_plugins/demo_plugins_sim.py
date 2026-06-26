@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""demo_plugins_sim.py — demonstratia integrata a etajului de misiune.
+"""demo_plugins_sim.py -- demonstratia integrata a etajului de misiune.
 
 Ruleaza FARA ROS2 (logica pura) si arata toate plugin-urile cooperand:
   - 5 drone cinematice in lawnmower pe o arie de 120 x 120 m, GCS in (0,0);
   - link radio log-distance (profil urban_rubble): telemetria fiecarei drone
     trece printr-un DegradedChannel a carui stare se recalculeaza din
-    distanta — dronele departate pierd mai multe pachete;
+    distanta -- dronele departate pierd mai multe pachete;
   - acoperirea se marcheaza LA GCS doar din telemetria LIVRATA: degradarea
     legaturii se vede direct in metrica de misiune;
   - victimele se detecteaza la bord (pozitia reala) si evenimentele se
@@ -223,7 +223,7 @@ ax.set_title("Misiune SAR: traiectorii, acoperire la GCS, victime\n"
              "(P verde = detectata, X rosie = ratata)")
 ax.legend(loc="upper right", fontsize=8, ncol=2)
 fig.tight_layout(); fig.savefig(os.path.join(OUT, "demo_trajectories.png"),
-                                dpi=150); plt.close(fig)
+                                dpi=200); plt.close(fig)
 
 # 2. acoperirea in timp
 fig, ax = plt.subplots(figsize=(6.6, 3.6))
@@ -235,7 +235,7 @@ ax.set_xlabel("t [s]"); ax.set_ylabel("acoperire [%]")
 ax.set_title("Acoperirea zonei (cunoscuta la GCS, prin link degradat)")
 ax.grid(alpha=0.3)
 fig.tight_layout(); fig.savefig(os.path.join(OUT, "demo_coverage.png"),
-                                dpi=150); plt.close(fig)
+                                dpi=200); plt.close(fig)
 
 # 3. pierdere vs distanta: teorie + realizat
 fig, ax = plt.subplots(figsize=(6.6, 3.8))
@@ -257,7 +257,7 @@ ax.set_title("Link radio log-distance, profil urban_rubble")
 ax.legend(); ax.grid(alpha=0.3)
 fig.tight_layout(); fig.savefig(os.path.join(OUT,
                                 "demo_loss_vs_distance.png"),
-                                dpi=150); plt.close(fig)
+                                dpi=200); plt.close(fig)
 
 # 4. bateriile
 fig, ax = plt.subplots(figsize=(6.6, 3.8))
@@ -279,7 +279,7 @@ ax.set_xlabel("t [s]"); ax.set_ylabel("SOC [%]")
 ax.set_title("Bateriile dronelor (triunghi = momentul RTL)")
 ax.legend(fontsize=8, ncol=3); ax.grid(alpha=0.3)
 fig.tight_layout(); fig.savefig(os.path.join(OUT, "demo_battery.png"),
-                                dpi=150); plt.close(fig)
+                                dpi=200); plt.close(fig)
 
 print(f"\n[ok] 4 figuri scrise in {OUT}")
 sys.exit(0 if n_ok == 4 else 1)
