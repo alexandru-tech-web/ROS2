@@ -34,7 +34,18 @@ masini + legatura reala), pentru care furnizam un runbook.
 \end{abstract}
 
 \section{Introducere}
-% TODO: motivatie (SAR, teleoperare), contributia C1, harta articolelor.
+Teleoperarea robotilor in misiuni de cautare-salvare (SAR) si in reabilitare se desfasoara
+peste legaturi wireless care se degradeaza imprevizibil: pierderea de pachete, latenta si
+jitter-ul cresc cu distanta, cu obstacolele si cu interferenta. In ROS 2, comportamentul sub
+aceasta degradare depinde de stratul de middleware (rmw) si de stiva de transport (DDS sau
+Zenoh), nu doar de codul aplicatiei; alegerea middleware-ului devine astfel o decizie de
+proiectare cu efect direct asupra calitatii teleoperarii.
+
+Intrebarea practica e: exista un middleware uniform mai bun, sau alegerea optima depinde de
+conditia de retea si de sarcina utila -- si, daca da, poate fi ea \emph{invatata}? Raspundem
+empiric, comparand CycloneDDS si Zenoh sub degradare controlata cu \texttt{tc netem} si
+incercand sa construim un selector per-conditie, evaluat onest.
+
 Contributii: (i) un benchmark reproductibil CycloneDDS vs Zenoh sub \texttt{tc netem};
 (ii) un cadru de \emph{selectie} a middleware-ului cu validare leave-one-condition-out
 (LOCO) si metrica de \emph{regret}; (iii) un rezultat negativ onest si conditiile sub care
@@ -107,8 +118,17 @@ Un model descriptiv (Ridge pe severitate + log payload) prezice log RTT cu $R^2_
 un clasificator de "link utilizabil" ($<500$ ms) atinge acuratete $0.94$. [PROVIZORIU.]
 
 \section{Discutie}
-% TODO. Limite: SIL/loopback subevalueaza diferentele de stiva reala; netem ca pierdere vs
-% latenta; burstiness inca ne-modelata ca feature; obiectivul telemetrie cere stratul de misiune.
+Rezultatele trebuie citite prin limitele lor. (1) Sunt SIL: transportul trece prin
+\texttt{lo} (loopback) pe o singura masina, ceea ce subevalueaza diferentele dintre stivele
+reale -- de aici necesitatea HIL. (2) Sub \texttt{netem}, conditiile noastre de "pierdere"
+modeleaza legaturi fara retransmisie (UDP brut); pe Wi-Fi real, stratul MAC retransmite
+singur, deci pierderea apare mai degraba ca latenta si jitter. (3) Burstiness-ul (corelatia
+pierderilor) nu este inca un feature al selectorului: conditiile \texttt{*\_burst} sunt
+tratate cu aceiasi parametri ca varianta de baza. (4) Obiectivul de telemetrie cere stratul
+de misiune (timpi de misiune per rmw); infrastructura e construita, datele reale sunt in curs.
+Aceste limite indica direct campania HIL si campania de misiune ca pasi urmatori.
+
+% TODO: Lucrari conexe (cu citari REALE in references.bib) -- nu se inventeaza aici.
 
 \section{Concluzii si lucrari viitoare}
 Pe SIL, CycloneDDS domina pentru control si un selector nu se justifica; sub un obiectiv
