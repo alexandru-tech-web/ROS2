@@ -40,7 +40,7 @@ def open_panel(parent, send):
     frm.pack(fill="both", expand=True)
 
     for c, h in enumerate(("legatura", "JOS", "latenta [ms]", "jitter [ms]",
-                           "pierdere [0..1]", "")):
+                           "pierdere [0..1]", "rafala", "interf [dB]", "")):
         ttk.Label(frm, text=h, font=("TkDefaultFont", 9, "bold")
                   ).grid(row=0, column=c, padx=4, pady=(0, 6))
 
@@ -50,20 +50,28 @@ def open_panel(parent, send):
                                                       sticky="w")
     g_down = tk.BooleanVar(value=False)
     ttk.Checkbutton(frm, variable=g_down).grid(row=1, column=1)
-    g_ms, g_jit, g_loss = (ttk.Entry(frm, width=8) for _ in range(3))
-    for c, (e, v) in enumerate(((g_ms, "40"), (g_jit, "0"), (g_loss, "0")),
-                               start=2):
+    g_ms, g_jit, g_loss, g_burst, g_interf = (ttk.Entry(frm, width=8) for _ in range(5))
+    for c, (e, v) in enumerate(((g_ms, "40"), (g_jit, "0"), (g_loss, "0"),
+                                (g_burst, "1"), (g_interf, "0")), start=2):
         e.insert(0, v)
         e.grid(row=1, column=c, padx=4)
+
+    def _f(entry, default):
+        try:
+            return float(entry.get())
+        except ValueError:
+            return default
 
     def apply_all():
         ms, jit, loss = _row_vals(g_ms, g_jit, g_loss)
         send({"type": "fault", "action": "set_all", "ms": ms, "jit": jit,
-              "loss": loss, "down": bool(g_down.get())})
+              "loss": loss, "down": bool(g_down.get()),
+              "burst_len": max(1.0, _f(g_burst, 1.0)),
+              "interf_db": max(0.0, _f(g_interf, 0.0))})
     ttk.Button(frm, text="Aplica tuturor", command=apply_all
-               ).grid(row=1, column=5, padx=4)
+               ).grid(row=1, column=7, padx=4)
     ttk.Separator(frm, orient="horizontal").grid(row=2, column=0,
-                                                 columnspan=6, sticky="we",
+                                                 columnspan=8, sticky="we",
                                                  pady=6)
 
     # ----- randurile per-legatura -----
