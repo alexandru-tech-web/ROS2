@@ -307,7 +307,8 @@ def run(scenario="partition_2v2", t_max=None, dt=0.1, seed=11,
                      "mesh recupereaza descoperirile dronelor izolate")
         ax.legend(loc="lower right"); ax.grid(alpha=0.3)
         fig.tight_layout()
-        fig.savefig(os.path.join(out_dir, "mesh_mission_victims.png"), dpi=150)
+        for ext in ("png", "pdf"):
+            fig.savefig(os.path.join(out_dir, "mesh_mission_victims." + ext), dpi=200)
         plt.close(fig)
 
         # acoperire la GCS in timp
@@ -321,7 +322,8 @@ def run(scenario="partition_2v2", t_max=None, dt=0.1, seed=11,
         ax.set_title(f"Acoperirea pe care o stie GCS-ul ({scenario})")
         ax.legend(loc="lower right"); ax.grid(alpha=0.3)
         fig.tight_layout()
-        fig.savefig(os.path.join(out_dir, "mesh_mission_delivery.png"), dpi=150)
+        for ext in ("png", "pdf"):
+            fig.savefig(os.path.join(out_dir, "mesh_mission_delivery." + ext), dpi=200)
         plt.close(fig)
         print(f"\n[ok] 2 figuri scrise in {out_dir}")
 
