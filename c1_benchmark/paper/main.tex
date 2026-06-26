@@ -1,0 +1,122 @@
+% main.tex -- schelet de articol A1 (C1: benchmark middleware ROS 2 sub degradare)
+% LOCAL: \documentclass{article} + \bibliographystyle{plain} (IEEEtran lipseste local).
+% OVERLEAF / TeX Live complet: comuta pe \documentclass[conference]{IEEEtran}.
+% TOATE cifrele de mai jos sunt PROVIZORII (SIL = loopback, N=10) -- de inlocuit cu HIL.
+% ASCII 100%. NU contine citari inventate: referintele sunt marcate TODO in references.bib.
+\documentclass[11pt]{article}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage[margin=1in]{geometry}
+\graphicspath{{figs/}}
+
+\title{Selectia middleware-ului ROS 2 sub degradare controlata de retea:\\
+       un benchmark CycloneDDS vs Zenoh si limitele unui selector invatat\\
+       \large (DRAFT -- rezultate PROVIZORII pe SIL/loopback, N=10)}
+\author{Alexandru Gheorghita \\ (afilliere TODO)}
+\date{DRAFT \today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+% TODO proza finala. Schelet onest:
+Teleoperarea robotilor peste retele degradate depinde de stratul de middleware (rmw)
+din ROS 2. Comparam doua implementari, CycloneDDS si Zenoh, sub degradare controlata cu
+\texttt{tc netem} (pierdere, latenta, jitter) pe trei dimensiuni de sarcina utila, si
+intrebam daca un selector invatat poate alege per-conditie middleware-ul optim.
+Pe N=10 repetitii in regim SIL (loopback, o singura masina), CycloneDDS ofera o coada de
+latenta (RTT p95) mai mica si mai predictibila; un selector invatat, validat
+leave-one-condition-out, NU bate regula triviala always-CycloneDDS pentru un obiectiv de
+latenta. Sub un obiectiv constient de pierdere, politica optima devine DEPENDENTA DE
+DEADLINE. Rezultatele sunt provizorii (loopback); comparatia autoritara cere HIL (doua
+masini + legatura reala), pentru care furnizam un runbook.
+\end{abstract}
+
+\section{Introducere}
+% TODO: motivatie (SAR, teleoperare), contributia C1, harta articolelor.
+Contributii: (i) un benchmark reproductibil CycloneDDS vs Zenoh sub \texttt{tc netem};
+(ii) un cadru de \emph{selectie} a middleware-ului cu validare leave-one-condition-out
+(LOCO) si metrica de \emph{regret}; (iii) un rezultat negativ onest si conditiile sub care
+un selector ar deveni justificat; (iv) un drum SIL$\rightarrow$HIL identic ca schema de date.
+
+\section{Lucrari conexe}
+% TODO: DDS/QoS, Zenoh, emulare de retea (netem), selectie de middleware. Vezi references.bib.
+
+\section{Metodologie}
+\subsection{Nucleu pur + selftest}
+Algoritmii (statistici RTT, features de conditie, regret, validare LOCO, cost constient de
+pierdere) traiesc intr-un modul fara ROS, testat in izolare
+(\texttt{selector\_core.py}, \texttt{bench\_core.py}; 30 respectiv 12 verificari).
+\subsection{Degradarea retelei}
+Conditiile sunt parametri \texttt{netem} reali (pierdere \%, latenta ms, jitter ms),
+aplicati pe interfata. In SIL, interfata e \texttt{lo} (loopback); in HIL, interfata fizica.
+\subsection{Selectorul si obiectivele}
+Pentru fiecare celula (conditie $\times$ payload) alegem rmw-ul care minimizeaza un obiectiv:
+\begin{itemize}
+  \item \textbf{CONTROL}: $\min$ RTT p95.
+  \item \textbf{CONSTIENT DE PIERDERE}: $\min$ cost asteptat
+        $(1-\text{loss})\cdot \text{RTT}_{p95} + \text{loss}\cdot D$, unde $D$ e un deadline
+        de control (cost atribuit unui esantion pierdut).
+  \item \textbf{TELEMETRIE}: $\min$ timp de misiune (necesita stratul de misiune; groundwork
+        construit, date reale in curs).
+\end{itemize}
+Validarea e leave-one-condition-out (NU split aleator: repetitiile aceleiasi celule ar
+scurge informatie intre train si test). Raportam REGRET fata de oracol si fata de regulile
+globale always-CycloneDDS / always-Zenoh.
+
+\section{Configuratie experimentala}
+% TODO: hardware, versiuni (ROS 2 Jazzy), payload-uri (64/4096/65536 B), N, conditii.
+SIL: o singura masina, transport prin \texttt{lo}, \texttt{tc netem} local, N=10 repetitii,
+8 conditii, 3 payload-uri. Memoria partajata DDS dezactivata; descoperire P2P.
+\textbf{PROVIZORIU}: toate cifrele de mai jos sunt SIL; HIL ramane standardul autoritar
+(vezi \texttt{HIL\_RUNBOOK.md}).
+
+\section{Rezultate (PROVIZORII -- SIL, N=10)}
+\subsection{Transport: latenta de coada}
+% Figura: fig_transport (RTT p95 per conditie, grupat pe RMW).
+\begin{figure}[t]\centering
+  % \includegraphics[width=\linewidth]{fig_transport} % TODO: copiaza figura in figs/
+  \fbox{\texttt{figs/fig\_transport.pdf (TODO: copiaza din rularea campaniei)}}
+  \caption{RTT p95 per conditie, CycloneDDS vs Zenoh (SIL, N=10). PROVIZORIU.}
+  \label{fig:transport}
+\end{figure}
+Pe cele 24 de celule, CycloneDDS castiga 17/24; always-CycloneDDS are regret mediu
+\textbf{142 ms} vs always-Zenoh \textbf{1143 ms}. CycloneDDS e si mai predictibil
+(coeficient de variatie al p95 mai mic). [Cifre PROVIZORII, SIL.]
+
+\subsection{Selectorul de control nu bate regula triviala}
+% Figura: selector_regret.
+\begin{figure}[t]\centering
+  \fbox{\texttt{figs/selector\_regret.pdf (TODO)}}
+  \caption{Regret mediu (LOCO) pe strategie de selectie, obiectiv control. PROVIZORIU.}
+  \label{fig:selector}
+\end{figure}
+Sub validare LOCO, selectorul invatat (1-NN: 66.7\% acuratete, regret 558 ms; arbore: 653 ms)
+NU bate always-CycloneDDS (142 ms). \textbf{Rezultat negativ onest}: datele disponibile nu
+justifica un selector per-conditie pentru obiectivul de latenta.
+
+\subsection{Obiectiv constient de pierdere: politica dependenta de deadline}
+Sub costul asteptat cu deadline $D$, gapul se ingusteaza, iar la $D=5000$ ms selectorul 1-NN
+(\textbf{104 ms}) BATE always-CycloneDDS (\textbf{188 ms}). Concluzie: un selector isi merita
+locul doar in regimul unde un esantion pierdut e foarte scump (control de siguranta).
+[Sensibilitate la $D$; PROVIZORIU.]
+
+\subsection{Caracterizare ML (PDIA)}
+Un model descriptiv (Ridge pe severitate + log payload) prezice log RTT cu $R^2_{test}=0.90$;
+un clasificator de "link utilizabil" ($<500$ ms) atinge acuratete $0.94$. [PROVIZORIU.]
+
+\section{Discutie}
+% TODO. Limite: SIL/loopback subevalueaza diferentele de stiva reala; netem ca pierdere vs
+% latenta; burstiness inca ne-modelata ca feature; obiectivul telemetrie cere stratul de misiune.
+
+\section{Concluzii si lucrari viitoare}
+Pe SIL, CycloneDDS domina pentru control si un selector nu se justifica; sub un obiectiv
+constient de pierdere, justificarea devine dependenta de deadline. \textbf{Urmatorul pas:}
+campanie HIL pe doua masini (PC + RaspberryPi 4B) cu schema de date identica, plus stratul de
+misiune pentru obiectivul telemetrie. Vezi \texttt{HIL\_RUNBOOK.md}.
+
+\bibliographystyle{plain}
+\bibliography{references}
+
+\end{document}
