@@ -25,7 +25,7 @@ Rezultatul N=5 a demonstrat ca NICIUN middleware nu domina: DDS cumpara
 supravietuirea misiunii cu intarziere uniforma, Zenoh cumpara prospetimea cu
 pierderi care devin pierderi de misiune. Concluzia logica si urmatorul articol:
 DACA niciunul nu domina, ADAPTEAZA-TE. Un strat aplicativ care isi schimba
-comportamentul dupa starea legaturii. Design complet: PROIECT_LINK_ADAPTIVE.md.
+comportamentul dupa starea legaturii. Design + implementare: pachetul link_adaptive (link_adaptive/README.md).
 Efort: ~25-35 h pe 8-10 saptamani. Tinta publicare: A2 (SSRR/ICRA-W 2027).
 
 ### T2 — IMBUNATATIRE: `field_kit` (ucide critica "doar simulare")

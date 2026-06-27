@@ -103,7 +103,7 @@ ros2 topic pub -r 5 /operator/heartbeat std_msgs/msg/String '{data: "{\"rtt_ms\"
 ```
 **Ce ar trebui sa vezi:** modul urmareste legatura; pe bucla, debitul scade
 20->10->2 Hz si payload-ul FULL->REDUCED->CRITICAL cand legatura se degradeaza.
-**Detalii:** `link_adaptive/README.md` + `link_adaptive/PROIECT_LINK_ADAPTIVE.md`.
+**Detalii:** `link_adaptive/README.md`.
 
 ### 2.3 campaign_stats -- rigoarea statistica (orice campanie)
 **De ce:** un recenzent cere bare de eroare si semnificatie, nu o singura rulare.

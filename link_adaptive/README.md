@@ -118,7 +118,6 @@ Histerezisul + stationarea din controler fac aceste recreari rare.
 | `package.xml`, `setup.py`, `setup.cfg` | metadate ament_python + entry_points | `colcon build` |
 | `resource/link_adaptive` | marker ament_index (gol) | prezenta |
 | `requirements.txt` | dependinta pip externa: matplotlib (pentru figurile SIL) | `pip install -r` |
-| `PROIECT_LINK_ADAPTIVE.md` | documentul de design al contributiei C3 | lectura |
 
 Entry-points reale (din `setup.py`): `link_adaptive_node`, `policy_adapter_node`,
 `sil_link_adaptive`, `sil_policy_loop`. Cele patru noduri/SIL au `main()` care
@@ -286,4 +285,19 @@ SIL). Figura: `docs/sil_policy_loop.png`.
   `ament_pep257`) sunt declarate ca test_depend in package.xml dar nu exista un
   director `test/` dedicat in pachet; verificarea principala ramane selftest-urile
   pure (22/22 + 13/13).
-- Documentul de design complet: `PROIECT_LINK_ADAPTIVE.md`. Licenta: MIT.
+- Licenta: MIT.
+
+## 9. Mecanisme alternative considerate (neimplementate)
+
+Designul initial (documentul de proiect separat a fost retras fiindca aceasta implementare
+acopera contributia C3) propunea doua mecanisme pe care implementarea curenta NU le foloseste,
+pastrate aici ca idei de viitor:
+
+- **Canal dublu (reliable + best-effort gemene).** Acelasi flux publicat pe DOUA topicuri
+  simultan; receptorul asculta ambele si deduplica dupa `msg_id`. Implementarea curenta evita
+  asta: comuta fiabilitatea re-creand publisher-ul (QoS-ul nu se schimba pe un publisher
+  existent in ROS 2), abordare mai simpla, fara dedup. Canalul dublu ar da tranzitie fara
+  pierderi intre filozofii, cu cost de banda dublat pe clasa respectiva.
+- **Redundanta k pentru comenzi critice.** Mesajele rare si critice (rth, estop) trimise de k
+  ori cu acelasi `id`, deduplicate la receptie -- recupereaza fiabilitatea comenzilor fara coada
+  DDS. Nu exista in cod; candidat pentru testul "comenzile ajung 100%" (HA2).
