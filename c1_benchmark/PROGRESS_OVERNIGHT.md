@@ -33,3 +33,39 @@ Note:
   `python3 test_mode_label.py`). 5 verificari: mode_label('sil')/('hil'), input invalid -> ValueError,
   cele 3 copii IDENTICE (garda anti-divergenta), si --mode bogus respins de CLI (cod != 0).
   Toate 5 trec. ASCII curat. NU am adaugat teste peste scopul cerut.
+
+## RAPORT FINAL
+Toate 3 task-urile DONE. Branch: overnight-sil-hil-flag (FARA merge in main, FARA push). Commit-uri
+separate per task + per progres, conform spec.
+
+FISIERE SCHIMBATE:
+- analyze_campaign.py: +mode_label(mode) (pur) + flag --mode {sil,hil}; cele 3 subtitluri hardcodate
+  "SIL (loopback)" -> mode_label(mode). Logica de analiza (cifre/calcule/layout) NEATINSA.
+- campaign_stats.py: +mode_label (duplicat identic) + --mode; plot_cdf/plot_p95_ci primesc param
+  label; cele 2 captions -> label.
+- sil_vs_hil_table.py: +mode_label (duplicat); format_table foloseste mode_label pentru coloane +
+  linie de legenda. Fara --mode (compara prin natura SIL vs HIL).
+- test_mode_label.py (NOU): 5 verificari.
+
+VERIFICAT (rulat efectiv, rezultate):
+- analyze_campaign --mode hil pe ~/c1_archive/hil_cyclonedds_20260627_1005 (READ-ONLY, --out scratch)
+  -> subtitlu "HIL (two-machine)" (confirmat VIZUAL in PNG); --mode sil -> "SIL (loopback)".
+- campaign_stats --demo --mode hil -> caption "HIL (two-machine)" (vizual); --selftest 17/17.
+- sil_vs_hil_table --selftest 10/10; antet nou cu etichete complete.
+- test_mode_label.py: 5/5. analyze_campaign --selftest OK.
+- avertisment pe stderr cand --mode lipseste (ambele CLI). Arhivele ~/c1_archive NEATINSE.
+
+DECIZII DE DESIGN:
+- --mode default=None -> daca lipseste: avertisment stderr + presupun "sil" (NU eroare dura), ca sa
+  nu rup apelantii existenti (HIL_RUNBOOK ruleaza analyze_campaign fara --mode).
+- mode_label DUPLICAT in 3 fisiere (nu mutat in modul comun, nu importat din analyze_campaign care
+  trage matplotlib la nivel de modul). test_mode_label prinde orice divergenta a copiilor.
+
+DE VAZUT DE ALEXANDRU DIMINEATA:
+- Daca preferi sursa UNICA pentru mode_label: muta-l intr-un mode_label.py comun + importa din toate
+  3 (test_mode_label ramane valabil). Am ales duplicarea pt atingere minima, conform spec.
+- Daca vrei ca --mode sa fie OBLIGATORIU (eroare, nu avertisment): o linie de schimbat in fiecare
+  main(). Am ales avertisment ca sa nu rup apelantii existenti.
+- HIL_RUNBOOK.md / HIL_TRANSPORT_CHEATSHEET.md cheama analyze_campaign FARA --mode -> vor da
+  avertismentul si presupun sil. Pe date HIL adauga --mode hil (sau actualizeaza runbook-urile --
+  NU le-am atins, nu era in scopul celor 3 task-uri).
