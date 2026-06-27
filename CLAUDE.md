@@ -108,6 +108,9 @@ REZULTAT ONEST (24 celule = 8 cond x 3 payload, N=10):
 PROVIZORIU: loopback, N=10; D si forma costului sunt alegeri de modelare -- de inlocuit cu
 HIL / N mai mare inainte de articol.
 
-DE FACUT: (a) join cu timpii de misiune sar_swarm -> obiectiv 'telemetrie = min timp
-misiune'; (b) HIL pe doua masini fizice + N mai mare; (c) valideaza modelul de cost (D,
-forma functionala) cu un sweep mai fin.
+DE FACUT: (a) [DONE] obiectiv 'telemetrie = min timp misiune' -- reproduce_selector_mission.py +
+selector_core.build_mission_cells (cere campanie cu strat mission); (b) HIL pe doua masini fizice +
+N mai mare (BLOCAT pe discovery Zenoh -- vezi NOTA_METODOLOGICA_C1.md sec.8); (c) [DONE] sweep fin pe
+D -- selector_core.sweep_deadline + reproduce_selector.py --objective lossaware: D* (incrucisarea
+invatat-vs-always-CycloneDDS) in (3000, 5000] ms pe selector_dataset.csv (SIL N=10), figura
+selector_dstar.png. De RECALCULAT pe HIL.

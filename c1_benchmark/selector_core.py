@@ -247,6 +247,28 @@ def evaluate_selector(cells, predict_fn):
     return out
 
 
+def sweep_deadline(rows, penalties, predict_fn=None):
+    """Sweep FIN pe deadline-ul de control D (obiectiv loss-aware). Pentru fiecare D din penalties,
+    regretul mediu (cost ms; oracol = 0) al always-cyclonedds, always-zenoh si al selectorului LOCO.
+    Gaseste d_star = primul D la care regretul selectorului devine <= always-cyclonedds (incrucisarea
+    DEPENDENTEI DE DEADLINE). PUR -- orchestreaza build_cost_cells + evaluate_selector; predict_fn
+    implicit = nn_predict (1-NN transparent)."""
+    predict_fn = predict_fn or nn_predict
+    curve = []
+    d_star = None
+    for D in penalties:
+        cells = build_cost_cells(rows, float(D))
+        res = evaluate_selector(cells, predict_fn)
+        point = {"D": float(D),
+                 "always_cyclonedds": res["always_cyclonedds_regret_mean"],
+                 "always_zenoh": res["always_zenoh_regret_mean"],
+                 "selector": res["selector_regret_mean"]}
+        curve.append(point)
+        if d_star is None and point["selector"] <= point["always_cyclonedds"]:
+            d_star = float(D)
+    return {"curve": curve, "d_star": d_star}
+
+
 def _selftest():
     """Verificari pure, fara I/O. Apelat din test_selector_core.py si din __main__."""
     assert parse_cond("ideal") == (0.0, 0.0, 0.0)
@@ -320,6 +342,21 @@ def _selftest():
     assert mc[("loss_30", 4096)] == {"cyclonedds": 120.0, "zenoh": 150.0}
     assert cell_winner(mc[("loss_30", 4096)]) == "cyclonedds"          # timp mai mic castiga
     assert "zenoh" not in mc[("ideal", 4096)]                          # randul gol a fost sarit
+
+    # sweep_deadline: cu predictor FIX (mereu cyclonedds), regretul selectorului == always-cyclonedds,
+    # deci d_star = primul D din grila (selector <= always-cyclonedds prin egalitate). Orchestrare corecta.
+    swrows = [
+        {"cond": "loss_15", "payload": "64", "rmw": "cyclonedds", "rtt_p95_ms": "50", "loss_pct": "5"},
+        {"cond": "loss_15", "payload": "64", "rmw": "zenoh", "rtt_p95_ms": "40", "loss_pct": "40"},
+        {"cond": "loss_30", "payload": "64", "rmw": "cyclonedds", "rtt_p95_ms": "100", "loss_pct": "10"},
+        {"cond": "loss_30", "payload": "64", "rmw": "zenoh", "rtt_p95_ms": "10", "loss_pct": "50"},
+    ]
+    always_cyc = lambda tf, tl, q: "cyclonedds"
+    sw = sweep_deadline(swrows, [100.0, 1000.0], predict_fn=always_cyc)
+    assert len(sw["curve"]) == 2
+    assert set(sw["curve"][0]) >= {"D", "always_cyclonedds", "always_zenoh", "selector"}
+    assert all(abs(p["selector"] - p["always_cyclonedds"]) < 1e-9 for p in sw["curve"])
+    assert sw["d_star"] == 100.0
 
     print("TOATE VERIFICARILE selector_core AU TRECUT")
 

@@ -153,17 +153,20 @@ def main(argv):
     print()
 
     if objective == "lossaware":
-        print("== Sensibilitate la deadline D (winner counts + regret mediu, cost ms) ==")
-        for D in (200.0, 1000.0, 5000.0):
-            cc = sc.build_cost_cells(rows, D)
-            wins = {r: 0 for r in sc.RMWS}
-            for k in cc:
-                if len(cc[k]) >= 2:
-                    wins[sc.cell_winner(cc[k])] += 1
-            rs = sc.evaluate_selector(cc, sc.nn_predict)
-            print("  D=%6.0f ms -> wins=%s | always-cyc=%7.1f always-zen=%7.1f selector1NN=%7.1f"
-                  % (D, wins, rs["always_cyclonedds_regret_mean"],
-                     rs["always_zenoh_regret_mean"], rs["selector_regret_mean"]))
+        grid = [200.0, 500.0, 1000.0, 1500.0, 2000.0, 3000.0, 5000.0, 7000.0, 10000.0]
+        sw = sc.sweep_deadline(rows, grid)
+        print("== Sweep FIN pe deadline D (regret mediu, cost ms; oracol = 0) ==")
+        print("  %8s | %12s %12s %12s | castigator"
+              % ("D [ms]", "always-cyc", "always-zen", "selector1NN"))
+        for p in sw["curve"]:
+            win = "selector" if p["selector"] < p["always_cyclonedds"] else "always-cyc"
+            print("  %8.0f | %12.1f %12.1f %12.1f | %s"
+                  % (p["D"], p["always_cyclonedds"], p["always_zenoh"], p["selector"], win))
+        if sw["d_star"] is not None:
+            print("  -> D* (incrucisare): la D >= %.0f ms selectorul 1-NN bate always-CycloneDDS." % sw["d_star"])
+        else:
+            print("  -> Niciun D* in grila: always-CycloneDDS ramane mai bun pe tot intervalul testat.")
+        save_sweep_figure(sw, os.path.join(HERE, "selector_dstar.png"))
         print()
 
     reps_n = len({r.get("rep", "") for r in rows})
@@ -253,6 +256,41 @@ def save_figure(results, path, objective="control", caption=""):
     for ext in ("png", "pdf"):
         fig.savefig(stem + "." + ext, dpi=200)
     print("  figura salvata: %s.{png,pdf}" % stem)
+
+
+def save_sweep_figure(sw, path):
+    """Curba DEPENDENTEI DE DEADLINE: regret mediu vs D pentru always-CycloneDDS, always-Zenoh si
+    selectorul 1-NN (LOCO); marcheaza D* (incrucisarea). Iesire .png + .pdf (gitignorat, regenerabil)."""
+    curve = sw.get("curve") or []
+    if not curve:
+        return
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except Exception:
+        print("  (matplotlib indisponibil -- fara figura de sweep)")
+        return
+    D = [p["D"] for p in curve]
+    fig, ax = plt.subplots(figsize=(7.2, 5.0))
+    ax.plot(D, [p["always_cyclonedds"] for p in curve], "-o", color="#9e9e9e", label="always-CycloneDDS")
+    ax.plot(D, [p["always_zenoh"] for p in curve], "-s", color="#c0392b", label="always-Zenoh")
+    ax.plot(D, [p["selector"] for p in curve], "-^", color="#1f77b4", label="selector 1-NN (LOCO)")
+    if sw.get("d_star") is not None:
+        ax.axvline(sw["d_star"], color="#2e7d32", linestyle="--", linewidth=1.0)
+        ax.annotate("D* = %.0f ms" % sw["d_star"], (sw["d_star"], ax.get_ylim()[1]),
+                    ha="left", va="top", fontsize=9, color="#2e7d32")
+    ax.set_xlabel("deadline de control D [ms] (costul unei pierderi)", fontsize=11)
+    ax.set_ylabel("regret mediu [ms cost asteptat]", fontsize=11)
+    ax.set_title("Dependenta de deadline: cand bate selectorul regula always-CycloneDDS", fontsize=12)
+    ax.legend(fontsize=9)
+    ax.grid(linestyle=":", linewidth=0.5, alpha=0.6)
+    ax.set_axisbelow(True)
+    fig.subplots_adjust(left=0.12, right=0.97, top=0.91, bottom=0.12)
+    stem = path.rsplit(".", 1)[0]
+    for ext in ("png", "pdf"):
+        fig.savefig(stem + "." + ext, dpi=200)
+    print("  figura de sweep salvata: %s.{png,pdf}" % stem)
 
 
 if __name__ == "__main__":

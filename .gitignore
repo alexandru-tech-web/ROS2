@@ -44,3 +44,4 @@ link_adaptive/*.png
 # artefacte derivate ale selectorului (regenerabile din campanie cu build_selector_dataset.py)
 c1_benchmark/selector_dataset.csv
 c1_benchmark/selector_regret.*
+c1_benchmark/selector_dstar.*
