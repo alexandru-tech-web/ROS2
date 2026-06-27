@@ -84,10 +84,20 @@ def _savefig(fig, outdir, name, caption=""):
         fig.savefig(os.path.join(outdir, name + "." + ext), dpi=200)
 
 
-def analyze(root, outdir):
+def mode_label(mode):
+    """Eticheta de mediu pentru subtitlurile figurilor. Pur, testabil izolat.
+    'sil' -> 'SIL (loopback)', 'hil' -> 'HIL (two-machine)'. Alt input -> ValueError."""
+    labels = {"sil": "SIL (loopback)", "hil": "HIL (two-machine)"}
+    if mode not in labels:
+        raise ValueError("mod necunoscut: %r (asteptat 'sil' sau 'hil')" % (mode,))
+    return labels[mode]
+
+
+def analyze(root, outdir, mode="sil"):
     data = collect(root)
     rmws = sorted({k[0] for k in data})
     conds = [c for c in COND_ORDER if any(k[1] == c for k in data)]
+    label = mode_label(mode)
     os.makedirs(outdir, exist_ok=True)
 
     with open(os.path.join(outdir, "campaign_summary.csv"), "w") as f:
@@ -129,8 +139,8 @@ def analyze(root, outdir):
     ax.grid(axis="y", linestyle=":", linewidth=0.5, alpha=0.6)
     ax.set_axisbelow(True)
     _savefig(fig, outdir, "fig_transport",
-             "SIL (loopback); N=%d repetitii; %d conditii netem; sarcina utila %d B."
-             % (nrep, len(conds), REF_PAYLOAD))
+             "%s; N=%d repetitii; %d conditii netem; sarcina utila %d B."
+             % (label, nrep, len(conds), REF_PAYLOAD))
 
     # Fig. 3 -- misiunea
     fig, ax = plt.subplots(figsize=(9, 5.0))
@@ -160,8 +170,8 @@ def analyze(root, outdir):
     ax.grid(axis="y", linestyle=":", linewidth=0.5, alpha=0.6)
     ax.set_axisbelow(True)
     _savefig(fig, outdir, "fig_mission",
-             "SIL (loopback); N=%d repetitii; %d conditii netem; plafon misiune %.0f s."
-             % (nrep, len(conds), MISSION_CAP))
+             "%s; N=%d repetitii; %d conditii netem; plafon misiune %.0f s."
+             % (label, nrep, len(conds), MISSION_CAP))
 
     # Fig. 4 -- CDF la conditia cea mai severa cu date
     pick = next((c for c in reversed(conds)
@@ -181,7 +191,7 @@ def analyze(root, outdir):
         ax.grid(linestyle=":", linewidth=0.5, alpha=0.6)
         ax.set_axisbelow(True)
         _savefig(fig, outdir, "fig_cdf",
-                 f"SIL (loopback); conditia '{pick}'; RTT brut agregat pe repetitii.")
+                 f"{label}; conditia '{pick}'; RTT brut agregat pe repetitii.")
     print(f"[ok] rezumat + figuri in {outdir}")
 
 
@@ -226,12 +236,20 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("root", nargs="?", default="results_c1")
     ap.add_argument("--out", default=None)
+    ap.add_argument("--mode", choices=["sil", "hil"], default=None,
+                    help="mediul datelor: sil (loopback) sau hil (doua masini). "
+                         "Daca lipseste, se presupune sil cu avertisment pe stderr.")
     ap.add_argument("--selftest", action="store_true")
     a = ap.parse_args()
     if a.selftest:
         selftest()
-    else:
-        analyze(a.root, a.out or os.path.join(a.root, "analysis"))
+        return
+    mode = a.mode
+    if mode is None:
+        sys.stderr.write("[avertisment] --mode nespecificat; presupun SIL (loopback). "
+                         "Pentru date HIL ruleaza cu --mode hil.\n")
+        mode = "sil"
+    analyze(a.root, a.out or os.path.join(a.root, "analysis"), mode)
 
 
 if __name__ == "__main__":
