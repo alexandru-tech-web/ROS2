@@ -38,16 +38,25 @@ implementari paralele ale aceluiasi concept, cu API-uri diferite:
 
 | Cale | API nucleu | Lansare | Status |
 |------|-----------|---------|--------|
-| `mesh_plugin/mesh_plugin/*.py` (pachetul ament intern) | `MeshTopology` + `routing_table` + `reachability`; beacon/relay distribuite per nod | `ros2 run` / `ros2 launch` (entry_points din setup.py) | versiunea INSTALATA; potrivita cu `mesh_plugins.launch.py` |
-| `mesh_plugin/*.py` (radacina pachetului) | `MeshGraph` + `DirectedRelay`; Dijkstra centralizat; demo Tkinter; SIL de misiune cuplat la sar_swarm | `python3 <fisier>.py` (NU prin `ros2 run`) | rescriere mai noua; sursa figurilor din `docs/` |
+| `mesh_plugin/mesh_plugin/*.py` (pachetul ament intern) | `MeshTopology` + `routing_table` + `reachability`; beacon/relay distribuite per nod | `ros2 run` / `ros2 launch` (entry_points din setup.py) | versiunea INSTALATA + smoke-testata; **CANONICA** (vezi nota de mai jos) |
+| `mesh_plugin/*.py` (radacina pachetului) | `MeshGraph` + `DirectedRelay`; Dijkstra centralizat; demo Tkinter; SIL de misiune cuplat la sar_swarm | `python3 <fisier>.py` (NU prin `ros2 run`) | COMPANION de analiza/figuri (NU canonica); pastrata -- vezi nota |
 
 Entry_points din `setup.py` (`mesh_plugin.mesh_node:main`, ...) trimit la pachetul
 INTERN, deci `ros2 run mesh_plugin mesh_node` ruleaza versiunea `MeshTopology`
 (beacon/relay), nu rescrierea `MeshGraph` din radacina. Cele doua nu impart cod
 si nu se importa reciproc. Aceasta documentatie acopera ambele si marcheaza clar
 care comanda atinge care implementare.
-TODO: consolidarea celor doua implementari intr-una singura (decizie de design;
-codul nu indica ce versiune este canonica).
+DECIZIE (iunie 2026 -- canonica marcata, ambele pastrate, fara consolidare acum):
+versiunea CANONICA este `MeshTopology` (pachetul ament intern). Motiv: este ceea ce
+`ros2 run mesh_plugin` executa, este versiunea instalata si smoke-testata
+(`verifica_tot.sh`), si implementeaza multi-hop DISTRIBUIT (beacon/relay per nod) --
+adica forma deployabila a contributiei C3. Rescrierea din radacina (`MeshGraph`,
+Dijkstra centralizat) ramane ca COMPANION de analiza/vizualizare: genereaza figurile din
+`docs/`, ofera demo-ul Tkinter si SIL-ul de misiune cuplat la sar_swarm, si serveste ca
+referinta idealizata (oracol centralizat) fata de care se compara routing-ul distribuit.
+Cele doua NU se consolideaza acum (roadmap: fara rescrieri ale pachetelor incheiate); raman
+separate, cu rolurile de mai sus. Pentru rezultatul C3 deployabil foloseste `ros2 run`
+(MeshTopology); pentru figuri/demo foloseste scripturile din radacina (MeshGraph).
 
 ## 3. Arhitectura
 
