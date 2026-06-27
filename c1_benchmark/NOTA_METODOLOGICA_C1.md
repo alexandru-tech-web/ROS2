@@ -108,53 +108,60 @@ Atentie / limite:
 - Rezultat de LOOPBACK. Confirmarea pe legatura fizica (HIL, doua masini) este
   pasul urmator si autoritar pentru comparatia Zenoh vs DDS.
 
-## 8. Limitari -- discovery Zenoh pe HIL fara multicast
+## 8. rmw_zenoh discovery pe retele eterogene (constatare practica de deployment)
 
 Montaj: rmw_zenoh_cpp 0.2.9, ROS 2 Jazzy. M1=192.168.100.14 (WiFi, wlp4s0),
-M2=192.168.100.17 (eth0, cablu), ROS_DOMAIN_ID=7. Reteaua (ONT HG8121H) NU permite multicast
-intre WiFi si Ethernet. CycloneDDS HIL e complet (arhivat in ~/c1_archive/hil_cyclonedds_*).
-Zenoh router-less inca NU propaga declaratiile de topicuri intre masini, desi TCP 7447 se conecteaza.
+M2=192.168.100.17 / pi4-node (eth0, cablu), ROS_DOMAIN_ID=7, ambele prin ONT HG8121H
+(segmente WiFi vs Ethernet diferite). CycloneDDS HIL e complet, arhivat
+(~/c1_archive/hil_cyclonedds_*) si MERGE pe aceasta retea -- contrastul-cheie.
 
-### Ce s-a incercat (toate au esuat pentru discovery cross-masina)
-- scouting multicast: blocat de retea.
-- rmw_zenohd router pe M1: peers nu-l descopera (tot prin multicast).
-- endpoint-uri TCP explicite (connect = IP-ul celuilalt, listen = IP propriu:7447, multicast off,
-  gossip.target.peer=["router","peer"]): TCP OPEN (nc confirma), DAR `ros2 topic list` nu vede
-  topicurile peer-ului. Declaratiile nu se propaga peste link-ul TCP.
+### Simptom (reproductibil 100%)
+Router rmw_zenohd pe M1 (asculta tcp/192.168.100.14:7447); ambele sesiuni -- ecoul de pe Pi si un
+terminal de test pe M1 -- se conecteaza la el (avertismentul "Unable to connect to a Zenoh router"
+DISPARE pe ambele). DAR `ros2 topic list` pe M1 NU vede /bench/ping, /bench/pong de pe Pi -- doar
+/parameter_events si /rosout. Aparent routerul nu propaga declaratiile de topicuri intre cele doua
+sesiuni conectate la el.
 
-### Cauza-radacina din config-ul default (rmw_zenoh_cpp 0.2.9)
-DEFAULT_RMW_ZENOH_SESSION_CONFIG.json5: `scouting.gossip.target.peer = ["router"]` (un peer trimite
-gossip DOAR catre routere) + `routing.peer.mode = "peer_to_peer"` (presupune mesh complet sau un
-router care face "failover brokering"). Adica rmw_zenoh e PROIECTAT in jurul unui router; peers se
-descopera PRIN router. Doc-urile confirma: router-less cere fie un router, fie endpoint-uri connect
-explicite (cazul nostru).
+### Ce s-a confirmat POZITIV (retea + router OK)
+- Multicast fizic TRECE in ambele sensuri (ros2 multicast send pe Pi -> receive pe M1).
+- TCP intre masini OPEN (nc -zv ...:7447 succeeds).
+- Routerul porneste, afiseaza ZID; ambele sesiuni se conecteaza (fara avertisment).
+Deci NU e problema de conectivitate de retea si nici de "nu gaseste routerul".
 
-### Diagnostic pe loopback (dovada, nu speculatie)
-Experiment local: doi peers pe 127.0.0.1 (porturi 7601/7602), router-less, multicast OFF, endpoint-uri
-connect explicite, configuri minimale via ZENOH_SESSION_CONFIG_URI. Rezultat: listener-ul a primit
-12/12 mesaje in AMBELE moduri de rutare -- `linkstate` SI `peer_to_peer`. Avertismentul "Unable to
-connect to a Zenoh router ... peers will not discover" apare in ambele, dar datele CURG oricum -> e
-BENIGN cand exista endpoint-uri connect explicite.
+### Dovada pe loopback: mecanismul rmw_zenoh e SANATOS local (acest M1)
+Experimente locale (demo_nodes_cpp talker/listener, multicast OFF, ZENOH_SESSION_CONFIG_URI):
+- ROUTER-based (rmw_zenohd + 2 noduri conectate prin tcp/127.0.0.1:7447): listener 12/12 mesaje,
+  ambele conectate (0 avertismente). Routerul PROPAGA declaratiile local.
+- ROUTER-LESS (2 peers, endpoint-uri explicite): 12/12 in AMBELE moduri (linkstate SI peer_to_peer).
+CONCLUZIE: routerul + config-ul propaga corect topicurile pe loopback. Deci esecul cross-masina NU
+este de config / router / routing-mode -- e specific deployment-ului pe doua masini.
 
-CONCLUZIE: mecanismul router-less (endpoint-uri explicite + multicast off) FUNCTIONEAZA pe loopback,
-indiferent de `routing.peer.mode`. Deci modul de rutare NU este cauza esecului cross-masina. Cauza e
-specifica CAII DE RETEA WiFi<->Ethernet (reachability / binding / sesiune), nu config-ului de rutare.
+### Cauze probabile (de la cea mai ieftina la cea mai grea -- de testat, FARA masuratori)
+1. DAEMON-ul ROS 2 (rmw_zenoh issue #242): `ros2 topic list` interogheaza DAEMON-ul, care cu rmw_zenoh
+   are cache de graf inconsistent (intoarce rezultate vechi in loc sa verifice graful live). Simptomul
+   "topic list arata doar /parameter_events + /rosout" poate fi ARTEFACT de daemon, nu non-propagare
+   reala. TEST: `ros2 daemon stop` apoi `ros2 topic list`; SAU ruleaza un subscriber real
+   (`ros2 topic echo /bench/ping`) -- daca DATELE curg desi topic list e gol, e daemon-ul, nu Zenoh.
+   De verificat PRIMUL (ieftin, foarte probabil).
+2. Env de discovery: pe AMBELE masini `echo $ROS_LOCALHOST_ONLY $ROS_AUTOMATIC_DISCOVERY_RANGE`.
+   ROS_LOCALHOST_ONLY=1 (sau RANGE=LOCALHOST) restrange discovery-ul la localhost -> blocheaza cross-masina.
+3. Segmente fizice diferite (WiFi vs Ethernet prin ONT): muta AMBELE pe Ethernet in acelasi switch si
+   reia. Daca merge asa, problema e specifica caii WiFi<->Ethernet (proxy ARP / IGMP snooping pe ONT).
+   Cel mai usor de validat empiric.
+4. Admin space al routerului (daca 1-3 nu lamuresc): interogheaza ce sesiuni/topicuri vede routerul
+   efectiv. Daca vede ambele sesiuni dar nu face match de topicuri -> bug rmw_zenoh, nu config.
 
-### Urmatorul pas de diagnostic (cross-masina; nc OPEN != sesiune Zenoh stabilita)
-1. Reachability BIDIRECTIONALA, nu doar M1->M2: ruleaza `nc -zv 192.168.100.14 7447` DE PE M2. Daca
-   sensul invers esueaza -> izolare de client pe AP / asimetrie WiFi<->Ethernet = suspectul principal.
-2. Listen pe TOATE interfetele pe ambele: `listen.endpoints: ["tcp/0.0.0.0:7447"]` (nu pe IP fix sau localhost).
-3. Confirma SESIUNEA (nu doar TCP): porneste nodul cu `RUST_LOG=zenoh=debug` si cauta o sesiune noua
-   acceptata, nu doar conexiunea TCP.
-4. Cum face CycloneDDS (care MERGE pe aceasta retea fara multicast): verifica `CYCLONEDDS_URI` pentru o
-   lista de Peers unicast. Daca DDS foloseste discovery unicast configurat, reteaua PERMITE unicast-ul
-   necesar -> esecul Zenoh e de config/binding, nu de retea. Documenteaza lista de peers DDS ca referinta.
+### Contrast cu CycloneDDS (pentru articol)
+CycloneDDS HIL a mers din prima pe aceleasi segmente. De documentat cum face DDS discovery la noi
+(multicast SPDP, sau Peers unicast in CYCLONEDDS_URI). Diferenta DDS-vs-Zenoh la discovery pe retele
+eterogene e o constatare de deployment de teren relevanta pentru lucrare (nu doar latenta/pierdere).
 
-### Bug reparat (in acest commit)
-`hil_preflight.sh` rula `pkill rmw_zenohd` la curatare -> isi omora propriul router cand testai cu
-router pornit. Adaugat flag `--keep-router` care sare pkill-ul (pastreaza /dev/shm curat oricum).
+### Bug reparat
+`hil_preflight.sh`: flag `--keep-router` care sare `pkill rmw_zenohd` la curatare (inainte isi omora
+propriul router cand testai cu router pornit); /dev/shm ramane curatat.
 
 ### Stare
-Discovery Zenoh cross-masina pe aceasta retea: NEREZOLVAT. Regula de aur ramane: NU se ruleaza
-masuratori Zenoh HIL pana cand `ros2 topic list` pe o masina nu vede topicurile peer-ului. CycloneDDS
-HIL ramane NEATINS (complet, arhivat). Cifrele Zenoh raman SIL/loopback pana la rezolvarea discovery-ului.
+Discovery Zenoh cross-masina pe aceasta retea: NEREZOLVAT, dar IZOLAT la deployment (mecanismul local e
+OK). Regula de aur: NU se ruleaza masuratori Zenoh HIL pana cand un SUBSCRIBER REAL pe o masina nu
+primeste datele peer-ului de pe cealalta (nu doar `ros2 topic list`, care poate minti via daemon).
+CycloneDDS HIL NEATINS. Cifrele Zenoh raman SIL/loopback pana atunci.
