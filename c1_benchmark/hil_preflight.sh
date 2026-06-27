@@ -13,16 +13,17 @@
 #   source ~/ros2_ws/install/setup.bash
 set -u
 
-PEER=""; IFACE=""; TALKER=0
+PEER=""; IFACE=""; TALKER=0; KEEP_ROUTER=0
 for arg in "$@"; do
   case "$arg" in
     --talker) TALKER=1 ;;
+    --keep-router) KEEP_ROUTER=1 ;;   # testezi CU rmw_zenohd pornit -> NU-l omori la curatare
     *) if [ -z "$PEER" ]; then PEER="$arg"; elif [ -z "$IFACE" ]; then IFACE="$arg"; fi ;;
   esac
 done
 
 if [ -z "$PEER" ]; then
-  echo "folosire: $0 <IP_celeilalte_masini> [iface] [--talker]"
+  echo "folosire: $0 <IP_celeilalte_masini> [iface] [--talker] [--keep-router]"
   exit 2
 fi
 
@@ -42,7 +43,13 @@ case "${RMW_IMPLEMENTATION:-}" in
 esac
 
 echo "-- curatare reziduala (mediu curat OBLIGATORIU) --"
-if pkill -f rmw_zenohd 2>/dev/null; then warn "am oprit un rmw_zenohd ramas"; else pass "niciun rmw_zenohd rezidual"; fi
+if [ "$KEEP_ROUTER" = 1 ]; then
+  pass "pastrez rmw_zenohd (--keep-router): NU il opresc, testezi cu router pornit"
+elif pkill -f rmw_zenohd 2>/dev/null; then
+  warn "am oprit un rmw_zenohd ramas"
+else
+  pass "niciun rmw_zenohd rezidual"
+fi
 rm -f /dev/shm/*zenoh* /dev/shm/fastrtps_* 2>/dev/null || true
 pass "curatat /dev/shm/*zenoh* + /dev/shm/fastrtps_*"
 
