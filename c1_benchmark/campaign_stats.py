@@ -395,7 +395,16 @@ def _pick_most_different(data):
     return best
 
 
-def plot_cdf(data, cond, out, boot, alpha):
+def mode_label(mode):
+    """Eticheta de mediu (DUPLICAT al analyze_campaign.mode_label -- tinut IDENTIC; functie pura).
+    'sil' -> 'SIL (loopback)', 'hil' -> 'HIL (two-machine)'. Alt input -> ValueError."""
+    labels = {"sil": "SIL (loopback)", "hil": "HIL (two-machine)"}
+    if mode not in labels:
+        raise ValueError("mod necunoscut: %r (asteptat 'sil' sau 'hil')" % (mode,))
+    return labels[mode]
+
+
+def plot_cdf(data, cond, out, boot, alpha, label="SIL (loopback)"):
     try:
         import matplotlib
         matplotlib.use("Agg")
@@ -424,14 +433,14 @@ def plot_cdf(data, cond, out, boot, alpha):
     ax.grid(linestyle=":", linewidth=0.5, alpha=0.6); ax.set_axisbelow(True)
     ax.legend(loc="lower right", fontsize=10)
     fig.subplots_adjust(left=0.10, right=0.97, top=0.86, bottom=0.18)
-    fig.text(0.5, 0.02, f"SIL (loopback); n(CycloneDDS)={len(ca)}, n(Zenoh)={len(za)} "
+    fig.text(0.5, 0.02, f"{label}; n(CycloneDDS)={len(ca)}, n(Zenoh)={len(za)} "
              "esantioane RTT brute; banda = bootstrap.", ha="center", va="bottom", fontsize=8.5)
     for ext in ("png", "pdf"):
         fig.savefig(os.path.join(out, f"fig_cdf_band_{cond}.{ext}"))
     print(f"  [figura] {os.path.join(out, 'fig_cdf_band_'+cond)}.{{png,pdf}}")
 
 
-def plot_p95_ci(data, out, boot, alpha):
+def plot_p95_ci(data, out, boot, alpha, label="SIL (loopback)"):
     try:
         import matplotlib
         matplotlib.use("Agg")
@@ -466,7 +475,7 @@ def plot_p95_ci(data, out, boot, alpha):
     ax.grid(axis="y", linestyle=":", linewidth=0.5, alpha=0.6); ax.set_axisbelow(True)
     ax.legend(title="RMW", fontsize=10)
     fig.subplots_adjust(left=0.10, right=0.97, top=0.91, bottom=0.22)
-    fig.text(0.5, 0.02, f"SIL (loopback); bare de eroare = CI bootstrap {int((1-alpha)*100)}%.",
+    fig.text(0.5, 0.02, f"{label}; bare de eroare = CI bootstrap {int((1-alpha)*100)}%.",
              ha="center", va="bottom", fontsize=8.5)
     for ext in ("png", "pdf"):
         fig.savefig(os.path.join(out, f"fig_p95_ci.{ext}"))
@@ -486,6 +495,9 @@ def main():
     ap.add_argument("--boot", type=int, default=1000, help="repetitii bootstrap")
     ap.add_argument("--alpha", type=float, default=0.05, help="1-alpha = nivelul de incredere")
     ap.add_argument("--cdf-cond", default=None, help="conditia pentru figura CDF (implicit: cea mai diferita)")
+    ap.add_argument("--mode", choices=["sil", "hil"], default=None,
+                    help="mediul datelor: sil (loopback) sau hil (doua masini). "
+                         "Daca lipseste, se presupune sil cu avertisment pe stderr.")
     args = ap.parse_args()
 
     if args.selftest:
@@ -505,10 +517,16 @@ def main():
     print(f"[date] {len(data)} celule (rmw x conditie); "
           f"esantioane: {sum(len(v) for v in data.values())}")
     write_summary(data, args.out, args.boot, args.alpha)
+    mode = args.mode
+    if mode is None:
+        sys.stderr.write("[avertisment] --mode nespecificat; presupun SIL (loopback). "
+                         "Pentru date HIL ruleaza cu --mode hil.\n")
+        mode = "sil"
+    label = mode_label(mode)
     cond = args.cdf_cond or _pick_most_different(data)
     if cond:
-        plot_cdf(data, cond, args.out, args.boot, args.alpha)
-    plot_p95_ci(data, args.out, args.boot, args.alpha)
+        plot_cdf(data, cond, args.out, args.boot, args.alpha, label)
+    plot_p95_ci(data, args.out, args.boot, args.alpha, label)
     print(f"[gata] rezultate in {args.out}/")
 
 

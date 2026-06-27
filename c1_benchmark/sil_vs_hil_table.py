@@ -54,10 +54,22 @@ def _fmt(s):
     return "%7.0f cv%3.0f%% [%5.0f-%5.0f]" % (s["mean"], 100 * s["cv"], s["lo"], s["hi"])
 
 
+def mode_label(mode):
+    """Eticheta de mediu (DUPLICAT al analyze_campaign.mode_label -- tinut IDENTIC; functie pura).
+    'sil' -> 'SIL (loopback)', 'hil' -> 'HIL (two-machine)'. Alt input -> ValueError."""
+    labels = {"sil": "SIL (loopback)", "hil": "HIL (two-machine)"}
+    if mode not in labels:
+        raise ValueError("mod necunoscut: %r (asteptat 'sil' sau 'hil')" % (mode,))
+    return labels[mode]
+
+
 def format_table(rows):
-    """Tabel text etichetat clar SIL vs HIL (p95 ms, CV, interval per repetitie)."""
-    out = ["%-11s %-13s | %2s %-21s | %2s %-21s"
-           % ("rmw", "conditie", "N", "SIL p95[ms] cv [min-max]", "N", "HIL p95[ms] cv [min-max]"),
+    """Tabel text etichetat clar SIL vs HIL (p95 ms per repetitie, CV, interval [min-max])."""
+    sil_lbl, hil_lbl = mode_label("sil"), mode_label("hil")
+    out = ["Comparatie transport: %s vs %s -- p95[ms] mediu per repetitie, cv, interval [min-max]"
+           % (sil_lbl, hil_lbl),
+           "%-11s %-13s | %2s %-21s | %2s %-21s"
+           % ("rmw", "conditie", "N", sil_lbl, "N", hil_lbl),
            "-" * 78]
     for r in rows:
         out.append("%-11s %-13s | %2d %s | %2d %s"
