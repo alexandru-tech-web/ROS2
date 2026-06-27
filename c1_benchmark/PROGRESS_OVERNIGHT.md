@@ -1,7 +1,7 @@
 # Progres overnight SIL/HIL flag
 Task 1 (analyze_campaign --mode + subtitlu): DONE
 Task 2 (propagare --mode in campaign_stats + sil_vs_hil_table): DONE
-Task 3 (teste pentru logica de mod): TODO
+Task 3 (teste pentru logica de mod): DONE
 Note:
 - Task 1: adaugat mode_label(mode) (functie PURA) + flag --mode {sil,hil} in analyze_campaign.py.
   DECIZIE DE DESIGN: --mode are default=None; daca lipseste -> AVERTISMENT pe stderr + presupun
@@ -28,3 +28,8 @@ Note:
   sil_vs_hil_table identice). Motiv: cea mai mica atingere -- importul lui analyze_campaign ar trage
   matplotlib la nivel de modul + cuplaj la un CLI. Cele 3 copii TREBUIE tinute identice.
   ASCII curat ambele, py_compile OK.
+- Task 3: fisier nou test_mode_label.py (stil identic cu test_bench_core.py -- script simplu cu
+  check()+contor, NU pytest-functii, fiindca asta e conventia existenta a suitei; ruleaza cu
+  `python3 test_mode_label.py`). 5 verificari: mode_label('sil')/('hil'), input invalid -> ValueError,
+  cele 3 copii IDENTICE (garda anti-divergenta), si --mode bogus respins de CLI (cod != 0).
+  Toate 5 trec. ASCII curat. NU am adaugat teste peste scopul cerut.
