@@ -1,7 +1,10 @@
 # Charter: ecosistemul educational open-source
 
-STATUT: PARCAT pana pe 19.06.2026 (dupa submisia SSRR).
-Kickoff: 19–21.06, sesiune dedicata de analiza + decizie.
+STATUT (actualizat 27.06.2026): RE-PARCAT. Fereastra de kickoff planificata initial (19-21.06.2026)
+a trecut fara kickoff -- drumul critic al tezei (benchmark HIL / A1) e inca activ. Ramane parcat
+pana la o noua fereastra dedicata de analiza + decizie, dupa stabilizarea drumului critic.
+Viziunea, variantele si roadmap-ul de mai jos raman valabile; doar datele se re-stabilesc la
+urmatorul kickoff.
 
 ## 1. Viziunea (condensata din propunere)
 
@@ -58,14 +61,15 @@ tezei, nu invers.
 Incremental, pe etape: analiza -> propunere de arhitectura -> APROBARE ->
 cod -> documentatie -> teste -> issues. Nimic generat "totul odata".
 
-## 6. Primul pas la kickoff (19.06)
+## 6. Primul pas la kickoff (la urmatoarea fereastra)
 
 1. Inventarul repo-ului "JavaScript" existent (ce aplicatii contine, ce e
    reutilizabil).
 2. Decizia A / B / hibrid — pe baza acestui charter.
 3. Scheletul monorepo + primele 10 issues. Atat. (1–2 h, nu mai mult.)
 
-## 7. Ce NU se intampla inainte de 18.06
+## 7. Ce NU se intampla cat timp drumul critic e activ
 
-Nimic din acest document. Drumul critic: main.tex (azi), prezentarea
-(sambata), campania N=5 (in mers), submisia (joi).
+Nimic din acest document pana cand drumul critic al tezei nu e stabilizat. La data acestei
+actualizari (27.06.2026) drumul critic este benchmark-ul HIL / A1 (campania pe doua masini,
+N>=5); ecosistemul ramane parcat pana atunci.
