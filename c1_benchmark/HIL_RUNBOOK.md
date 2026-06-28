@@ -27,8 +27,12 @@ telemetrie) ruleaza fara nicio modificare de cod -- vezi GHID_TESTARE.md.
 
 ## 1. Reteaua
 
-- Ambele masini pe acelasi LAN / acelasi AP. Noteaza interfata reala pe M1: `ip -br addr`
-  (ex. `wlan0` sau `eth0`) -- o folosesti la `--iface`.
+- Cele doua MEDII fizice ale matricei 2x2: switch Gigabit -> interfata `enp2s0` (mediu hil_switch);
+  Wi-Fi -> interfata `wlp4s0` (mediu hil_wifi). Noteaza interfata pe M1 cu `ip -br addr` -- o folosesti
+  la `--iface` (run_campaign / hil_netem) si la `--mode` la analiza (hil_switch sau hil_wifi, NU "hil").
+- Asimetrie de discovery (constatare, de pus in Discussion): CycloneDDS se descopera prin multicast,
+  fara router. Zenoh (rmw_zenoh) cere un router rmw_zenohd pe FIECARE masina, interconectate prin
+  connect block -- nodurile singure nu se descopera peste host-uri. Procedura Zenoh: HIL_ZENOH_SETUP.md.
 - Verifica conectivitatea ROS inainte de orice masuratoare:
   ```bash
   # M2: porneste un talker; M1: vezi daca apare
@@ -101,7 +105,8 @@ valideaza intai stratul transport pe HIL; misiunea distribuita e un pas separat.
 ## 8. Analiza (identica cu SIL)
 
 ```bash
-python3 ~/ros2_ws/src/c1_benchmark/analyze_campaign.py <results_c1/>
+# --mode: hil_switch pe enp2s0, hil_wifi pe wlp4s0 (eticheta corecta de mediu; NU "hil", NU sil)
+python3 ~/ros2_ws/src/c1_benchmark/analyze_campaign.py <results_c1/> --mode hil_switch
 python3 ~/ros2_ws/src/c1_benchmark/build_selector_dataset.py <results_c1/> -o selector_dataset.csv
 python3 ~/ros2_ws/src/c1_benchmark/reproduce_selector.py selector_dataset.csv
 # daca ai rulat si mission:

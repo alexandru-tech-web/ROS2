@@ -7,7 +7,9 @@ asta, toate cifrele din repo sunt SIL (loopback).
 Decizii fixate:
 - netem SIMETRIC (aceeasi regula pe egress pe AMBELE masini) -> round-trip ~ 1-(1-p)^2, RTT ~ 2x
   one-way, coerent cu SIL. M1: run_campaign aplica pe M1; M2: hil_netem.py aplica aceeasi regula.
-- Zenoh: P2P, FARA router (rmw_zenohd crapa sub pierdere).
+- Zenoh discovery cross-host: necesita router rmw_zenohd pe FIECARE masina, interconectate prin
+  connect block (vezi HIL_ZENOH_SETUP.md). Nodurile singure NU se descopera peste host-uri.
+  CycloneDDS: niciun router (discovery prin multicast) -- asimetrie de documentat in Discussion.
 - Conditii HIL = 8 (memoryless + latenta): ideal, loss_5, loss_15, loss_20, loss_25, loss_30,
   lat200_jit50, lat200_l15. *_burst / gilbert_* sunt EXCLUSE automat pe --mode hil (interferenta,
   inghetata, in afara drumului critic A1). Conditia-cheie: lat200_l15.
@@ -18,7 +20,7 @@ Decizii fixate:
 export ROS_DOMAIN_ID=7
 export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp        # acelasi peste tot (faza 1)
 source ~/ros2_ws/install/setup.bash
-ip -br addr                                         # afla iface real (ex. eth0)
+ip -br addr     # iface: enp2s0 pe switch Gigabit (hil_switch), wlp4s0 pe Wi-Fi (hil_wifi)
 ```
 
 ## 1. Preflight (gate -- nicio masuratoare pana nu-i PASS in ambele sensuri)
@@ -53,13 +55,16 @@ La final, curata M2: `sudo python3 ~/ros2_ws/src/c1_benchmark/hil_netem.py <ifac
 #         --reps 5 --rmws cyclonedds --conditions C
 ```)
 
-## 4. Faza 2 -- Zenoh (P2P, FARA router)
+## 4. Faza 2 -- Zenoh
+ATENTIE discovery: pentru Zenoh cross-host trebuie router rmw_zenohd pe FIECARE masina + connect block
+(procedura completa: HIL_ZENOH_SETUP.md). Nodurile singure NU se descopera peste host-uri. (Indicatia
+veche "P2P fara router" de mai sus e SUPERSEDED de aceasta constatare.)
 ```bash
-# pe AMBELE: schimba RMW + mediu curat + re-preflight
+# pe AMBELE: schimba RMW + mediu curat (apoi configureaza routerele per HIL_ZENOH_SETUP.md)
 export RMW_IMPLEMENTATION=rmw_zenoh_cpp
 pkill -f rmw_zenohd; rm -f /dev/shm/*zenoh* /dev/shm/fastrtps_*
 source ~/ros2_ws/install/setup.bash
-# NU porni rmw_zenohd. Repeta pasul 1 (preflight), apoi:
+# Porneste/configureaza routerele Zenoh conform HIL_ZENOH_SETUP.md, repeta pasul 1 (preflight), apoi:
 cd ~/ros2_ws/src/c1_benchmark && ./hil_run_transport.sh <iface> zenoh
 ```
 
@@ -72,7 +77,8 @@ mv ~/ros2_ws/src/c1_benchmark/results_c1 ~/c1_archive/hil_$(date +%Y%m%d)/
 
 ## 6. Analiza (identica SIL/HIL; vezi HIL_RUNBOOK.md sectiunea 8)
 ```bash
-python3 analyze_campaign.py ~/c1_archive/hil_<data>/
+# --mode hil_switch pe switch (enp2s0), --mode hil_wifi pe Wi-Fi (wlp4s0) -- NU "hil" generic, NU sil
+python3 analyze_campaign.py ~/c1_archive/hil_<data>/ --mode hil_switch
 python3 build_selector_dataset.py ~/c1_archive/hil_<data>/ -o selector_dataset.csv
 python3 reproduce_selector.py selector_dataset.csv
 ```
