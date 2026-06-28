@@ -61,3 +61,50 @@ Note:
   Logica de aliniere a matricei (Task 2) e testata de matrix_table --selftest (9/9), convetie built-in
   ca campaign_stats/sil_vs_hil_table. Stil: script cu check()+contor (ca suita existenta), NU pytest.
   NU am adaugat teste peste scop.
+
+## RAPORT FINAL
+Toate 4 task-urile DONE. Branch: overnight-matrix-2x2 (peste main, care avea deja flag-ul SIL/HIL).
+FARA merge in main, FARA push. Commit-uri separate per task + per progres.
+
+FISIERE SCHIMBATE:
+- analyze_campaign.py: +ENV_LABELS + env_label (sil/hil_wifi/hil_switch); analyze() foloseste env_label;
+  --mode extins {sil,hil_wifi,hil_switch,hil}, "hil" -> EROARE blanda. mode_label PASTRAT.
+- campaign_stats.py: idem (env_label DUPLICAT identic + --mode extins; plot_*_ci primesc label).
+- sil_vs_hil_table.py: +env_label (DUPLICAT identic).
+- matrix_table.py (NOU): tabel matrice 2x2 + paritate VALIDA doar intra-mediu + 'nerulat' pt sferturi
+  lipsa + axa secundara 'efectul transportului fizic' + nota de non-comparabilitate. --selftest 9/9.
+- HIL_RUNBOOK.md + HIL_TRANSPORT_CHEATSHEET.md: iface parametric (enp2s0 switch / wlp4s0 Wi-Fi) +
+  analyze_campaign --mode hil_switch/hil_wifi + nota asimetrie discovery -> HIL_ZENOH_SETUP.md.
+- test_mode_label.py: +teste env_label (3 medii + invalid + 3 copii identice) + 2 teste --mode CLI +
+  stub matplotlib. 11/11.
+
+VERIFICAT (rulat efectiv):
+- test_mode_label 11/11, matrix_table 9/9, campaign_stats 17/17, sil_vs_hil_table 10/10.
+- FARA regresie: test_bench_core 13/13, test_selector_core 37/37.
+- env_label IDENTIC in 3 copii + ValueError; mode_label compat; "hil" -> eroare blanda exit 2
+  (verificat pe campaign_stats). Tabelul matrice marcheaza nerulat + non-comparabilitate (selftest).
+- ASCII curat in toate fisierele atinse.
+
+DECIZII DE DESIGN:
+- "hil" generic pe --mode -> EROARE blanda care cere hil_wifi/hil_switch (NU avertisment): pe matrice
+  ambiguitatea wifi/switch conteaza (per spec).
+- env_label DUPLICAT in 3 fisiere (ca mode_label); test_mode_label prinde divergenta pt AMBELE functii.
+- matrix_table fisier NOU (mai curat decat sa contorsionez sil_vs_hil_table); reutilizeaza
+  env_label + summarize_reps. Status de setup NU codat in tabelul de date (doar valoare sau 'nerulat').
+
+CE TREBUIE SA VADA ALEXANDRU:
+1. APELANTI SPARTI: orice apel "analyze_campaign/campaign_stats --mode hil" da acum EROARE (exit 2).
+   Runbook-urile le-am actualizat la hil_switch/hil_wifi (Task 3). Verifica daca mai ai
+   scripturi/aliasuri/cron care dau "--mode hil" -- de schimbat la hil_wifi sau hil_switch.
+2. matplotlib LIPSESTE in mediul de overnight -> analyze_campaign (import matplotlib EAGER, liniile
+   27-29) NU ruleaza ca CLI aici; campaign_stats (import lenes) ruleaza. Optiuni: instaleaza matplotlib,
+   SAU fa importul lenes in analyze_campaign (ca campaign_stats). Eu NU am facut pip install si NU am
+   refactorizat (ambele = peste scop/risc). Am verificat analyze_campaign prin cod-identitate cu
+   campaign_stats + import cu stub.
+3. HIL_ZENOH_SETUP.md LIPSESTE in repo -- runbook-urile trimit la el; il ai separat. Ghidajul Zenoh era
+   CONTRADICTORIU in repo (P2P fara router vs router pe M1 vs router per masina). Am aliniat la
+   finding-ul DAT (router per masina + connect) si am marcat "P2P fara router" ca SUPERSEDED. Reconciliaza
+   procedura completa in HIL_ZENOH_SETUP.md (NU am recreat-o din memorie).
+4. matrix_table consuma {(env, middleware): [p95_per_rep]}. Cand ai date HIL reale, mai trebuie un mic
+   LOADER care eticheteaza datele pe (env, mw) (sau extinde sil_vs_hil_table.load_rep_p95). Acum doar
+   STRUCTURA, validata pe date sintetice (per spec: nu am rulat pe ~/c1_archive).
