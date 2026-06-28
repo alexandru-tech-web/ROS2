@@ -2,7 +2,7 @@
 (branch overnight-matrix-2x2, construit peste overnight-sil-hil-flag, deja merge-uit in main)
 Task 1 (extindere etichetare mediu+middleware): DONE
 Task 2 (comparatie 4-way / structura tabel matrice): DONE
-Task 3 (runbook-uri pentru ambele interfete): TODO
+Task 3 (runbook-uri pentru ambele interfete): DONE
 Task 4 (teste): TODO
 Note:
 - Task 1: adaugat env_label(env) {sil/hil_wifi/hil_switch} ALATURI de mode_label (PASTRAT) in
@@ -38,3 +38,17 @@ Note:
   DECIZIE: statusul de SETUP (validat-setup vs de-rulat) NU e codat in tabelul de DATE -- tabelul arata
   fie valoarea (mean p95 / N) fie 'nerulat'. Statusul de setup ramane in runbook-uri / context (Task 3).
   Adnotari de status per celula = extensie ulterioara (am ales sa nu incarc/inventez).
+- Task 3: editari chirurgicale in HIL_RUNBOOK.md + HIL_TRANSPORT_CHEATSHEET.md:
+  * iface ca parametru EXPLICIT: enp2s0 (switch Gigabit -> mediu hil_switch) / wlp4s0 (Wi-Fi ->
+    mediu hil_wifi).
+  * apelurile analyze_campaign -> --mode hil_switch (cu nota: hil_wifi pe Wi-Fi); NU "hil", NU sil.
+  * nota de ASIMETRIE discovery: CycloneDDS multicast/fara router; Zenoh router pe FIECARE masina +
+    connect block -> trimite la HIL_ZENOH_SETUP.md.
+  HIL_ZENOH_SETUP.md LIPSESTE in repo -> NU l-am recreat din memorie (per spec); runbook-urile trimit
+  la el; Alexandru il are separat.
+  INCONSISTENTA SEMNALATA (de reconciliat de Alexandru via HIL_ZENOH_SETUP.md): ghidajul Zenoh era
+  contradictoriu in repo -- HIL_RUNBOOK vechi "un router pe M1 accesibil ambelor", cheatsheet "P2P fara
+  router", contextul matricei (dat de spec) "router pe fiecare masina + connect". Am aliniat la
+  finding-ul DAT (router per masina), am marcat indicatia "P2P" ca SUPERSEDED si am trimis la
+  HIL_ZENOH_SETUP.md. NU am rescris procedura Zenoh (nu o recreez din memorie).
+  Verificat: ASCII curat ambele; coerenta enp2s0/wlp4s0 + hil_switch/hil_wifi + HIL_ZENOH_SETUP in ambele.
