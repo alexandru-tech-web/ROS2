@@ -1,7 +1,7 @@
 # Progres matrice 2x2
 (branch overnight-matrix-2x2, construit peste overnight-sil-hil-flag, deja merge-uit in main)
 Task 1 (extindere etichetare mediu+middleware): DONE
-Task 2 (comparatie 4-way / structura tabel matrice): TODO
+Task 2 (comparatie 4-way / structura tabel matrice): DONE
 Task 3 (runbook-uri pentru ambele interfete): TODO
 Task 4 (teste): TODO
 Note:
@@ -24,3 +24,17 @@ Note:
   (ca campaign_stats) ca sa ruleze fara matplotlib. test_mode_label importa analyze_campaign -> e rupt
   in acest mediu fara matplotlib; in Task 4 il fac robust (stub matplotlib daca lipseste).
   VERIFICAT: ASCII curat (3 fisiere), py_compile OK, campaign_stats --selftest 17/17.
+- Task 2: fisier NOU matrix_table.py (mai curat decat sa contorsionez sil_vs_hil_table; reutilizeaza
+  env_label + summarize_reps din sil_vs_hil_table, importabil fara matplotlib -- text-only, fara figuri).
+  * matrix_summarize(groups): {(env,mw): [p95_per_rep]} -> {(env,mw): summary}; cheile fara date raman
+    absente -> 'nerulat' in tabel.
+  * format_matrix: tabel 2x2 (mediu x middleware) + comparatie VALIDA doar INTRA-mediu (cyclonedds vs
+    zenoh pe acelasi transport) + axa secundara 'efectul transportului fizic' (acelasi mw, intre medii,
+    etichetata clar ca NEcomparatie de validitate) + NOTA METODOLOGICA de non-comparabilitate intre medii.
+  * Sferturi lipsa -> 'nerulat' (NU valori inventate). Date de test = SINTETICE etichetate
+    'synthetic_for_test'; NU rulat pe ~/c1_archive.
+  * --selftest 9/9 (aliniere, nerulat, nota non-comparabilitate, comparatie valida intra-mediu,
+    indisponibila unde lipseste un mw, axa secundara). ASCII curat, py_compile OK.
+  DECIZIE: statusul de SETUP (validat-setup vs de-rulat) NU e codat in tabelul de DATE -- tabelul arata
+  fie valoarea (mean p95 / N) fie 'nerulat'. Statusul de setup ramane in runbook-uri / context (Task 3).
+  Adnotari de status per celula = extensie ulterioara (am ales sa nu incarc/inventez).
