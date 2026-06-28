@@ -3,7 +3,7 @@
 Task 1 (extindere etichetare mediu+middleware): DONE
 Task 2 (comparatie 4-way / structura tabel matrice): DONE
 Task 3 (runbook-uri pentru ambele interfete): DONE
-Task 4 (teste): TODO
+Task 4 (teste): DONE
 Note:
 - Task 1: adaugat env_label(env) {sil/hil_wifi/hil_switch} ALATURI de mode_label (PASTRAT) in
   analyze_campaign.py, campaign_stats.py, sil_vs_hil_table.py (DUPLICAT identic, ca mode_label).
@@ -52,3 +52,12 @@ Note:
   finding-ul DAT (router per masina), am marcat indicatia "P2P" ca SUPERSEDED si am trimis la
   HIL_ZENOH_SETUP.md. NU am rescris procedura Zenoh (nu o recreez din memorie).
   Verificat: ASCII curat ambele; coerenta enp2s0/wlp4s0 + hil_switch/hil_wifi + HIL_ZENOH_SETUP in ambele.
+- Task 4: extins test_mode_label.py pentru env_label (cele 3 medii sil/hil_wifi/hil_switch -> etichete
+  corecte, input invalid -> ValueError, cele 3 COPII identice -- garda anti-divergenta pentru AMBELE
+  functii). Plus 2 teste de CLI --mode pe campaign_stats (matplotlib-robust): valoare necunoscuta
+  respinsa + "hil" generic -> eroare blanda (ambiguu). Adaugat STUB matplotlib in test (shim: matplotlib
+  lipseste in mediu, analyze_campaign il importa eager -> stub doar ca sa pot importa modulele pentru
+  testarea functiilor pure). test_mode_label: 11/11.
+  Logica de aliniere a matricei (Task 2) e testata de matrix_table --selftest (9/9), convetie built-in
+  ca campaign_stats/sil_vs_hil_table. Stil: script cu check()+contor (ca suita existenta), NU pytest.
+  NU am adaugat teste peste scop.
