@@ -23,7 +23,8 @@ setup(
     entry_points={
         "console_scripts": [
             # Nodurile ROS demo se adauga pe masura ce sunt construite modulele.
-            # M22 capstone: 'link_predictor_node = curs_ml.m22_capstone_link_predictor.link_predictor_node:main'
+            # M22 capstone: nodul ROS care publica predictia de stare a linkului.
+            "link_predictor_node = curs_ml.m22_capstone_link_predictor.link_predictor_node:main",
         ],
     },
 )
