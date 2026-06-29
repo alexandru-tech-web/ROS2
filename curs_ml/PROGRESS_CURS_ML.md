@@ -1,46 +1,37 @@
-# Progres constructie curs_ml
+# Progres constructie curs_ml -- TERMINAT
 
 Branch: `curs-ml` (din main). Venv ML: `~/ros2_ws/.venv_ml` (numpy/scipy/sklearn/
-pandas/matplotlib instalate). Verificare integrala: `cd curs_ml && ./verifica_ml.sh`.
+pandas/matplotlib). Verificare integrala: `cd curs_ml && ./verifica_ml.sh` -> TOTUL VERDE.
 Datele sunt SINTETICE, semanate din C1/M (vezi `curs_ml/date_sar.py`).
+NEpushuit, NEmerge-uit (Alexandru revizuieste).
 
-## FACUT (commis, selftest verde in venv, ASCII curat)
-- Fundatie: package.xml/setup.py/setup.cfg, requirements.txt, utils.py (15/15),
-  date_sar.py (17/17), doc-uri (README/CHARTA/GLOSAR/BIBLIOGRAFIE/PRINCIPII/
-  PROIECTE), verifica_ml.sh, tests/run_all_selftests.py, .gitignore (PNG + pycache).
-- [x] M00 Algebra liniara aplicata
-- [x] M01 Probabilitate si statistica
-- [x] M02 Optimizare pentru ML
-- [x] M03 Cadrul invatarii supervizate
-- [x] M04 Date si feature engineering
-- [x] M05 Regresie liniara
-- [x] M06 Regularizare
-- [x] M07 Evaluare si validare
+## TOATE MODULELE GATA (M00-M22, fiecare cu selftest verde in venv, ASCII curat, comise per modul)
+- [x] M00 Algebra liniara aplicata        - [x] M12 Arbori de decizie
+- [x] M01 Probabilitate si statistica     - [x] M13 Ensembluri
+- [x] M02 Optimizare pentru ML            - [x] M14 Interpretabilitate
+- [x] M03 Cadrul invatarii supervizate    - [x] M15 Clustering
+- [x] M04 Date si feature engineering     - [x] M16 Reducerea dimensionalitatii (PCA)
+- [x] M05 Regresie liniara                - [x] M17 Cuantificarea incertitudinii
+- [x] M06 Regularizare (Ridge/Lasso)      - [x] M18 Selectie de model
+- [x] M07 Evaluare si validare            - [x] M19 Serii temporale
+- [x] M08 Regresie logistica              - [x] M20 Retele neuronale (MLP + backprop)
+- [x] M09 Metrici, dezechilibru, calibrare- [x] M21 MDP si Q-learning (puntea C3)
+- [x] M10 Naive Bayes                     - [x] M22 Capstone: predictor de link ca nod ROS 2
+- [x] M11 k-NN si SVM cu kernel
+
 Fiecare modul = 8 fisiere (teorie.md, *_core.py+selftest, *_sklearn.py, demo_sil.py,
-exercitii.md, exercitii.py, solutii.py, README.md). PNG-urile sunt gitignorate.
+exercitii.md, exercitii.py, solutii.py, README.md). M22 are si __init__.py + nodul ROS.
 
-## DE FACUT (M08-M22, acelasi sablon, selftest verde inainte de commit)
-- [ ] M08 Regresie logistica       (sigmoid, entropie incrucisata, gradient derivat)
-- [ ] M09 Metrici, dezechilibru, calibrare (PR/ROC, praguri, Platt/isotonic) -- foloseste make_link_usability_dataset
-- [ ] M10 Naive Bayes [opt]
-- [ ] M11 k-NN si SVM cu kernel
-- [ ] M12 Arbori de decizie         -- make_mission_outcome_dataset
-- [ ] M13 Ensembluri                (bagging, RF, boosting)
-- [ ] M14 Interpretabilitate [rec]  (permutare, PDP, SHAP)
-- [ ] M15 Clustering                (k-means/Lloyd, DBSCAN)
-- [ ] M16 Reducerea dimensionalitatii (PCA via SVD)
-- [ ] M17 Cuantificarea incertitudinii [rec] (bayesian, GP, bootstrap, conformal)
-- [ ] M18 Selectie de model         (grid/nested CV, AIC/BIC)
-- [ ] M19 Serii temporale           -- make_latency_series
-- [ ] M20 Retele neuronale [opt]    (MLP from scratch + backprop)
-- [ ] M21 MDP si Q-learning [rec]   (Bellman, Q tabular) -- puntea C3
-- [ ] M22 Capstone: predictor de link ca nod ROS 2 [rec] -- entry_point in setup.py,
-        JSON pe std_msgs/String, sys.path.insert; pasii colcon/ros2 run ii ruleaza Alexandru.
-- [ ] PROIECTE_SINTEZA.md: completeaza P1-P4 dupa ce exista modulele.
-- [ ] README.md: revizuieste harta finala; genereaza instaleaza_curs_ml.sh.
+## RESTUL -- GATA
+- [x] PROIECTE_SINTEZA.md: P1-P4 implementate in curs_ml/proiecte/, ruleaza verde in venv.
+- [x] setup.py: entry_point `link_predictor_node` (M22) adaugat; M22 e pachet instalabil.
+- [x] instaleaza_curs_ml.sh: auto-generat (gen_instalator.py) -- recreeaza arborele (207
+      fisiere, fara PNG), testat ca recreeaza identic + selftests verzi pe copie.
+- [x] README.md: harta + DAG + trasee + cum rulezi (venv + colcon).
+- [x] verifica_ml.sh integral: ASCII curat, toate cele 23 nuclee + utils + date_sar VERZI.
 
-## NOTE
-- Nucleele *_core.py: numpy PUR (scikit-learn INTERZIS); *_sklearn.py = validare incrucisata.
-- Import: sys.path.insert(0, dirname(dirname(__file__))) -> from utils / from date_sar.
-- M22 e singurul cu nod ROS; restul ruleaza pure-Python in venv.
-- Un workflow paralel mare a lovit limita de sesiune o data -> mai bine loturi mici sau direct.
+## PENTRU ALEXANDRU
+- Verifica si fa merge `curs-ml` in main (NU am pushuit/merge-uit).
+- Build ROS (doar nodul capstone M22) -- vezi instructiunile colcon din raportul final /
+  README.md (sectiunea "Build ROS"). Restul cursului e pure-Python in venv.
+- Date SINTETICE peste tot (marcat); cifrele se confirma cu campania reala/HIL.

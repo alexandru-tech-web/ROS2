@@ -4,3 +4,5 @@
 # Cache Python
 __pycache__/
 *.pyc
+# Instalatorul auto-generat (regenerabil cu gen_instalator.py; ~1MB)
+instaleaza_curs_ml.sh
