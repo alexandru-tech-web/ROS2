@@ -43,13 +43,28 @@ cd ~/ros2_ws/src/curs_ml
 ./verifica_ml.sh
 ```
 
-Build ca pachet ROS 2 (doar pentru nodurile demo, ex. capstone M22). Nodurile ROS
-si `colcon` se ruleaza pe masina cu ROS 2 Jazzy:
+## Build ROS (doar nodul capstone M22)
+
+Tot cursul ruleaza pure-Python in venv; SINGURUL element ROS este nodul din M22
+(`link_predictor_node`). `colcon` si `ros2` se ruleaza pe masina cu ROS 2 Jazzy
+(NU in venv-ul ML -- acela nu are rclpy):
 
 ```bash
-cd ~/ros2_ws && colcon build --packages-select curs_ml --symlink-install
-source install/setup.bash && ros2 pkg executables curs_ml
+# 1. build (din afara venv-ului, cu ROS 2 Jazzy sourceuit)
+cd ~/ros2_ws
+colcon build --packages-select curs_ml --symlink-install
+source install/setup.bash
+
+# 2. verifica ca entry_point-ul exista
+ros2 pkg executables curs_ml          # -> curs_ml link_predictor_node
+
+# 3. ruleaza nodul (publica /link_predictor/state din feature-uri de link pe JSON)
+ros2 run curs_ml link_predictor_node
 ```
+
+Daca `ros2 pkg executables` e gol: `rm -rf build install && colcon build` (wrapper-ele
+se genereaza la build). Nodul antreneaza modelul la pornire daca nu gaseste unul salvat.
+Restul modulelor (M00-M21) NU au noduri ROS -- se ruleaza cu `python3` in venv.
 
 ## Harta cursului (M00-M22)
 
