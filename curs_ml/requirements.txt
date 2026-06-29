@@ -1,0 +1,10 @@
+# curs_ml -- dependinte ML (instaleaza intr-un venv dedicat ~/ros2_ws/.venv_ml,
+# NU in Python-ul de ROS). Vezi README.md sectiunea de rulare.
+numpy
+scipy
+pandas
+scikit-learn
+matplotlib
+# M14 (interpretabilitate): shap        # optional
+# M17 (incertitudine): GPy              # optional
+# M20 (retele neuronale): torch         # optional, greu
