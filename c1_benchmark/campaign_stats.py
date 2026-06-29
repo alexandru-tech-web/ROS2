@@ -404,6 +404,22 @@ def mode_label(mode):
     return labels[mode]
 
 
+# Axa de MEDIU (transport fizic) a matricei 2x2 -- ortogonala fata de middleware (RMW).
+ENV_LABELS = {
+    "sil": "SIL (loopback)",
+    "hil_wifi": "HIL (Wi-Fi)",
+    "hil_switch": "HIL (Gigabit switch)",
+}
+
+
+def env_label(env):
+    """Eticheta de MEDIU pentru subtitluri/tabele. Pura, testabila. 'sil'/'hil_wifi'/'hil_switch'
+    -> eticheta; alt input -> ValueError. DUPLICAT IDENTIC in analyze_campaign.py + sil_vs_hil_table.py."""
+    if env not in ENV_LABELS:
+        raise ValueError("mediu necunoscut: %r (asteptat 'sil', 'hil_wifi' sau 'hil_switch')" % (env,))
+    return ENV_LABELS[env]
+
+
 def plot_cdf(data, cond, out, boot, alpha, label="SIL (loopback)"):
     try:
         import matplotlib
@@ -495,9 +511,10 @@ def main():
     ap.add_argument("--boot", type=int, default=1000, help="repetitii bootstrap")
     ap.add_argument("--alpha", type=float, default=0.05, help="1-alpha = nivelul de incredere")
     ap.add_argument("--cdf-cond", default=None, help="conditia pentru figura CDF (implicit: cea mai diferita)")
-    ap.add_argument("--mode", choices=["sil", "hil"], default=None,
-                    help="mediul datelor: sil (loopback) sau hil (doua masini). "
-                         "Daca lipseste, se presupune sil cu avertisment pe stderr.")
+    ap.add_argument("--mode", choices=["sil", "hil_wifi", "hil_switch", "hil"], default=None,
+                    help="mediul datelor: sil (loopback), hil_wifi (Wi-Fi), hil_switch (Gigabit switch). "
+                         "'hil' generic e ambiguu pe matricea 2x2 -> eroare. Daca lipseste, se "
+                         "presupune sil cu avertisment pe stderr.")
     args = ap.parse_args()
 
     if args.selftest:
@@ -517,12 +534,16 @@ def main():
     print(f"[date] {len(data)} celule (rmw x conditie); "
           f"esantioane: {sum(len(v) for v in data.values())}")
     write_summary(data, args.out, args.boot, args.alpha)
-    mode = args.mode
-    if mode is None:
-        sys.stderr.write("[avertisment] --mode nespecificat; presupun SIL (loopback). "
-                         "Pentru date HIL ruleaza cu --mode hil.\n")
-        mode = "sil"
-    label = mode_label(mode)
+    env = args.mode
+    if env == "hil":
+        sys.stderr.write("[eroare] --mode hil e ambiguu pe matricea 2x2 (wifi vs switch). "
+                         "Foloseste --mode hil_wifi sau --mode hil_switch.\n")
+        sys.exit(2)
+    if env is None:
+        sys.stderr.write("[avertisment] --mode nespecificat; presupun SIL (loopback). Pentru date "
+                         "HIL ruleaza cu --mode hil_wifi sau --mode hil_switch.\n")
+        env = "sil"
+    label = env_label(env)
     cond = args.cdf_cond or _pick_most_different(data)
     if cond:
         plot_cdf(data, cond, args.out, args.boot, args.alpha, label)

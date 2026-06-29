@@ -63,6 +63,22 @@ def mode_label(mode):
     return labels[mode]
 
 
+# Axa de MEDIU (transport fizic) a matricei 2x2 -- ortogonala fata de middleware (RMW).
+ENV_LABELS = {
+    "sil": "SIL (loopback)",
+    "hil_wifi": "HIL (Wi-Fi)",
+    "hil_switch": "HIL (Gigabit switch)",
+}
+
+
+def env_label(env):
+    """Eticheta de MEDIU pentru subtitluri/tabele. Pura, testabila. 'sil'/'hil_wifi'/'hil_switch'
+    -> eticheta; alt input -> ValueError. DUPLICAT IDENTIC in analyze_campaign.py + campaign_stats.py."""
+    if env not in ENV_LABELS:
+        raise ValueError("mediu necunoscut: %r (asteptat 'sil', 'hil_wifi' sau 'hil_switch')" % (env,))
+    return ENV_LABELS[env]
+
+
 def format_table(rows):
     """Tabel text etichetat clar SIL vs HIL (p95 ms per repetitie, CV, interval [min-max])."""
     sil_lbl, hil_lbl = mode_label("sil"), mode_label("hil")

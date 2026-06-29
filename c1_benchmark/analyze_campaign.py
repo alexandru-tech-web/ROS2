@@ -85,7 +85,8 @@ def _savefig(fig, outdir, name, caption=""):
 
 
 def mode_label(mode):
-    """Eticheta de mediu pentru subtitlurile figurilor. Pur, testabil izolat.
+    """Eticheta de mediu (PASTRAT pentru compatibilitate: apelanti vechi + test_mode_label).
+    Pentru cod nou prefera env_label (distinge wifi de switch).
     'sil' -> 'SIL (loopback)', 'hil' -> 'HIL (two-machine)'. Alt input -> ValueError."""
     labels = {"sil": "SIL (loopback)", "hil": "HIL (two-machine)"}
     if mode not in labels:
@@ -93,11 +94,27 @@ def mode_label(mode):
     return labels[mode]
 
 
-def analyze(root, outdir, mode="sil"):
+# Axa de MEDIU (transport fizic) a matricei 2x2 -- ortogonala fata de middleware (RMW).
+ENV_LABELS = {
+    "sil": "SIL (loopback)",
+    "hil_wifi": "HIL (Wi-Fi)",
+    "hil_switch": "HIL (Gigabit switch)",
+}
+
+
+def env_label(env):
+    """Eticheta de MEDIU pentru subtitluri/tabele. Pura, testabila. 'sil'/'hil_wifi'/'hil_switch'
+    -> eticheta; alt input -> ValueError. DUPLICAT IDENTIC in campaign_stats.py + sil_vs_hil_table.py."""
+    if env not in ENV_LABELS:
+        raise ValueError("mediu necunoscut: %r (asteptat 'sil', 'hil_wifi' sau 'hil_switch')" % (env,))
+    return ENV_LABELS[env]
+
+
+def analyze(root, outdir, env="sil"):
     data = collect(root)
     rmws = sorted({k[0] for k in data})
     conds = [c for c in COND_ORDER if any(k[1] == c for k in data)]
-    label = mode_label(mode)
+    label = env_label(env)
     os.makedirs(outdir, exist_ok=True)
 
     with open(os.path.join(outdir, "campaign_summary.csv"), "w") as f:
@@ -236,20 +253,25 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("root", nargs="?", default="results_c1")
     ap.add_argument("--out", default=None)
-    ap.add_argument("--mode", choices=["sil", "hil"], default=None,
-                    help="mediul datelor: sil (loopback) sau hil (doua masini). "
-                         "Daca lipseste, se presupune sil cu avertisment pe stderr.")
+    ap.add_argument("--mode", choices=["sil", "hil_wifi", "hil_switch", "hil"], default=None,
+                    help="mediul datelor: sil (loopback), hil_wifi (Wi-Fi), hil_switch (Gigabit switch). "
+                         "'hil' generic e ambiguu pe matricea 2x2 -> eroare. Daca lipseste, se "
+                         "presupune sil cu avertisment pe stderr.")
     ap.add_argument("--selftest", action="store_true")
     a = ap.parse_args()
     if a.selftest:
         selftest()
         return
-    mode = a.mode
-    if mode is None:
-        sys.stderr.write("[avertisment] --mode nespecificat; presupun SIL (loopback). "
-                         "Pentru date HIL ruleaza cu --mode hil.\n")
-        mode = "sil"
-    analyze(a.root, a.out or os.path.join(a.root, "analysis"), mode)
+    env = a.mode
+    if env == "hil":
+        sys.stderr.write("[eroare] --mode hil e ambiguu pe matricea 2x2 (wifi vs switch). "
+                         "Foloseste --mode hil_wifi sau --mode hil_switch.\n")
+        sys.exit(2)
+    if env is None:
+        sys.stderr.write("[avertisment] --mode nespecificat; presupun SIL (loopback). Pentru date "
+                         "HIL ruleaza cu --mode hil_wifi sau --mode hil_switch.\n")
+        env = "sil"
+    analyze(a.root, a.out or os.path.join(a.root, "analysis"), env)
 
 
 if __name__ == "__main__":
