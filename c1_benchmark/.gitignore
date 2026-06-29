@@ -5,3 +5,7 @@ stats_out/
 __pycache__/
 venv_pdia/
 *.pyc
+# Date experimentale brute (NU in git -- vezi CLAUDE.md sec.5; arhiveaza in ~/c1_archive)
+transport.csv
+transport_summary.json
+zenoh_m1.json5
