@@ -6,3 +6,5 @@ __pycache__/
 *.pyc
 # Instalatorul auto-generat (regenerabil cu gen_instalator.py; ~1MB)
 instaleaza_curs_ml.sh
+# Modele salvate (artefacte, regenerabile)
+*.npz
