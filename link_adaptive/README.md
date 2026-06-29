@@ -1,303 +1,142 @@
-# link_adaptive -- strat aplicativ adaptiv la starea legaturii pentru ROS 2 (contributia C3)
+# link_adaptive
 
-Pachet ament_python care masoara starea legaturii (RTT p95 + rata de pierdere) si
-comuta intre trei moduri de comportament -- NOMINAL / DEGRADED / CRITICAL -- cu
-histerezis, ca raspuns la concluzia campaniei C1 (articolul A1): niciun middleware
-nu domina sub degradare, deci adapteaza-te. Nucleul decide POLITICA de date (rata,
-fiabilitate, prag de prospetime, payload); un adaptor subtire o aplica pe flux.
-Logica de decizie si cea de aplicare sunt nuclee pure, testabile fara ROS. Tinta
-de publicare: A2 (contributia C3, adaptive QoS / behavior).
+Strat aplicativ adaptiv pentru ROS 2 (contributia C3): masoara starea legaturii
+(RTT p95 + rata de pierdere) si comuta intre moduri de comportament (NOMINAL /
+DEGRADED / CRITICAL) cu histerezis, expunand pe ROS o politica de date (rata,
+fiabilitate, prag de prospetime, payload) pe care ceilalti noduri o consuma.
+Logica de decizie e un nucleu pur, testabil fara ROS, conform metodologiei tezei.
 
-## 1. Scop
+## Scop
 
-Cand alegerea statica de middleware pune in opozitie prospetimea controlului si
-completitudinea telemetriei, link_adaptive ofera un strat care isi schimba
-comportamentul dupa starea masurata a legaturii si tinteste ambele. Concret:
+Premisa, citata in docstring-urile codului, vine din campania C1 (N=5): niciun
+middleware nu domina -- DDS cumpara supravietuirea misiunii cu intarziere
+uniforma, Zenoh cumpara prospetimea cu pierderi. Concluzia scrisa in cod: daca
+niciunul nu domina, adapteaza-te. Pachetul alimenteaza explicit contributia C3
+(asa cum apare in package.xml si in docstring-uri).
 
-- masoara legatura din doua semnale (RTT p95 [ms] si rata de pierdere) folosind
-  exact marimile din campania C1;
-- clasifica starea in trei moduri cu histerezis si timp minim de stationare
-  (anti-palpaire);
-- expune o politica de date per mod (rata, fiabilitate, prag de prospetime,
-  payload), pe care consumatorii o aplica pe fluxul lor (control vs telemetrie);
-- inchide bucla cu un adaptor care sta in calea telemetriei si aplica politica,
-  fara cod nou in drone_node / gcs_node.
+Cele trei moduri (din docstring-ul lui link_adaptive_core.py):
+- NOMINAL  -- legatura buna: rata plina, livrare fiabila si completa.
+- DEGRADED -- legatura medie: prioritizeaza controlul (best-effort + arunca
+  vechi), telemetria ramane fiabila dar la rata redusa.
+- CRITICAL -- legatura proasta: doar esential (heartbeat + comanda cea mai
+  proaspata), arunca agresiv vechi, descarca telemetria neesentiala.
 
-## 2. Context si loc in arhitectura
+## Arhitectura
 
-Campania C1 (N=5, doua straturi) a aratat doua filozofii de fiabilitate, fara
-castigator universal:
+Pachetul urmeaza metodologia nucleu pur + _selftest -> nod ROS subtire -> SIL,
+pe doua bucle:
 
-- DDS (fiabil) cumpara supravietuirea misiunii cu intarziere uniforma -- la
-  pierdere mare un zid p95 de ~2.3 s; livreaza tot, dar tarziu;
-- Zenoh (Age-of-Information) cumpara prospetimea cu pierderi -- mediana rapida,
-  dar arunca ~35% la 30% pierdere;
-- CDF-urile se incruciseaza (percentila ~57-60): nicio dominanta stochastica de
-  ordinul intai.
+- Decizie: nucleul link_adaptive_core.py (cu _selftest) DECIDE politica; nodul
+  subtire link_adaptive_node.py masoara legatura si o PUBLICA pe ROS.
+- Aplicare: nucleul policy_applier.py (cu _selftest) APLICA o politica pe un
+  flux; nodul subtire policy_adapter_node.py sta in calea telemetriei si o
+  aplica efectiv.
+- SIL: sil_link_adaptive.py (adaptiv vs. alegeri statice de middleware) si
+  sil_policy_loop.py (bucla end-to-end decizie + aplicare). Ambele fara ROS,
+  deterministe.
 
-Concluzia logica si urmatorul articol (A2): daca niciunul nu domina,
-ADAPTEAZA-TE. link_adaptive este stratul aplicativ care realizeaza aceasta
-concluzie. In arhitectura sistemului ruleaza in PARALEL cu roiul SAR: nu
-modifica nodurile existente, ci expune o decizie pe care ceilalti o consuma.
-Se combina cu mesh_plugin: mesh decide DACA exista cale la GCS, link_adaptive
-decide CUM se comporta fluxul pe acea cale.
+## Fisiere
 
-## 3. Arhitectura
+| Fisier | Rol |
+|---|---|
+| link_adaptive/link_adaptive_core.py | Nucleu pur (fara ROS): monitorul de legatura, controlerul cu histerezis si timp minim de stationare, decide modul + politica. Are `_selftest()`. |
+| link_adaptive/link_adaptive_node.py | Nod ROS subtire: masoara RTT (din topic heartbeat) si rata de pierdere (din secventele telemetriei), ruleaza controlerul si publica politica + starea. |
+| link_adaptive/policy_applier.py | Nucleu pur (fara ROS) care APLICA o politica pe un flux: limitarea ratei, aruncarea esantioanelor vechi, reducerea payload-ului. Semnaleaza schimbarea de fiabilitate. Are `_selftest()`. |
+| link_adaptive/policy_adapter_node.py | Nod ROS subtire: sta in calea telemetriei (in_topic -> out_topic), aplica politica de pe /link_adaptive/policy si recreeaza publisher-ul cand QoS-ul (reliable/best-effort) se schimba. |
+| link_adaptive/sil_link_adaptive.py | SIL (fara ROS): compara stratul adaptiv cu alegeri statice de middleware pe o cronologie de degradare; genereaza figura sil_link_adaptive.png. |
+| link_adaptive/sil_policy_loop.py | SIL (fara ROS): bucla end-to-end decizie + aplicare; arata cum debitul si payload-ul telemetriei se string automat la inrautatirea legaturii. |
+| launch/link_adaptive.launch.py | Porneste doar link_adaptive_node (masoara si publica politica). |
+| launch/link_adaptive_loop.launch.py | Porneste bucla C3 completa: link_adaptive_node + policy_adapter_node. |
 
-Metodologia depozitului: nucleu pur testabil -> nod subtire (JSON pe
-std_msgs/String) -> SIL. Doua nuclee pure (decizie si aplicare), doua noduri
-subtiri, doua SIL-uri.
+## Sintaxe de rulare
 
-### 3.1 Lantul nucleu -> nod -> SIL
+Build:
 
-```
-DECIZIE                                 APLICARE
-link_adaptive_core.py (pur)             policy_applier.py (pur)
-  LinkMonitor    (p95 + pierdere)         PolicyApplier (rata / prospetime / payload)
-  AdaptiveController (histerezis)              |
-  POLICIES (tabela mod -> politica)            |
-        |                                      |
-link_adaptive_node.py (ROS)             policy_adapter_node.py (ROS)
-  masoara, decide, publica politica       sta in calea telemetriei, aplica + QoS
-        |                                      |
-        +-------------- /link_adaptive/policy -+
+    cd ~/ros2_ws && colcon build --packages-select link_adaptive --symlink-install
 
-SIL (fara ROS):
-  sil_link_adaptive.py   adaptiv vs static (fresh / complete) pe cronologie C1
-  sil_policy_loop.py     bucla completa decizie + aplicare, debit + payload
-```
+Selftest offline (fara ROS) pe nucleele pure:
 
-- LinkMonitor: RTT p95 dintr-o fereastra glisanta de masuratori dus-intors;
-  rata de pierdere din golurile numerelor de secventa, pe o fereastra. Ambele
-  ferestre au dimensiune configurabila (rtt_window, seq_window).
-- AdaptiveController: masina de stari cu histerezis (praguri de intrare/iesire
-  diferite) si timp minim de stationare; coborare gradata din CRITICAL la
-  DEGRADED (nu direct la NOMINAL).
-- POLICIES: pentru fiecare mod, politica de date (rata, fiabilitate, prag de
-  prospetime, payload). Nucleul nu trimite nimic -- decide POLITICA.
-- PolicyApplier: aplica o politica pe un flux de mesaje prin trei actiuni --
-  limitarea ratei (downsampling la rate_hz), aruncarea esantioanelor mai vechi
-  decat max_staleness_ms, reducerea payload-ului (FULL / REDUCED / CRITICAL).
-  Schimbarea fiabilitatii e doar SEMNALATA (reliability_changed); nodul subtire
-  recreeaza publisher-ul cu noul QoS.
+    python3 link_adaptive/link_adaptive_core.py
+    python3 link_adaptive/policy_applier.py
 
-### 3.2 Topicuri (JSON pe std_msgs/String)
+SIL offline (fara ROS):
 
-```
-link_adaptive_node:
-  publica:  /link_adaptive/policy   {mode, rate_hz, reliable, max_staleness_ms, payload}
-            /link_adaptive/state     {rtt_p95_ms, loss, mode, transitions}
-  asculta:  <rtt_topic>              {rtt_ms}     sursa de RTT (implicit /operator/heartbeat)
-            <telemetry_topic>        {seq, ...}   pentru rata de pierdere (implicit /sar/telemetry)
+    python3 link_adaptive/sil_link_adaptive.py
+    python3 link_adaptive/sil_policy_loop.py
 
-policy_adapter_node:
-  asculta:  <policy_topic>           politica de aplicat (implicit /link_adaptive/policy)
-            <in_topic>               telemetrie bruta (implicit /sar/telemetry/raw)
-  publica:  <out_topic>              telemetrie ajustata (implicit /sar/telemetry)
-```
+Entry points reale (din setup.py):
 
-policy_adapter_node nu reconfigureaza el QoS-ul altora: pe calea telemetriei
-recreeaza propriul publisher de iesire (reliable <-> best-effort) cand politica
-cere -- in ROS 2 QoS-ul nu se poate schimba pe un publisher existent.
-Histerezisul + stationarea din controler fac aceste recreari rare.
+    ros2 run link_adaptive link_adaptive_node
+    ros2 run link_adaptive policy_adapter_node
+    ros2 run link_adaptive sil_link_adaptive
+    ros2 run link_adaptive sil_policy_loop
 
-## 4. Inventar fisiere
+Exemplu cu parametri (din docstring-ul lui link_adaptive_node.py):
 
-| Fisier | Rol | Cum se verifica |
-|--------|-----|-----------------|
-| `link_adaptive/link_adaptive_core.py` | nucleu pur decizie: LinkMonitor, AdaptiveController, POLICIES | `python3 link_adaptive_core.py` -> 22/22 |
-| `link_adaptive/policy_applier.py` | nucleu pur aplicare: rata / prospetime / payload, semnal QoS | `python3 policy_applier.py` -> 13/13 |
-| `link_adaptive/link_adaptive_node.py` | nod subtire: masoara, decide, publica politica + stare | entry point `link_adaptive_node` |
-| `link_adaptive/policy_adapter_node.py` | nod subtire: aplica politica pe telemetrie, recreeaza QoS | entry point `policy_adapter_node` |
-| `link_adaptive/sil_link_adaptive.py` | SIL: adaptiv vs static (fresh/complete) pe cronologie C1 | `python3 sil_link_adaptive.py` (exit 0) |
-| `link_adaptive/sil_policy_loop.py` | SIL: bucla completa decizie + aplicare (debit + payload) | `python3 sil_policy_loop.py` (exit 0) |
-| `launch/link_adaptive.launch.py` | porneste doar stratul de decizie (un nod) | `ros2 launch ...` |
-| `launch/link_adaptive_loop.launch.py` | bucla completa: decizie + adaptor | `ros2 launch ...` |
-| `docs/sil_link_adaptive.png` | figura SIL adaptiv vs static (generata de sil_link_adaptive) | regenerabila |
-| `docs/sil_policy_loop.png` | figura SIL bucla C3 (generata de sil_policy_loop) | regenerabila |
-| `package.xml`, `setup.py`, `setup.cfg` | metadate ament_python + entry_points | `colcon build` |
-| `resource/link_adaptive` | marker ament_index (gol) | prezenta |
-| `requirements.txt` | dependinta pip externa: matplotlib (pentru figurile SIL) | `pip install -r` |
+    ros2 run link_adaptive link_adaptive_node --ros-args \
+        -p rtt_topic:=/operator/heartbeat -p telemetry_topic:=/sar/telemetry
 
-Entry-points reale (din `setup.py`): `link_adaptive_node`, `policy_adapter_node`,
-`sil_link_adaptive`, `sil_policy_loop`. Cele patru noduri/SIL au `main()` care
-intoarce None (ca `ros2 run` sa nu raporteze fals "failure 1").
+Atasare a adaptorului in calea telemetriei (din docstring-ul lui
+policy_adapter_node.py):
 
-## 5. Date tehnice
+    drone_node ... -r /sar/telemetry:=/sar/telemetry/raw
+    ros2 run link_adaptive policy_adapter_node --ros-args \
+        -p in_topic:=/sar/telemetry/raw -p out_topic:=/sar/telemetry
 
-### 5.1 Moduri si politici (din `link_adaptive_core.POLICIES`)
+Launch:
 
-| Mod | Cand | rata | fiabilitate | prospetime (max_staleness) | payload |
-|-----|------|------|-------------|----------------------------|---------|
-| NOMINAL | legatura buna | 20 Hz | fiabil | 1000 ms | FULL |
-| DEGRADED | legatura medie | 10 Hz | best-effort | 300 ms | REDUCED |
-| CRITICAL | legatura proasta | 2 Hz | best-effort | 100 ms | CRITICAL |
+    ros2 launch link_adaptive link_adaptive.launch.py
+    ros2 launch link_adaptive link_adaptive.launch.py \
+        rtt_topic:=/operator/heartbeat telemetry_topic:=/sar/telemetry
 
-Principiul per flux (consumatorii aplica politica pe fluxul lor):
+    ros2 launch link_adaptive link_adaptive_loop.launch.py
+    ros2 launch link_adaptive link_adaptive_loop.launch.py \
+        rtt_topic:=/operator/heartbeat in_topic:=/sar/telemetry/raw out_topic:=/sar/telemetry
 
-- Control (comenzi de teleoperare): mereu proaspat -- best-effort, arunca
-  esantioanele mai vechi decat pragul, actioneaza pe ultima comanda; eviti zidul
-  de retransmisii. Prospetimea bate completitudinea pentru control.
-- Telemetrie (harta / acoperire): fiabila cand retransmisiile sunt ieftine si
-  eficace (NOMINAL: latenta mica, pierdere mica -> recupereaza pierderile);
-  best-effort cand fiabilitatea devine inutila (pierdere/latenta mare, unde si
-  DDS arunca mult).
+Nota: scripturile SIL nu folosesc argparse (niciun add_argument in pachet), deci
+nu accepta argumente CLI.
 
-Reducerea payload-ului in `policy_applier` (campuri pastrate, configurabile prin
-parametri): REDUCED = `id, x, y, seq, t, soc, phase`; CRITICAL = `id, x, y, seq, t`;
-FULL = pastreaza tot.
+## Parametri si topicuri
 
-### 5.2 Praguri cu histerezis (din `link_adaptive_core.py`)
+Mesajele sunt JSON pe std_msgs/String, ca tot depozitul.
 
-```
-NOMINAL  -> DEGRADED : RTT p95 > 150 ms  SAU  pierdere > 5%     (DEG_ENTER)
-...      -> CRITICAL : RTT p95 > 800 ms  SAU  pierdere > 20%    (CRIT_ENTER)
-DEGRADED -> NOMINAL  : RTT p95 <= 100 ms SI   pierdere <= 2%    (DEG_EXIT)
-CRITICAL -> DEGRADED : RTT p95 <= 500 ms SI   pierdere <= 12%   (CRIT_EXIT)
-stationare minima    : 2 s                                      (MIN_DWELL_S)
-```
+link_adaptive_node (parametri din declare_parameter):
 
-Intrarea (inrautatire) foloseste praguri mai sus si comparatie strict mai mare
-(valoarea pragului e plafonul modului mai bun; ex. pana la 5% pierdere inclusiv
-ramane NOMINAL). Iesirea (imbunatatire) foloseste praguri mai jos. Banda dintre
-iesire si intrare absoarbe zgomotul si previne palpairea. Maparea pe C1
-(verificata in selftest): ideal / loss_5 -> NOMINAL; loss_15 / lat200_jit50 /
-lat200_l15 -> DEGRADED; loss_30 -> CRITICAL.
+| Parametru | Implicit |
+|---|---|
+| rtt_topic | /operator/heartbeat |
+| telemetry_topic | /sar/telemetry |
+| decide_hz | 5.0 |
+| min_dwell_s | 2.0 |
+| rtt_window | 50 |
+| seq_window | 100 |
 
-### 5.3 Parametri ai nodurilor
+Topicuri link_adaptive_node:
+- publica /link_adaptive/policy -- politica curenta. Forma JSON (din
+  Policy.as_dict): `{mode, rate_hz, reliable, max_staleness_ms, payload}`.
+- publica /link_adaptive/state -- `{rtt_p95_ms, loss, max_burst, mode, transitions}`.
+- asculta rtt_topic -- citeste campul `rtt_ms` din JSON.
+- asculta telemetry_topic -- citeste campul `seq` din JSON (pentru rata de pierdere).
 
-`link_adaptive_node`: `rtt_topic` (/operator/heartbeat), `telemetry_topic`
-(/sar/telemetry), `decide_hz` (5.0), `min_dwell_s` (2.0), `rtt_window` (50),
-`seq_window` (100).
+policy_adapter_node (parametri din declare_parameter):
 
-`policy_adapter_node`: `in_topic` (/sar/telemetry/raw), `out_topic`
-(/sar/telemetry), `policy_topic` (/link_adaptive/policy), `stamp_field` (""),
-`depth` (10), `reduced_fields`, `critical_fields`.
+| Parametru | Implicit |
+|---|---|
+| in_topic | /sar/telemetry/raw |
+| out_topic | /sar/telemetry |
+| policy_topic | /link_adaptive/policy |
+| stamp_field | "" (gol = aruncarea pe vechime dezactivata) |
+| depth | 10 |
+| reduced_fields | ["id", "x", "y", "seq", "t", "soc", "phase"] |
+| critical_fields | ["id", "x", "y", "seq", "t"] |
 
-Nota despre aruncarea pe vechime: varsta = acum - stamp, unde stamp se citeste
-din campul `stamp_field`. Implicit `stamp_field` e gol, deci aruncarea pe vechime
-e DEZACTIVATA (age = 0); limitarea ratei si reducerea payload-ului merg oricum.
-Pentru a o activa, telemetria trebuie sa poarte un timestamp pe ceas de perete
-(secunde) in acel camp.
+Topicuri policy_adapter_node:
+- publica out_topic -- fluxul de telemetrie dupa aplicarea politicii (QoS
+  reliable/best-effort recreat dupa politica).
+- asculta policy_topic -- politica (JSON), QoS reliable.
+- asculta in_topic -- telemetria bruta (JSON), QoS best-effort.
 
-## 6. Sintaxe de pornire
-
-```bash
-# 0) verificari offline (fara ROS) -- numere reale
-cd ~/ros2_ws/src/link_adaptive/link_adaptive
-python3 link_adaptive_core.py        # 22/22 + demo traiectorie C1
-python3 policy_applier.py            # 13/13
-python3 sil_link_adaptive.py         # bilant adaptiv vs static + sil_link_adaptive.png
-python3 sil_policy_loop.py           # bilant bucla C3 + sil_policy_loop.png
-
-# 1) build in workspace (pachet ament_python)
-cd ~/ros2_ws
-colcon build --packages-select link_adaptive
-source install/setup.bash            # in FIECARE terminal nou
-ros2 pkg executables link_adaptive   # cele 4 entry-points
-
-# 2) ruleaza doar stratul de decizie (in paralel cu roiul)
-ros2 launch link_adaptive link_adaptive.launch.py \
-    rtt_topic:=/operator/heartbeat telemetry_topic:=/sar/telemetry
-ros2 topic echo /link_adaptive/policy
-ros2 topic echo /link_adaptive/state
-
-# 3) bucla C3 completa (decizie + adaptor pe calea telemetriei)
-#    o singura remapare a iesirii dronelor, fara cod nou:
-#    drone_node ... -r /sar/telemetry:=/sar/telemetry/raw
-ros2 launch link_adaptive link_adaptive_loop.launch.py \
-    rtt_topic:=/operator/heartbeat \
-    in_topic:=/sar/telemetry/raw out_topic:=/sar/telemetry
-
-# 4) SIL prin entry-points (echivalent cu rularea directa)
-ros2 run link_adaptive sil_link_adaptive
-ros2 run link_adaptive sil_policy_loop
-```
-
-Limitari de pornire:
-
-- Modificarile la entry-points / setup.py necesita rebuild (wrapper-ele `ros2 run`
-  se genereaza la build).
-- Figurile SIL cer matplotlib (`requirements.txt`); fara el, SIL-ul ruleaza si
-  sare peste figura.
-- Eroare RTPS_TRANSPORT_SHM la pornire (memorie partajata reziduala, non-fatal):
-  `rm -f /dev/shm/fastrtps_*`.
-
-## 7. Verificare
-
-Selftests pure (ROS-free), ruleaza in mediu fara colcon:
-
-| Verificare | Comanda | Rezultat real |
-|-----------|---------|---------------|
-| nucleu decizie | `python3 link_adaptive_core.py` | 22/22 verificari trecute |
-| nucleu aplicare | `python3 policy_applier.py` | 13/13 verificari trecute |
-| SIL adaptiv vs static | `python3 sil_link_adaptive.py` | exit 0 (criteriu: ADAPTIVE mai proaspat si completitudine >= STATIC-FRESH) |
-| SIL bucla C3 | `python3 sil_policy_loop.py` | exit 0 (criteriu: debit fwd scade strict NOMINAL > DEGRADED > CRITICAL) |
-
-Selftest-ul nucleului acopera: percentila (lista goala, constanta, sir crescator),
-rata de pierdere din secvente (cu goluri si reordonare in fereastra), clasificarea
-pe cele sase conditii C1, histerezisul (nu palpaie in banda de oscilatie),
-stationarea minima (tranzitia prea rapida e blocata), coborarea gradata din
-CRITICAL, si monotonia politicilor cu severitatea. Selftest-ul applier-ului
-acopera: limitarea ratei (~10 forward din 100 la 10 Hz), aruncarea pe vechime,
-cele trei niveluri de payload, semnalarea schimbarii de fiabilitate si payload
-non-dict tolerat.
-
-Rezultate SIL (deterministe, N=1 -- de inlocuit cu campania reala
-adaptiv-vs-static cu N=5):
-
-`sil_link_adaptive.py`, cronologie C1 (legatura se degradeaza si isi revine),
-trei strategii pe doua axe:
-
-```
-strategie         staleness control          completitudine telemetrie
-                  (mediu / cel mai rau)       (medie / cea mai rea)
-STATIC-COMPLETE   430 ms / 1262 ms            91% / 61%
-STATIC-FRESH       30 ms /  100 ms            92% / 65%
-ADAPTIVE           30 ms /  100 ms            93% / 65%
-```
-
-ADAPTIVE pastreaza controlul ~14x mai proaspat decat STATIC-COMPLETE (30 vs 430 ms
-mediu; 100 vs 1262 ms cel mai rau), recuperand telemetria pe care STATIC-FRESH o
-pierde cand legatura e buna (93% vs 92% mediu). Fiecare alegere statica pierde pe
-cate o axa; adaptivul prinde coltul bun. Figura: `docs/sil_link_adaptive.png`.
-
-`sil_policy_loop.py`, aceeasi cronologie C1: stratul reduce singur debitul
-(20 -> 10 -> 2 Hz) si payload-ul (FULL -> REDUCED -> CRITICAL) pe masura ce
-legatura se inrautateste; pe intreaga cronologie 720 esantioane intrate -> 416
-forward-ate (58%), 304 aruncate pe rata, 0 pe vechime (stamp_field dezactivat in
-SIL). Figura: `docs/sil_policy_loop.png`.
-
-## 8. Igiena datelor si reproductibilitate
-
-- Cifrele SIL sunt un model determinist ancorat in mediile C1 (N=5); ilustreaza
-  strategia, NU sunt date empirice noi. Modelul de staleness / completitudine e un
-  proxy transparent (latenta de baza / zid p95 / pierdere livrata) si se
-  inlocuieste cu campania reala adaptiv-vs-static (N=5) inainte de orice submisie.
-- Figurile `docs/*.png` sunt regenerabile ruland SIL-urile; nu sunt date brute.
-  SIL-urile scriu `sil_*.png` in directorul curent de rulare -- copiaza-le in
-  `docs/` daca vrei sa actualizezi figurile din pachet.
-- Pragurile sunt setate din C1; transferul la o legatura reala (field_kit) cere
-  verificare si eventual recalibrare pe profil de canal real.
-- Costul real in CRITICAL este rata redusa de telemetrie (rezolutie temporala mai
-  mica a hartii), nu completitudinea.
-- TODO: verificarile de stil ament (`ament_copyright`, `ament_flake8`,
-  `ament_pep257`) sunt declarate ca test_depend in package.xml dar nu exista un
-  director `test/` dedicat in pachet; verificarea principala ramane selftest-urile
-  pure (22/22 + 13/13).
-- Licenta: MIT.
-
-## 9. Mecanisme alternative considerate (neimplementate)
-
-Designul initial (documentul de proiect separat a fost retras fiindca aceasta implementare
-acopera contributia C3) propunea doua mecanisme pe care implementarea curenta NU le foloseste,
-pastrate aici ca idei de viitor:
-
-- **Canal dublu (reliable + best-effort gemene).** Acelasi flux publicat pe DOUA topicuri
-  simultan; receptorul asculta ambele si deduplica dupa `msg_id`. Implementarea curenta evita
-  asta: comuta fiabilitatea re-creand publisher-ul (QoS-ul nu se schimba pe un publisher
-  existent in ROS 2), abordare mai simpla, fara dedup. Canalul dublu ar da tranzitie fara
-  pierderi intre filozofii, cu cost de banda dublat pe clasa respectiva.
-- **Redundanta k pentru comenzi critice.** Mesajele rare si critice (rth, estop) trimise de k
-  ori cu acelasi `id`, deduplicate la receptie -- recupereaza fiabilitatea comenzilor fara coada
-  DDS. Nu exista in cod; candidat pentru testul "comenzile ajung 100%" (HA2).
+Valorile de politica pe mod (din POLICIES in link_adaptive_core.py):
+- NOMINAL:  rate_hz=20.0, reliable=True,  max_staleness_ms=1000, payload=FULL.
+- DEGRADED: rate_hz=10.0, reliable=False, max_staleness_ms=300,  payload=REDUCED.
+- CRITICAL: rate_hz=2.0,  reliable=False, max_staleness_ms=100,  payload=CRITICAL.
