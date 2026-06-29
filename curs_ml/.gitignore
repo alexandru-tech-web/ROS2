@@ -1,0 +1,6 @@
+# Figuri generate de SIL-uri / demo_sil.py -- se regenereaza din cod (vezi CHARTA).
+**/fig_*.png
+*.png
+# Cache Python
+__pycache__/
+*.pyc
