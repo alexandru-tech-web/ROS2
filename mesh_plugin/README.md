@@ -1,381 +1,231 @@
-# mesh_plugin -- retea mesh multi-hop intre drone (contributia C3)
+# mesh_plugin
 
-Strat de retea MESH multi-hop peste roiul SAR: o drona fara legatura directa
-cu statia de la sol (GCS) ajunge la GCS prin vecini, prin relay dirijat hop-cu-hop.
-Schimba topologia roiului din STEA (fiecare drona vorbeste DIRECT cu GCS) in MESH,
-si recupereaza telemetria pe care o partitie de roi ar pierde-o. Pachetul aduce
-contributia C3 a tezei (rezilienta la partitie / extindere a razei prin relee).
-Nucleul de rutare e pur (fara ROS), aliniat la literatura clasica de mesh:
-metrica ETX (De Couto, MIT 2004; folosita in OLSR-LQ / B.A.T.M.A.N. / Babel),
-rutare Dijkstra, relay dirijat cu deduplicare si TTL.
+Strat de retea MESH multi-hop intre drone pentru ROS 2 (Search-and-Rescue): o
+drona fara legatura directa cu statia de la sol (GCS) ajunge la GCS prin vecini,
+prin relay dirijat hop-cu-hop. Schimba topologia roiului din STEA (fiecare drona
+vorbeste DIRECT cu GCS) in MESH si recupereaza telemetria pe care o partitie de
+roi ar pierde-o. (Descriere si rol din docstring-urile `mesh_core.py` si din
+`package.xml`.)
 
-## 1. Scop
+## Scop
 
 Cand o drona iese din raza radio directa a GCS (sau o partitie taie legatura),
-in topologia STEA GCS-ul orbeste: nu mai primeste telemetria ei, deci nu
-crediteaza acoperirea/victimele descoperite de ea. Stratul MESH rezolva aceasta
-pierdere: daca d3 nu vede GCS dar vede d1, iar d1 vede GCS, atunci d3 ajunge la
-GCS prin relay d3 -> d1 -> gcs. Demonstratia centrala: poti BLOCA o drona
-(doborata / radio mort) si vezi ca multi-hop-ul fie se reconfigureaza (alt drum),
-fie raporteaza corect ce noduri raman izolate.
+in topologia STEA GCS-ul orbeste: acoperirea/victimele se crediteaza doar din
+telemetria LIVRATA. Stratul MESH recupereaza valoarea pierduta: daca d3 il aude
+pe d1 si d1 aude GCS, atunci d3 ajunge la GCS prin relay d3 -> d1 -> gcs.
 
-Contributia este masurabila pe doua planuri:
-- reachability (geometric, static): cate drone ajung la GCS in stea vs mesh;
-- misiune (dinamic, cuplat la scenariile de degradare): cata telemetrie si cate
-  victime afla GCS-ul, cu si fara relay.
+Contributia C3: docstring-ul `mesh_core.py` scrie literal 'Feeds contributia C3
+a tezei.', iar `package.xml` descrie pachetul ca extindere a razei prin relee si
+rezilienta la partitie. Restul afirmatiilor despre C3 vin tot din docstring-uri.
 
-## 2. Context si loc in arhitectura
+Metrica si rutarea (din docstring-uri / comentarii):
+- model radio log-distance: distanta -> PDR (refoloseste `radio_link.py`);
+- ETX = 1 / (PDR_fwd * PDR_rev), aliniat la De Couto (MIT 2004), OLSR / BATMAN /
+  Babel (citat in docstring `mesh_core.py`);
+- rutare Dijkstra pe cost ETX; relay dirijat cu deduplicare pe `(src, seq)` si
+  TTL.
 
-Pachetul sta DEASUPRA modelului radio al proiectului (log-distance,
-`radio_link.py`), deci e fizic consistent cu restul tezei: distanta -> PDR ->
-ETX, aceeasi moneda (pierderea de pachete) ca in benchmark-ul C1. Ruleaza in
-PARALEL cu roiul existent (drone/GCS din sar_swarm), citind pozitiile dronelor si
-nemodificand nodurile lor. Nivelul de aplicatie nu inlocuieste DDS/Zenoh, ci adauga
-un strat de rutare multi-hop la nivel logic peste transportul ROS 2.
+## Arhitectura
 
-Avertisment important de structura (verificat in sursa): pachetul contine DOUA
-implementari paralele ale aceluiasi concept, cu API-uri diferite:
+Pachetul respecta lantul metodologic al proiectului (nucleu pur cu `_selftest`
+-> nod ROS subtire pe JSON / `std_msgs/String` -> SIL). ATENTIE: pachetul contine
+DOUA implementari paralele ale aceluiasi concept, in directoare diferite, cu
+API-uri DIFERITE. Distinctia e verificata in cod (entry_points din `setup.py`,
+import-uri si topicuri).
 
-| Cale | API nucleu | Lansare | Status |
-|------|-----------|---------|--------|
-| `mesh_plugin/mesh_plugin/*.py` (pachetul ament intern) | `MeshTopology` + `routing_table` + `reachability`; beacon/relay distribuite per nod | `ros2 run` / `ros2 launch` (entry_points din setup.py) | versiunea INSTALATA + smoke-testata; **CANONICA** (vezi nota de mai jos) |
-| `mesh_plugin/*.py` (radacina pachetului) | `MeshGraph` + `DirectedRelay`; Dijkstra centralizat; demo Tkinter; SIL de misiune cuplat la sar_swarm | `python3 <fisier>.py` (NU prin `ros2 run`) | COMPANION de analiza/figuri (NU canonica); pastrata -- vezi nota |
-
-Entry_points din `setup.py` (`mesh_plugin.mesh_node:main`, ...) trimit la pachetul
-INTERN, deci `ros2 run mesh_plugin mesh_node` ruleaza versiunea `MeshTopology`
-(beacon/relay), nu rescrierea `MeshGraph` din radacina. Cele doua nu impart cod
-si nu se importa reciproc. Aceasta documentatie acopera ambele si marcheaza clar
-care comanda atinge care implementare.
-DECIZIE (iunie 2026 -- canonica marcata, ambele pastrate, fara consolidare acum):
-versiunea CANONICA este `MeshTopology` (pachetul ament intern). Motiv: este ceea ce
-`ros2 run mesh_plugin` executa, este versiunea instalata si smoke-testata
-(`verifica_tot.sh`), si implementeaza multi-hop DISTRIBUIT (beacon/relay per nod) --
-adica forma deployabila a contributiei C3. Rescrierea din radacina (`MeshGraph`,
-Dijkstra centralizat) ramane ca COMPANION de analiza/vizualizare: genereaza figurile din
-`docs/`, ofera demo-ul Tkinter si SIL-ul de misiune cuplat la sar_swarm, si serveste ca
-referinta idealizata (oracol centralizat) fata de care se compara routing-ul distribuit.
-Cele doua NU se consolideaza acum (roadmap: fara rescrieri ale pachetelor incheiate); raman
-separate, cu rolurile de mai sus. Pentru rezultatul C3 deployabil foloseste `ros2 run`
-(MeshTopology); pentru figuri/demo foloseste scripturile din radacina (MeshGraph).
-
-## 3. Arhitectura
-
-### 3.1 Lantul metodologic (nucleu pur -> nod -> SIL)
-
-Ambele implementari respecta regula de fier a proiectului: algoritmul de rutare
-sta intr-un modul FARA ROS, testat in izolare cu `_selftest()`, peste care se
-aseaza un nod ROS subtire (JSON pe `std_msgs/String`) si o demonstratie SIL.
+Implementarea CANONICA (cea instalata si rulata de `ros2 run` / `ros2 launch`)
+este pachetul ament intern `mesh_plugin/mesh_plugin/`. Entry_points din `setup.py`
+trimit acolo:
 
 ```
-radio_link.py (log-distance, PDR(d))
-        |
-        v
-   ETX = 1 / (PDR_fwd * PDR_rev)        [De Couto 2004]
-        |
-        v
-   topologie (graf de adiacenta, cost ETX pe muchii)
-        |
-        v
-   Dijkstra spre GCS -> tabel next-hop per nod
-        |
-        v
-   relay dirijat hop-cu-hop (next, dedup pe (src,seq), TTL)
-        |
-        +--> nod ROS subtire (publica rute, releaza telemetria)
-        +--> SIL (stea vs mesh; figuri)
+mesh_node        = mesh_plugin.mesh_node:main
+sil_mesh         = mesh_plugin.sil_mesh:main
+sil_mesh_mission = mesh_plugin.sil_mesh_mission:main
 ```
 
-### 3.2 Rescrierea din radacina (MeshGraph) -- topologia relay
+`launch/mesh_plugins.launch.py` foloseste `executable="mesh_node"`, deci si el
+ruleaza versiunea interna.
 
-```mermaid
-graph LR
-    D3[d3<br/>fara link direct] -- "relay next=d2" --> D2[d2]
-    D2 -- "relay next=d1" --> D1[d1<br/>vede GCS]
-    D1 -- "relay next=gcs" --> GCS[gcs]
+Cele trei straturi ale versiunii CANONICE (`mesh_plugin/mesh_plugin/`):
+
+- nucleu pur cu `_selftest`: `mesh_core.py` (`MeshTopology`, `shortest_path`,
+  `routing_table`, `reachability`, `simulate_delivery`; `if __name__ ==
+  "__main__": _selftest()`);
+- nod ROS subtire: `mesh_node.py` (`MeshNode(Node)`, beacon + relay dirijat,
+  publica tabela de rute);
+- SIL: `sil_mesh.py` (reachability stea vs mesh) si `sil_mesh_mission.py`
+  (experiment de misiune stea vs mesh).
+
+A doua implementare se afla in RADACINA pachetului (`mesh_plugin/*.py`). Are alt
+nucleu (`MeshGraph` + `DirectedRelay`, Dijkstra centralizat), un nod agregator
+(`mesh_node.py`), un demo Tkinter (`mesh_demo.py`), SIL-uri cuplate la scenarii
+si suita externa `test_mesh_core.py`. Aceste fisiere se ruleaza cu `python3
+<fisier>.py`, NU prin `ros2 run`: ele importa module care exista doar in radacina
+(`radio_link.py`, `node_utils.py`, `sar_core.py`, ...) si care NU sunt instalate
+de `setup.py` (`data_files` instaleaza doar `launch/*.launch.py`, `docs/*.png`,
+`package.xml` si markerul `resource/`). Cele doua implementari nu se importa
+reciproc.
+
+## Fisiere
+
+### Pachetul ament intern (`mesh_plugin/mesh_plugin/`) -- versiunea instalata
+
+| Fisier | Ce face (din docstring / cod) |
+|--------|-------------------------------|
+| `mesh_core.py` | Nucleu pur pentru retea mesh multi-hop, fara ROS. Functii publice (verificate in cod): `rssi_dbm`, `pdr_from_rssi`, `link_pdr`, `etx`, clasa `MeshTopology`, `shortest_path`, `routing_table`, `path_pdr`, `expected_hops_tx`, `simulate_delivery`, `reachability`. Are `_selftest()` rulat din `__main__`. |
+| `mesh_node.py` | Nod ROS2 subtire (`MeshNode(Node)`, unul per drona + unul pentru GCS). Emite beacon cu pozitia proprie, reconstruieste topologia din beacon-uri, publica tabela de rutare, releaza pachete DIRIJAT hop-cu-hop (`next`, dedup, TTL). Optional: ingesteaza telemetria proprie si o transporta multi-hop pana la GCS, care o republica pe `egress_topic`. |
+| `sil_mesh.py` | SIL fara ROS: 4 drone in pattern lawnmower care se departeaza de GCS; masoara la fiecare pas cate noduri ajung la GCS in STEA (link direct) vs MESH (orice releu). Importa `MeshTopology, reachability`. `main()` apeleaza `run()` (fara argparse). Genereaza, daca matplotlib e disponibil, `sil_mesh_reachability.png` si `sil_mesh_snapshot.png` (din docstring). |
+| `sil_mesh_mission.py` | SIL fara ROS: experiment de misiune (cautare in adancime a unui coridor), masoara cat din acoperire si cate victime recupereaza releul multi-hop fata de stea. `main()` apeleaza `run()` (fara argparse). Genereaza `sil_mesh_mission.png` (din docstring). |
+| `__init__.py` | Marker de pachet (gol). |
+
+### Rescrierea din radacina (`mesh_plugin/*.py`) -- rulabila doar cu `python3`
+
+| Fisier | Ce face (din docstring / cod) |
+|--------|-------------------------------|
+| `mesh_core.py` | Nucleu pur alternativ (fara ROS). Functii publice (verificate in cod): `pdr_from_link`, `etx`, clasa `MeshGraph` (Dijkstra), clasa `DirectedRelay` (dedup + TTL), `deliver_once`, `star_reachable`, `mesh_vs_star`. Are `_selftest()` rulat din `__main__`. |
+| `test_mesh_core.py` | Suita externa de verificari pentru nucleul din radacina. Importa din `radio_link` si `mesh_core` (`etx`, `ETX_INF`, `pdr_from_link`, `MeshGraph`, `DirectedRelay`, `deliver_once`, `star_reachable`, `mesh_vs_star`). Fiecare CHECK afiseaza `[ok]`/`[FAIL]`; iese != 0 daca ceva pica. |
+| `mesh_node.py` | Nod ROS2 agregator (`MeshNode(Node)`) peste `MeshGraph`. Asculta pozitiile pe `pose_topic` (implicit `/sar/telemetry`), publica `/mesh/routes` (latched) si `/mesh/status`, accepta comenzi `block`/`unblock`/`reset` pe `/mesh/control`. Are `main()` + `__main__` dar NU e entry_point (vezi nota). |
+| `sil_mesh.py` | SIL stea vs mesh (geometric): reachability + livrare; produce `mesh_reachability.png`, `mesh_delivery.png`, `mesh_topology.png` (din docstring). Are argparse: `--profile`, `--t_max`, `--seed`, `--out`. |
+| `sil_mesh_mission.py` | SIL de misiune CU vs FARA mesh, cuplat la scenariile de degradare; produce `mesh_mission_victims.png`, `mesh_mission_delivery.png` (din docstring). Are argparse: `--scenario`, `--profile`, `--seed`, `--out`. |
+| `mesh_demo.py` | Demo LIVE Tkinter: harta cu link direct / relay / izolat / blocat; buton de blocare drona. Standalone implicit; `--ros` citeste pozitiile din `/sar/telemetry` si publica pe `/mesh/control`. Are argparse: `--ros`. |
+| `radio_link.py` | Model radio log-distance partajat (`LogDistanceRadioLink`); distanta -> RSSI -> SNR -> loss(SNR). Importat de nucleul din radacina. |
+| `node_utils.py` | Utilitare ROS2 comune: profiluri QoS (`qos_reliable`, `qos_best_effort`, `qos_latched`), parsare telemetrie JSON. Importat de `mesh_node.py` din radacina. |
+| `sar_core.py` | Nucleul misiunii Search & Rescue (Python pur): grila de ocupare, frontiere, A*, metrici de acoperire / victime, comportamente de avarie. Dependinta a SIL-ului de misiune. |
+| `swarm_core.py` | Logica pura a roiului (cinematica, formatii, cautare, failsafe), fara ROS. Dependinta a SIL-ului de misiune. |
+| `netem_core.py` | Modelul de degradare a retelei (Python pur): latenta + jitter + pierdere per legatura, store-and-forward optional, scenarii din YAML. Dependinta a SIL-ului de misiune. |
+| `world_config.py` | Lumea (ruine, fum, victime, drone) ca sursa unica de adevar pentru SIL / noduri / Gazebo. Dependinta a SIL-ului de misiune. |
+
+### Alte fisiere
+
+| Fisier | Ce este |
+|--------|---------|
+| `launch/mesh_plugins.launch.py` | Lanseaza un `mesh_node` (versiunea interna) per drona din lista `DRONES = ["d1","d2","d3","d4"]` + unul pentru GCS cu pozitie fixa. |
+| `scenarios/*.yaml` | 7 scenarii de degradare: `baseline`, `loss_30`, `loss_70`, `gcs_delay_spike`, `drone_isolation`, `partition_2v2`, `mesh_relay`. Citite de SIL-ul de misiune din radacina. |
+| `verifica_tot.sh` | Verificare end-to-end: structura, offline (selftest + SIL-uri), `colcon build`, `ros2 pkg executables`. Argumente: `--offline`, `--clean`, `--help`; var. mediu `WS`. |
+| `requirements.txt` | Dependinte pip: `matplotlib`, `numpy`, `PyYAML`. `tkinter` nu e pip -> `sudo apt install python3-tk`. |
+| `docs/*.png`, `mesh_*.png` (radacina) | Figuri (instalate prin `data_files`; cele din radacina sunt regenerate de SIL-uri). |
+| `package.xml`, `setup.py`, `setup.cfg`, `resource/mesh_plugin` | Metadate `ament_python`. |
+
+Nota: `mesh_node.py`, `sil_mesh.py`, `sil_mesh_mission.py` si `mesh_core.py`
+exista in DOUA exemplare (radacina vs `mesh_plugin/`) cu CONTINUT DIFERIT. Doar
+exemplarele interne sunt entry_points; cele din radacina ruleaza cu `python3`.
+
+## Sintaxe de rulare
+
+Build (ament_python; `build_type` din `package.xml`):
+
+```bash
+cd ~/ros2_ws && colcon build --packages-select mesh_plugin --symlink-install
+source install/setup.bash               # in FIECARE terminal nou
 ```
 
-Fiecare nod calculeaza next-hop-ul spre GCS (Dijkstra pe cost ETX). Un pachet de
-RELAY poarta campul `next` = vecinul care trebuie sa-l preia; doar acela il
-forwardeaza, recalculandu-si propriul next-hop. NU flooding -> trafic minim.
-
-### 3.3 Nodul ROS intern (MeshTopology) -- topicuri
-
-Cate un `mesh_node` per drona (d1..dN) plus unul pentru GCS (pozitie fixa,
-`static_x`/`static_y`). Topicuri (JSON pe `std_msgs/String`):
-
-| Topic | Sens | Continut |
-|-------|------|----------|
-| `/mesh/beacon` | publica + asculta | `{id, x, y, t, seq}`; descoperire de vecini (beacon expira la 3.0 s) |
-| `/mesh/relay` | publica + asculta | `{src, dst, seq, ttl, next, path, payload?}`; proceseaza doar `next == id` |
-| `/mesh/route/<id>` | publica | `{id, next, hops, etx, path, reachable}`; observabilitate per nod |
-| `<pose_topic>` | asculta | pozitia proprie (daca nodul nu e static) |
-| `<ingest_topic>` | asculta | telemetria proprie a dronei (daca `ingest=true`) |
-| `<egress_topic>` | publica (doar GCS) | telemetria livrata, repusa in circuit (ex. `/sar/telemetry`) |
-
-### 3.4 Nodul ROS din radacina (MeshGraph) -- topicuri DIFERITE
-
-Nodul `mesh_node.py` din radacina (rulabil doar cu `python3`) este un agregator
-centralizat, nu un nod-per-drona. Topicuri:
-
-| Topic | Sens | Continut |
-|-------|------|----------|
-| `/sar/telemetry` (parametru `pose_topic`) | asculta | pozitiile dronelor |
-| `/mesh/control` | asculta | `{"action":"block"|"unblock"|"reset","id":"d3"}` |
-| `/mesh/routes` | publica (1 Hz, latched) | per drona: next, hops, etx, direct, reachable, blocked |
-| `/mesh/status` | publica (1 Hz) | bilantul star vs mesh: n_star, n_mesh, recovered, isolated |
-
-Cele doua noduri folosesc topicuri si parametri diferiti si nu sunt
-interoperabile. `mesh_plugins.launch.py` lanseaza versiunea INTERNA
-(`/mesh/beacon` + `/mesh/relay`).
-
-## 4. Inventar fisiere
-
-Tabelul separa cele doua implementari. "verificare" = cum confirmi ca fisierul
-face ce spune.
-
-### 4.1 Pachetul ament intern (versiunea instalata, ros2 run / launch)
-
-| Fisier | Rol | Verificare |
-|--------|-----|------------|
-| `mesh_plugin/mesh_core.py` | nucleu pur: `rssi_dbm`, `pdr_from_rssi`, `etx`, `MeshTopology`, `shortest_path`, `routing_table`, `reachability`, `simulate_delivery` | `python3 mesh_core.py` (21/21) |
-| `mesh_plugin/mesh_node.py` | nod ROS per-drona: beacon, relay dirijat, tabel de rute, ingest/egress optional | `ros2 run mesh_plugin mesh_node` |
-| `mesh_plugin/sil_mesh.py` | SIL reachability (importa `MeshTopology, reachability`) | `ros2 run mesh_plugin sil_mesh` |
-| `mesh_plugin/sil_mesh_mission.py` | SIL misiune (importa `MeshTopology, reachability`) | `ros2 run mesh_plugin sil_mesh_mission` |
-| `mesh_plugin/__init__.py` | marker de pachet (gol) | - |
-| `launch/mesh_plugins.launch.py` | lanseaza un `mesh_node` per drona + GCS, in paralel cu roiul | `ros2 launch mesh_plugin mesh_plugins.launch.py` |
-| `package.xml`, `setup.py`, `setup.cfg` | metadate ament_python; entry_points; `script_dir`/`install_scripts` | `ros2 pkg executables mesh_plugin` |
-| `resource/mesh_plugin` | marker ament_index | - |
-| `requirements.txt` | dependinte pip (matplotlib, numpy, PyYAML); tkinter = `apt install python3-tk` | - |
-| `verifica_tot.sh` | verificare end-to-end (structura, offline, colcon, instalare) | `./verifica_tot.sh --offline` |
-
-### 4.2 Rescrierea din radacina (rulabila doar cu python3)
-
-| Fisier | Rol | Verificare |
-|--------|-----|------------|
-| `mesh_core.py` | nucleu pur: `pdr_from_link`, `etx`, `MeshGraph` (Dijkstra), `DirectedRelay` (dedup+TTL), `deliver_once`, `star_reachable`, `mesh_vs_star`, `block_node`/`unblock_node` | `python3 mesh_core.py` (20/20) |
-| `test_mesh_core.py` | suita externa de verificari (ETX, PDR, Dijkstra, relay, partition, blocare, stochastic, determinism) | `python3 test_mesh_core.py` (31/31) |
-| `mesh_node.py` | nod ROS agregator: telemetrie -> `/mesh/routes` + `/mesh/status`; comenzi block/unblock pe `/mesh/control` | `python3 mesh_node.py --ros-args ...` |
-| `sil_mesh.py` | SIL star vs mesh (geometric): reachability + livrare + 3 figuri | `python3 sil_mesh.py` (4/4, exit 0) |
-| `sil_mesh_mission.py` | SIL misiune CU vs FARA mesh, cuplat la scenariile de degradare | `python3 sil_mesh_mission.py --scenario mesh_relay` (3/3) |
-| `mesh_demo.py` | demo LIVE Tkinter: buton "blocheaza drona" + harta cu link direct / relay / izolat | `python3 mesh_demo.py` |
-| `radio_link.py` | model radio log-distance partajat (`LogDistanceRadioLink`, `make_link`, profiluri) | importat de nucleu |
-| `node_utils.py` | QoS (best_effort/reliable/latched), `now_s`, parsare telemetrie JSON | importat de nod |
-| `sar_core.py`, `swarm_core.py`, `netem_core.py`, `world_config.py` | dependintele SIL de misiune (lume, cinematica, canal, scenarii) | importate de `sil_mesh_mission.py` |
-| `scenarios/*.yaml` | 7 scenarii de degradare (vezi sectiunea 5) | citite de `sil_mesh_mission.py` |
-| `docs/*.png` | figuri pentru documentatie (instalate prin `data_files`) | - |
-| `mesh_*.png` (in radacina) | figuri generate de SIL-urile din radacina | suprascrise la rulare |
-
-Nota onestitate: `mesh_node.py`, `sil_mesh.py`, `sil_mesh_mission.py`, `mesh_core.py`
-exista in DOUA exemplare (radacina vs `mesh_plugin/`), cu CONTINUT DIFERIT.
-Fisierele din radacina nu se importa unele pe altele cu cele interne. Modulele de
-suport SIL (`sar_core.py` etc.) si `radio_link.py`/`node_utils.py` exista doar in
-radacina si NU sunt instalate de `setup.py` (nu apar in `data_files`); de aceea
-SIL-urile din radacina ruleaza cu `python3` din directorul pachetului, nu prin
-`ros2 run`.
-
-## 5. Date tehnice
-
-### 5.1 Metrici si definitii (din cod)
-
-```
-PDR(d)       = 1 - loss(distanta)        din modelul radio log-distance
-ETX          = 1 / (PDR_fwd * PDR_rev)   ETX=1 link perfect, inf = link mort
-cost cale    = suma ETX-urilor muchiilor de pe drum (Dijkstra minimizeaza)
-hop_count    = numarul de hopuri pe ruta aleasa de Dijkstra
-reachable    = nodurile cu ETX finit pana la GCS
-recovered    = mesh_reachable - star_reachable  (cine ajunge DOAR prin relay)
-```
-
-Masurarea pe ETX leaga rutarea de pierderea de pachete -- aceeasi moneda ca tot
-restul tezei. ETX prefera drumuri cu legaturi bune chiar daca au mai multe
-hopuri (spre deosebire de hop-count, care ignora calitatea linkului); acesta
-este standardul OLSR-LQ / Babel.
-
-### 5.2 Parametri (valori reale din cod/launch)
-
-Nucleul (ambele implementari):
-
-| Parametru | Semnificatie | Implicit |
-|-----------|--------------|----------|
-| `pdr_min` | sub acest PDR pe o directie, muchia NU exista | 0.10 |
-| `ttl` / `relay_ttl` | numar maxim de hopuri pentru un pachet | 8 |
-
-Nodul ROS intern (`mesh_plugin/mesh_node.py`) si `mesh_plugins.launch.py`:
-
-| Parametru | Semnificatie | Implicit |
-|-----------|--------------|----------|
-| `id` | identitatea nodului (d1..dN sau GCS) | `d1` |
-| `gcs` | id-ul statiei sink | `GCS` |
-| `pose_topic` | topicul de pozitie (daca nu e static) | `/sar/pose/d1` |
-| `static_x` / `static_y` | setate -> pozitie fixa (nodul GCS) | 9.0e9 (= nesetat) |
-| `beacon_hz` | frecventa beacon | 2.0 |
-| `route_hz` | frecventa publicarii tabelei de rute | 1.0 |
-| `tx_dbm`, `path_loss_n`, `sens_dbm`, `width_db` | parametrii radio interni | 0.0, 3.0, -40.0, 3.0 |
-| `ingest`, `ingest_topic`, `egress_topic` | transport optional de telemetrie prin mesh | false, "", "" |
-
-Nodul ROS din radacina (`mesh_node.py`) declara in plus: `profile`
-(`open_field` | `urban_rubble` | `forest`), `gcs_x`, `gcs_y`, `rate_hz`.
-
-Avertisment de potrivire (verificat): `mesh_plugins.launch.py` foloseste exact
-parametrii nodului INTERN (`id`, `static_x`, `tx_dbm`, `ingest`, `egress_topic`,
-`relay_ttl`). NU exista parametri `profile`/`gcs_x` in nodul intern; aceia apar
-doar in nodul din radacina, care nu se lanseaza prin launch.
-
-### 5.3 Profiluri radio (din `radio_link.py`)
-
-| Profil | n_exp | shadow_sigma_db | snr_mid | Comentariu |
-|--------|-------|-----------------|---------|------------|
-| `open_field` | 2.4 | 2.0 | 8.0 | camp deschis; raza directa mare -> mesh = stea |
-| `urban_rubble` | 3.3 | 5.0 | 10.0 | moloz / cladiri prabusite; raza mica -> relay esential |
-| `forest` | 2.9 | 4.0 | 9.0 | intermediar |
-
-### 5.4 Scenarii de degradare (`scenarios/*.yaml`, citite de SIL de misiune)
-
-| Scenariu | Eveniment cheie | Relay ajuta? |
-|----------|-----------------|--------------|
-| `baseline` | retea nominala, fara evenimente | nu e cazul |
-| `loss_30` / `loss_70` | pierdere ridicata | (degradare globala) |
-| `gcs_delay_spike` | varf de intarziere la GCS | (degradare globala) |
-| `drone_isolation` | izolarea completa a d2 (t=25..60) | masurat: fara castig (vezi 7) |
-| `partition_2v2` | partitie 2 vs 2: {gcs,d1,d2} vs {d3,d4} (t=30..70) | masurat: fara castig (vezi 7) |
-| `mesh_relay` | taie DOAR d3-gcs si d4-gcs (`set_link up:false`, t=10..90); pastreaza d3-d1, d4-d2; S&F oprit | DA: +55% telemetrie livrata |
-
-`mesh_relay` este singurul scenariu in care SIL de misiune din radacina
-demonstreaza castigul relay-ului, fiindca taie EXACT legaturile directe lasand
-puntea multi-hop intacta. Sub o partitie de grup (`partition_2v2`,
-`drone_isolation`) intregul lant relay este si el taiat, deci mesh-ul nu poate
-ajuta -- comportament corect, dar nu o demonstratie de castig.
-
-## 6. Sintaxe de pornire
-
-### 6.1 Verificari fara ROS (rescrierea din radacina)
+Selftest offline (nucleele pure, fara ROS; din directorul pachetului):
 
 ```bash
 cd ~/ros2_ws/src/mesh_plugin
-
-# nucleul pur:
-python3 mesh_core.py            # selftest 20/20
-python3 test_mesh_core.py       # suita externa 31/31
-
-# SIL star vs mesh (geometric; scrie mesh_reachability/delivery/topology.png):
-python3 sil_mesh.py                          # urban_rubble: stea 78%, mesh 100%
-python3 sil_mesh.py --profile open_field     # raza mare: mesh = stea (corect)
-python3 sil_mesh.py --profile forest
-
-# SIL misiune CU vs FARA mesh (cuplat la scenarii):
-python3 sil_mesh_mission.py --scenario mesh_relay     # +55% telemetrie (3/3)
-python3 sil_mesh_mission.py                            # partition_2v2 (2/3, vezi 7)
-
-# DEMO LIVE (buton "blocheaza drona", vezi relay-ul):
-python3 mesh_demo.py            # standalone (fara ROS, ruleaza oriunde)
-python3 mesh_demo.py --ros      # cu roiul pornit: pozitii reale din /sar/telemetry
-
-# nodul ROS agregator din radacina (NU prin ros2 run; importa radio_link local):
-python3 mesh_node.py --ros-args -p profile:=urban_rubble -p pdr_min:=0.10
+python3 mesh_core.py                     # nucleul din radacina (MeshGraph) -- _selftest
+python3 mesh_plugin/mesh_core.py         # nucleul intern (MeshTopology) -- _selftest
+python3 test_mesh_core.py                # suita externa pentru nucleul din radacina
 ```
 
-### 6.2 Build si rulare prin ament (versiunea instalata, MeshTopology)
+Rulare prin ament (entry_points REALE din `setup.py`):
 
 ```bash
-cd ~/ros2_ws
-colcon build --packages-select mesh_plugin --symlink-install
-source install/setup.bash               # in FIECARE terminal nou
+ros2 pkg executables mesh_plugin         # mesh_node, sil_mesh, sil_mesh_mission
 
-# confirma executabilele inregistrate:
-ros2 pkg executables mesh_plugin        # mesh_node, sil_mesh, sil_mesh_mission
-
-# un nod per drona (versiunea beacon/relay):
+# nod per drona (versiunea interna beacon/relay):
 ros2 run mesh_plugin mesh_node --ros-args -p id:=d3 -p gcs:=GCS \
     -p pose_topic:=/sar/pose/d3
+# SIL-uri interne (main() apeleaza run() FARA argparse -> nu accepta argumente CLI):
+ros2 run mesh_plugin sil_mesh
+ros2 run mesh_plugin sil_mesh_mission
+```
 
-# roiul mesh intreg, in paralel cu sar_swarm:
+Launch (argumente expuse REALE din `mesh_plugins.launch.py`):
+
+```bash
 ros2 launch mesh_plugin mesh_plugins.launch.py
 ros2 launch mesh_plugin mesh_plugins.launch.py path_loss_n:=3.5
-# cu transport de telemetrie prin mesh (integrare in roi):
-# (prefixul de ingestare e fix in launch: INGEST_PREFIX="/sar/telemetry/";
-#  argumentele expuse sunt ingest, egress_topic, gcs_x/gcs_y si parametrii radio)
+# transport de telemetrie prin mesh (prefixul de ingestare e fix in launch:
+# INGEST_PREFIX = "/sar/telemetry/"):
 ros2 launch mesh_plugin mesh_plugins.launch.py ingest:=true \
     egress_topic:=/sar/telemetry
 ```
 
-### 6.3 Verificare automata end-to-end
+Argumente de lansare declarate in `mesh_plugins.launch.py`: `ingest`,
+`egress_topic`, `gcs_x`, `gcs_y`, `tx_dbm`, `path_loss_n`, `sens_dbm`,
+`width_db`, `pdr_min`, `relay_ttl`.
+
+Scripturile din radacina (NU prin `ros2 run`; argumente argparse reale):
 
 ```bash
 cd ~/ros2_ws/src/mesh_plugin
-./verifica_tot.sh --offline     # structura + selftest + SIL-uri, fara colcon
-./verifica_tot.sh               # tot: + colcon build + ros2 pkg executables
+python3 sil_mesh.py [--profile P] [--t_max F] [--seed N] [--out PATH]
+python3 sil_mesh_mission.py [--scenario S] [--profile P] [--seed N] [--out PATH]
+python3 mesh_demo.py [--ros]
+python3 mesh_node.py --ros-args -p profile:=urban_rubble -p pdr_min:=0.10
+```
+
+Verificare automata:
+
+```bash
+cd ~/ros2_ws/src/mesh_plugin
+./verifica_tot.sh --offline     # structura + selftest + SIL-uri (fara colcon)
+./verifica_tot.sh               # + colcon build + ros2 pkg executables
 ./verifica_tot.sh --clean       # build curat (sterge build/install pachet)
 ```
 
-Limitari: `mesh_demo.py` cere `python3-tk`; modul `--ros` cere rclpy + roiul
-pornit. SIL-urile din radacina ruleaza din directorul pachetului (importa
-`radio_link.py`, `sar_core.py` etc. prin `sys.path.insert`), nu prin `ros2 run`.
+Numarul exact de verificari trecute de `_selftest()` / `test_mesh_core.py` si
+cifrele de performanta (castig de telemetrie, procente de reachability) NU sunt
+raportate aici fiindca nu au fost rulate la documentare. TODO: de confirmat prin
+rulare (`python3 mesh_core.py`, `python3 mesh_plugin/mesh_core.py`, `python3
+test_mesh_core.py`, SIL-urile).
 
-## 7. Verificare
+## Parametri si topicuri
 
-Numere reale, obtinute prin rulare la documentare (2026-06-25, masina locala):
+### Nodul intern `mesh_plugin/mesh_plugin/mesh_node.py` (rulat de `ros2 run` / launch)
 
-| Verificare | Comanda | Rezultat real |
-|-----------|---------|---------------|
-| nucleu radacina (selftest) | `python3 mesh_core.py` | 20/20 |
-| suita externa radacina | `python3 test_mesh_core.py` | 31/31 (0 FAIL) |
-| nucleu intern (selftest) | `python3 mesh_plugin/mesh_core.py` | 21/21 |
-| SIL reachability | `python3 sil_mesh.py` | 4/4, exit 0; STEA 78.1%, MESH 100.0%, recuperate d3,d4 |
-| SIL reachability (open_field) | `python3 sil_mesh.py --profile open_field` | mesh = stea (100%/100%), 0 recuperate (corect) |
-| SIL misiune (mesh_relay) | `python3 sil_mesh_mission.py --scenario mesh_relay` | 3/3, exit 0; telemetrie 1224 -> 1896 (+55%); victime finale 5/5 in ambele, dar mesh le afla mai devreme (timp pana GCS stie 5: 90.3 s -> 64.0 s) |
-| SIL misiune (partition_2v2) | `python3 sil_mesh_mission.py` | 2/3, exit 1; FARA = CU mesh (2056 = 2056) -- vezi mai jos |
-| SIL misiune (drone_isolation) | `python3 sil_mesh_mission.py --scenario drone_isolation` | 2/3, exit 1; fara castig |
-| executabile inregistrate | `ros2 pkg executables mesh_plugin` | mesh_node, sil_mesh, sil_mesh_mission |
+Parametri (din `declare_parameter`, cu valori implicite reale):
 
-Ce verifica suita `test_mesh_core.py` (31 de verificari):
-- ETX: link perfect=1, PDR=0.5 -> 4, PDR=0 -> infinit, asimetric, monotonie.
-- PDR din radio: scade cu distanta, ~1 aproape, ~0 departe, in [0,1].
-- Dijkstra: pe lant GCS-d1-d2-d3, doar d1 vede GCS direct; mesh ajunge la toate;
-  next-hop d3->d2->d1->gcs; hop count 1/2/3; ETX creste cu hopurile.
-- Relay: livrare prin 3 hopuri, dedup pe (src,seq), TTL expira, `next`!=id ignorat.
-- Star vs mesh: partition 2v2 -> stea pierde d3/d4, mesh le recupereaza.
-- Blocare: d2 doborat -> d3 izolat; deblocare -> d3 ajunge iar; blocarea unei
-  frunze nu rupe restul.
-- Stochastic: livrare partiala pe lant lung (0 < rata < 1).
-- Determinism: aceeasi topologie -> aceleasi rute.
+| Parametru | Implicit |
+|-----------|----------|
+| `id` | `d1` |
+| `gcs` | `GCS` |
+| `pose_topic` | `/sar/pose/d1` |
+| `static_x`, `static_y` | `9.0e9` (= nesetat; sub `8.0e9` -> pozitie fixa) |
+| `beacon_hz` | `2.0` |
+| `route_hz` | `1.0` |
+| `pdr_min` | `0.10` |
+| `relay_ttl` | `8` |
+| `tx_dbm`, `path_loss_n`, `sens_dbm`, `width_db` | `0.0`, `3.0`, `-40.0`, `3.0` |
+| `ingest`, `ingest_topic`, `egress_topic` | `False`, `""`, `""` |
 
-Avertisment de onestitate (corectie fata de README-ul vechi): SIL de misiune din
-radacina NU produce un castig de mesh pe `partition_2v2` (rezultat masurat: FARA
-mesh = CU mesh, ambele 2056 telemetrie livrata, 5/5 victime la 70.2 s, 2/3
-verificari, exit 1). Cauza din cod: scenariul `partition` taie intregul grup
-{d3,d4} de {gcs,d1,d2}, iar `sil_mesh_mission.py` verifica fiecare legatura din
-lantul relay cu `ch.link_up(...)` -- daca grupul e taiat, si puntea relay e
-taiata, deci mesh-ul nu poate ajuta. Demonstratia de castig se face pe scenariul
-`mesh_relay`, care taie DOAR legaturile directe d3-gcs si d4-gcs si pastreaza
-puntea d3-d1 / d4-d2 (rezultat masurat: +55% telemetrie, ambele variante ajung la
-5/5 victime dar mesh le afla mai devreme -- 90.3 s vs 64.0 s, 3/3 exit 0).
+Topicuri (JSON pe `std_msgs/String`):
 
-Rezultatele de mai sus sunt din rulari SIL la N=1 -- (SIL, N=1 -- de inlocuit cu
-N=5) inainte de orice integrare in articol; nucleul fiind determinist (seed fix),
-valorile sunt reproductibile, dar marja statistica nu este inca raportata.
+| Topic | Sens | Forma mesajului (din cod) |
+|-------|------|---------------------------|
+| `/mesh/beacon` | publica + asculta | `{"id", "x", "y", "t", "seq"}` |
+| `/mesh/relay` | publica + asculta | `{"src", "dst", "seq", "ttl", "next", "path", "payload"?}`; proceseaza doar daca `next == id` |
+| `/mesh/route/<id>` | publica | `{"id", "next", "hops", "etx", "path", "reachable"}` |
+| `<pose_topic>` | asculta (daca nodul nu e static) | `{"x", "y", ...}` |
+| `<ingest_topic>` | asculta (daca `ingest=true`) | telemetria proprie (impachetata in `payload`) |
+| `<egress_topic>` | publica (doar daca e setat; tipic GCS) | `payload`-ul livrat, repus in circuit |
 
-## 8. Igiena datelor si reproductibilitate
+### Nodul din radacina `mesh_node.py` (rulat doar cu `python3`)
 
-Figurile din `docs/` sunt instalate prin `data_files` si folosite in documentatie.
-SIL-urile din radacina REGENEREAZA figuri in radacina pachetului
-(`mesh_reachability.png`, `mesh_delivery.png`, `mesh_topology.png`,
-`mesh_mission_victims.png`, `mesh_mission_delivery.png`); cele interne genereaza
-`sil_mesh_reachability.png`, `sil_mesh_snapshot.png`, `sil_mesh_mission.png`.
-Aceste fisiere se suprascriu la rulare si nu sunt date brute de campanie.
+Parametri (din `declare_parameter`): `pose_topic` (`/sar/telemetry`), `profile`
+(`urban_rubble`), `pdr_min` (`0.10`), `ttl` (`8`), `gcs_x` (`0.0`), `gcs_y`
+(`0.0`), `rate_hz` (`1.0`).
 
-```bash
-# reproducerea figurilor din radacina (deterministe, seed fix):
-cd ~/ros2_ws/src/mesh_plugin
-python3 sil_mesh.py                                  # reachability/delivery/topology
-python3 sil_mesh_mission.py --scenario mesh_relay    # victims/delivery de misiune
+Topicuri (JSON pe `std_msgs/String`):
 
-# build curat daca ros2 run nu vede schimbarile (wrapper-ele se genereaza la build):
-cd ~/ros2_ws && rm -rf build/mesh_plugin install/mesh_plugin
-colcon build --packages-select mesh_plugin --symlink-install
-source install/setup.bash
-```
+| Topic | Sens |
+|-------|------|
+| `pose_topic` (implicit `/sar/telemetry`) | asculta (pozitiile dronelor) |
+| `/mesh/control` | asculta; `{"action":"block"|"unblock"|"reset","id":"d3"}` |
+| `/mesh/routes` | publica (latched, depth 1) |
+| `/mesh/status` | publica |
 
-In depozit intra codul, scenariile si figurile de documentatie; eventualele
-rulari de campanie (N=5) se arhiveaza in afara depozitului, conform regulilor de
-igiena ale proiectului (`build/`, `install/`, `log/`, `__pycache__/`, `*.pyc` si
-directoarele de rezultate raman in `.gitignore`).
+Cele doua noduri folosesc topicuri si parametri DIFERITI si nu sunt
+interoperabile; `mesh_plugins.launch.py` lanseaza doar versiunea interna
+(`/mesh/beacon` + `/mesh/relay`).
