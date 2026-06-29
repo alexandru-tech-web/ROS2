@@ -112,8 +112,8 @@ def main():
                                   f"rep{p['rep']}")
             print(f"\n=== [{i}/{len(plan)}] {p['rmw']} / {p['condition']} "
                   f"/ rep{p['rep']} / {p['layer']} ===")
-            # WATCHDOG: daca routerul a murit intre rulari, il repornim
-            if (p["needs_router"] and router is not None
+            # WATCHDOG: doar SIL. Pe HIL routerul e gestionat extern (cu override).
+            if (a.mode == "sil" and p["needs_router"] and router is not None
                     and router.poll() is not None):
                 print("[!] routerul Zenoh a murit -- il repornesc")
                 cur_rmw = None
@@ -121,7 +121,11 @@ def main():
             if p["rmw"] != cur_rmw:
                 stop_router()
                 cur_rmw = p["rmw"]
-                if p["needs_router"] and not a.dry:
+                if p["needs_router"] and a.mode == "hil":
+                    print("[hil] routerul Zenoh e gestionat EXTERN "
+                          "(porneste-l manual cu ZENOH_CONFIG_OVERRIDE). "
+                          "Campania NU porneste router pe HIL.")
+                elif p["needs_router"] and not a.dry:
                     router = subprocess.Popen(
                         ["ros2", "run", "rmw_zenoh_cpp", "rmw_zenohd"],
                         env=env, preexec_fn=os.setsid,
