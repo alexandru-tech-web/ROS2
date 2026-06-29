@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>curs_ml</name>
+  <version>0.1.0</version>
+  <description>
+    Curs academic de Machine Learning (master/doctorat) ca pachet ROS 2, sibling cu curs_ros2.
+    23 module M00-M22 cu teorie auto-suficienta, implementari pure from-scratch (+ _selftest),
+    validare incrucisata cu scikit-learn si SIL pe date sintetice semanate din campaniile reale
+    (C1: rmw_zenoh vs CycloneDDS pe retele degradate). Culmineaza intr-un predictor de stare a
+    linkului ca nod ROS 2 (puntea catre contributia C3 / link_adaptive). Dependintele ML stau
+    intr-un venv dedicat (~/ros2_ws/.venv_ml), nu in Python-ul de ROS.
+  </description>
+  <maintainer email="gheorghitaalexandruu@gmail.com">Alexandru</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

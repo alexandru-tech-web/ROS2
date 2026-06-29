@@ -1,0 +1,10 @@
+# Figuri generate de SIL-uri / demo_sil.py -- se regenereaza din cod (vezi CHARTA).
+**/fig_*.png
+*.png
+# Cache Python
+__pycache__/
+*.pyc
+# Instalatorul auto-generat (regenerabil cu gen_instalator.py; ~1MB)
+instaleaza_curs_ml.sh
+# Modele salvate (artefacte, regenerabile)
+*.npz
