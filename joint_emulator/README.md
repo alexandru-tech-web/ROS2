@@ -68,10 +68,9 @@ Resurse non-`.py`: `urdf/joint_bench.urdf`, `gz/joint_bench_world.sdf`,
 
 ## Sintaxe de rulare
 
-Acest director NU contine `package.xml`/`setup.py`, deci nu se construieste cu
-`colcon build` ca pachet propriu si nu are entry_points `ros2 run`. Se ruleaza
-direct cu `python3` din radacina pachetului. (TODO: de confirmat daca pachetul
-este integrat altundeva intr-un build de workspace.)
+Acest director NU contine `package.xml`/`setup.py`, deci colcon NU il construieste
+ca pachet si nu exista entry_points pentru `ros2 run`. Toate scripturile (inclusiv
+nodurile din `nodes/`) se ruleaza DIRECT cu `python3 <fisier>` din radacina pachetului.
 
 Verificari nucleu offline (fara ROS/fier):
 
