@@ -30,14 +30,15 @@ artefact), care se potriveste EXACT cu descrierea fisierului-gresit din sarcina:
   - IP-uri AMESTECATE: connect "tcp/192.168.100.17:7447" (.17 = Pi-CABLU) cu
     listen "tcp/192.168.100.14:7447" (.14 = M1-WiFi) -- incoerent, exact ca in sarcina.
 
-Deci numele real al fisierului-gresit pare a fi `zenoh_m1.json5`, nu `zenoh_pi.json5`
-(probabil o confuzie de nume in sarcina). NU l-am sters: numele difera de ce cere
-sarcina, e untracked/gitignorat, iar regula e "nu ghici". ASTEPT CONFIRMAREA
-UTILIZATORULUI.
+Clarificare de la utilizator: existau DOUA fisiere vechi incoerente, cate unul pe
+fiecare masina (zenoh_m1.json5 pe M1, zenoh_pi.json5 pe Pi). Eu (pe M1) am vazut doar
+zenoh_m1.json5.
 
-RECOMANDARE: da, `zenoh_m1.json5` ar trebui sters (e configul incoerent mode:peer,
-inlocuit acum de router_pi/router_m1). Fiind untracked, stergerea lui nu afecteaza
-git -- e doar curatenie pe disc. Confirma si il sterg.
+REZOLVAT (confirmat de utilizator):
+- `zenoh_m1.json5` (pe M1) -- STERS de mine cu `rm -f` (era untracked/gitignorat,
+  stergerea nu atinge git). Inlocuit de `router_m1.json5`.
+- `zenoh_pi.json5` (pe Pi) -- NU e pe aceasta masina (M1), deci nu-l pot atinge.
+  Utilizatorul il sterge MANUAL pe Pi cand ajunge acolo. Inlocuit de `router_pi.json5`.
 
 ## INSTRUCTIUNI PENTRU UTILIZATOR (cum se folosesc config-urile)
 
