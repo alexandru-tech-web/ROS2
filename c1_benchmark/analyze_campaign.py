@@ -133,6 +133,9 @@ def analyze(root, outdir, env="sil"):
     # Fig. 2 -- transportul
     fig, ax = plt.subplots(figsize=(9, 5.0))
     w = 0.8 / max(1, len(rmws))
+    ymax = max([mean(data.get((r, c), {}).get("t", [])) or 0
+                for r in rmws for c in conds] or [0])
+    marker_h = 0.05 * (ymax or 1)          # inaltime simbolica pt marcaj de cedare totala
     for j, rmw in enumerate(rmws):
         xs, ys, ls = [], [], []
         for i, c in enumerate(conds):
@@ -145,6 +148,15 @@ def analyze(root, outdir, env="sil"):
         for r, l in zip(b, ls):
             ax.text(r.get_x() + r.get_width() / 2, r.get_height(),
                     f"{100 * l:.0f}%", ha="center", va="bottom", fontsize=8)
+            if l >= 0.999 and r.get_height() == 0:
+                # cedare totala (received=0): nicio bara reala -> marcaj hasurat
+                # explicit, ca lipsa barei sa NU para date lipsa
+                ax.bar(r.get_x() + r.get_width() / 2, marker_h, width=w,
+                       color=COL.get(rmw, "#888"), hatch="xxx", alpha=0.30,
+                       edgecolor="black", linewidth=0.5)
+                ax.text(r.get_x() + r.get_width() / 2, marker_h,
+                        "received=0\ncedare totala", ha="center", va="bottom",
+                        fontsize=6.5, color="#b22222")
     ax.set_xticks([i + w * (len(rmws) - 1) / 2 for i in range(len(conds))],
                   conds, rotation=15, fontsize=10)
     ax.set_xlabel("conditie de retea (tc netem)", fontsize=11)
@@ -159,36 +171,44 @@ def analyze(root, outdir, env="sil"):
              "%s; N=%d repetitii; %d conditii netem; sarcina utila %d B."
              % (label, nrep, len(conds), REF_PAYLOAD))
 
-    # Fig. 3 -- misiunea
-    fig, ax = plt.subplots(figsize=(9, 5.0))
-    for j, rmw in enumerate(rmws):
-        xs, ys, hatch = [], [], []
-        for i, c in enumerate(conds):
-            e = data.get((rmw, c), {})
-            done = [d for d in e.get("done", []) if d is not None]
-            xs.append(i + j * w)
-            ys.append(mean(done) if done else MISSION_CAP)
-            hatch.append(not done and bool(e.get("done")))
-        bars = ax.bar(xs, ys, width=w, label=rmw, color=COL.get(rmw, "#888"),
-                      edgecolor="black", linewidth=0.5)
-        for r, h in zip(bars, hatch):
-            if h:
-                r.set_hatch("//")
-                r.set_alpha(0.6)
-    ax.axhline(MISSION_CAP, ls=":", color="#888")
-    ax.set_xticks([i + w * (len(rmws) - 1) / 2 for i in range(len(conds))],
-                  conds, rotation=15, fontsize=10)
-    ax.set_xlabel("conditie de retea (tc netem)", fontsize=11)
-    ax.set_ylabel("timp de finalizare a misiunii [s]", fontsize=11)
-    ax.set_title("Impact la nivel de misiune "
-                 "(hasurat = plafon, misiune neterminata)", fontsize=12)
-    if ax.get_legend_handles_labels()[0]:
-        ax.legend(title="RMW", fontsize=10)
-    ax.grid(axis="y", linestyle=":", linewidth=0.5, alpha=0.6)
-    ax.set_axisbelow(True)
-    _savefig(fig, outdir, "fig_mission",
-             "%s; N=%d repetitii; %d conditii netem; plafon misiune %.0f s."
-             % (label, nrep, len(conds), MISSION_CAP))
+    # Fig. 3 -- misiunea (DOAR daca stratul mission a rulat). Pe HIL transport
+    # stratul mission nu se ruleaza -> toate barele ar fi la plafon (figura muta,
+    # inselatoare). Detectam din date si o sarim, in loc sa inducem in eroare.
+    has_mission = any(d is not None for e in data.values()
+                      for d in e.get("done", []))
+    if not has_mission:
+        print("[skip] fig_mission: stratul mission nu a rulat (campanie doar "
+              "transport) -- o sar ca sa nu induc in eroare cu o figura la plafon")
+    else:
+        fig, ax = plt.subplots(figsize=(9, 5.0))
+        for j, rmw in enumerate(rmws):
+            xs, ys, hatch = [], [], []
+            for i, c in enumerate(conds):
+                e = data.get((rmw, c), {})
+                done = [d for d in e.get("done", []) if d is not None]
+                xs.append(i + j * w)
+                ys.append(mean(done) if done else MISSION_CAP)
+                hatch.append(not done and bool(e.get("done")))
+            bars = ax.bar(xs, ys, width=w, label=rmw, color=COL.get(rmw, "#888"),
+                          edgecolor="black", linewidth=0.5)
+            for r, h in zip(bars, hatch):
+                if h:
+                    r.set_hatch("//")
+                    r.set_alpha(0.6)
+        ax.axhline(MISSION_CAP, ls=":", color="#888")
+        ax.set_xticks([i + w * (len(rmws) - 1) / 2 for i in range(len(conds))],
+                      conds, rotation=15, fontsize=10)
+        ax.set_xlabel("conditie de retea (tc netem)", fontsize=11)
+        ax.set_ylabel("timp de finalizare a misiunii [s]", fontsize=11)
+        ax.set_title("Impact la nivel de misiune "
+                     "(hasurat = plafon, misiune neterminata)", fontsize=12)
+        if ax.get_legend_handles_labels()[0]:
+            ax.legend(title="RMW", fontsize=10)
+        ax.grid(axis="y", linestyle=":", linewidth=0.5, alpha=0.6)
+        ax.set_axisbelow(True)
+        _savefig(fig, outdir, "fig_mission",
+                 "%s; N=%d repetitii; %d conditii netem; plafon misiune %.0f s."
+                 % (label, nrep, len(conds), MISSION_CAP))
 
     # Fig. 4 -- CDF la conditia cea mai severa cu date
     pick = next((c for c in reversed(conds)
@@ -200,6 +220,16 @@ def analyze(root, outdir, env="sil"):
             if raw:
                 ax.plot(raw, [k / len(raw) for k in range(1, len(raw) + 1)],
                         label=rmw, color=COL.get(rmw, "#888"), linewidth=1.6)
+        # ONESTITATE: un RMW cu received=0 la conditia aleasa nu apare in CDF;
+        # il marcam EXPLICIT ca lipsa lui sa nu para 'netestat', ci cedare totala.
+        missing = [r for r in rmws if not data.get((r, pick), {}).get("raw")]
+        if missing:
+            ax.text(0.97, 0.05,
+                    "\n".join("%s: 100%% loss la '%s' (received=0, fara RTT)"
+                              % (r, pick) for r in missing),
+                    transform=ax.transAxes, ha="right", va="bottom", fontsize=8,
+                    color="#b22222",
+                    bbox=dict(boxstyle="round", fc="#fff0f0", ec="#b22222"))
         ax.set_xlabel("RTT [ms]", fontsize=11)
         ax.set_ylabel("probabilitate cumulata (CDF)", fontsize=11)
         ax.set_title(f"Distributia RTT -- conditia '{pick}'", fontsize=12)
