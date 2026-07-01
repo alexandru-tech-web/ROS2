@@ -174,6 +174,28 @@ def main_tex(sil, hil, payload):
     return "\n".join(L) + "\n"
 
 
+# ==================================================== MARKDOWN (usor de citit)
+def write_markdown(path, sil, hil, payload):
+    """Tabel Markdown lizibil (loss % + RTT p95) -- se randeaza in orice editor/VS Code."""
+    def row(cond, key, fmt):
+        return "| %-13s | %8s | %9s | %8s | %9s |" % (
+            cond, fmt(sil[("cyclonedds", cond)][key]), fmt(sil[("zenoh", cond)][key]),
+            fmt(hil[("cyclonedds", cond)][key]), fmt(hil[("zenoh", cond)][key]))
+    L = ["# Tabele C1 -- SIL vs HIL Wi-Fi (payload %d B)" % payload,
+         "", "SIL = loopback (N=10); HIL Wi-Fi = doua masini (N=5). Date SINTETICE? NU -- masuratori reale.",
+         "", "## Pierdere [%]", "",
+         "| conditie      | SIL CDDS | SIL Zenoh | HIL CDDS | HIL Zenoh |",
+         "|---------------|----------|-----------|----------|-----------|"]
+    L += [row(c, "loss_mean", fmt_loss) for c in CONDITIONS]
+    L += ["", "## RTT p95 [ms]", "",
+          "| conditie      | SIL CDDS | SIL Zenoh | HIL CDDS | HIL Zenoh |",
+          "|---------------|----------|-----------|----------|-----------|"]
+    L += [row(c, "rtt_p95_ms", fmt_ms) for c in CONDITIONS]
+    L += ["", "Generat de make_tables.py. Media pe repetitii; celula goala = date lipsa."]
+    with open(path, "w") as f:
+        f.write("\n".join(L) + "\n")
+
+
 # ==================================================== REZUMAT (stdout)
 def print_summary(sil, hil, payload):
     def ncount(data):
@@ -209,6 +231,7 @@ def run(sil_root, hil_root, outdir, payload):
     open(os.path.join(outdir, "tabel_divergenta_p%d.tex" % p), "w").write(
         divergence_tex(sil, hil, p, "loss"))
     open(os.path.join(outdir, "tabel_principal_p%d.tex" % p), "w").write(main_tex(sil, hil, p))
+    write_markdown(os.path.join(outdir, "tabele_p%d.md" % p), sil, hil, p)
     print("[ok] tabele scrise in %s (payload %d)" % (outdir, p))
     print_summary(sil, hil, p)
     return 0
