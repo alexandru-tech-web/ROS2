@@ -112,8 +112,41 @@ Toate din lat200_jit50 / payload 4096 / rep1:
   14.7% (loss AGREGAT HIL CDDS) PASS; 1.3% / 1.8% (SIL Zenoh/CDDS lat200_jit50) PASS.
 
 ================================================================================
+## 1d. Comanda tc netem lat200_jit50 + distributia jitter-ului
+================================================================================
+Comanda EXACTA (bench_core.py:69-83, netem_cmd pentru lat200_jit50:
+base_ms=200, jitter_ms=50, loss=0.00), VERBATIM:
+
+  tc qdisc replace dev <IFACE> root netem delay 200ms 50ms loss 0.0%
+
+Contine 'distribution normal'? NU. Nu apare niciun cuvant 'distribution'.
+
+CONSECINTA: fara keyword-ul 'distribution', kernelul aplica distributia UNIFORMA
+(sch_netem.c, tabledist cu tabel NULL -> valoare uniforma in [-sigma, +sigma]), desi
+man page-ul tc-netem spune "default is Normal" (neconcordanta documentatie<->kernel
+cunoscuta). Deci jitter-ul REALIZAT la lat200_jit50 e UNIFORM, nu normal.
+
+IMPACT ASUPRA DRAFTULUI (report-only, TEXT NEEDITAT):
+- Sec. 3.2: "delay variation (jitter) uses netem's default normal distribution" -> UNIFORM.
+- ec. (1): "x_i ~ N_tab(0,1)" + "N_tab denotes netem's discretized normal table" -> UNIFORM.
+- Limitation (6): "normal-distributed jitter" -> "uniform-distributed jitter".
+  (Limitation 6 deja admite ca distributia realizata n-a fost verificata pe kernel;
+   corectia la uniform o INTARESTE, nu o slabeste.)
+Nu am rulat tc. Recomandarea de rewording (formulata, neaplicata) e in sectiunea FRAZE.
+
+================================================================================
 ## FRAZE GATA DE FOLOSIT (pentru Alexandru; le scrie el cu vocea lui)
 ================================================================================
+- REWORDING 3.2 / ec.(1) / Lim.6 la distributie UNIFORMA (comanda tc a rulat FARA
+  'distribution normal', deci datele reflecta uniform -- vezi 1d):
+  * Sec. 3.2: "delay variation (jitter) uses netem's uniform distribution: no
+    distribution table is loaded, so per the kernel (sch_netem.c) the jitter is drawn
+    uniformly, despite the man page's nominal 'Normal' default."
+  * ec. (1): "d_i = DELAY + x_i * JITTER,   x_i ~ U(-1, 1)"  (U = uniform pe [-1,1]).
+  * Limitation (6): "uniform-distributed jitter".
+  (Alternativ, daca preferi modelul normal: incarca explicit `distribution normal` in tc
+   si RE-RULEAZA -- dar campania curenta e uniform; nu schimba concluziile, doar forma
+   distributiei jitter-ului.)
 - Agregare (Sec. 3.3, deja prezenta -- confirmata corecta):
   "condition-level figures aggregate per-repetition summaries" (media pe repetitii a
    loss/mean/p95 per-rep; NU concatenare de esantioane). N raportat: SIL 10, HIL 5.
