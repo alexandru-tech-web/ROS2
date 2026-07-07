@@ -1,5 +1,20 @@
 # FRAZE FINALE -- gata de lipit in articol (jitter UNIFORM, finding 1d)
 
+STATUS (2026-07-07): TOATE ancorele (1-5 + 1a) + fix Sec 4.1 + stergerile de TODO
+cerute (Tabel I "deduced from names" + Sec 3.3 metoda de agregare) sunt DEJA APLICATE
+in Draft_Articol_C1_2coloane_v3.docx. NU se mai aplica manual -- v3 e MASTERUL.
+Alexandru copiaza v3 peste docx-ul local de lucru; pastreaza _pre-swap.docx ca backup.
+  Locatie v3: ~/Downloads/Draft_Articol_C1_2coloane_v3.docx (2026-07-07 22:42).
+  Verificat de mine in document.xml: NOU prezent (draws...uniformly, U(-1, 1),
+  "attached in every condition", "uniformly distributed, bounded jitter",
+  "must originate in the transport stack", fix "at 4 KB"); VECHI eliminat (default
+  normal distribution, N_tab(0, 1), normal-distributed jitter, discretized normal
+  table); TODO Tabel I + TODO agregare Sec 3.3 ABSENTE; fraza adevarata
+  "aggregate per-repetition summaries" pastrata corect (nu era TODO).
+  Raman prin design alte [TODO ALEXANDRU: ...] neatinse de mine: abstract, citari,
+  versiuni apt, link Zenodo, Fig. 7 provizorie (= blocul urmator, image7), erori-LIVE.
+Ancorele de mai jos sunt ISTORIC/trasabilitate (deja in v3); NU le reaplica manual.
+
 NU am editat textul articolului (Regula 3: doar imagini; textul il scrie/lipeste
 Alexandru). Aici e textul FINAL (scris de Alexandru) transcris verbatim, plus
 ancorele exacte gasite in word/document.xml -- fiecare pasaj e un singur <w:t>,

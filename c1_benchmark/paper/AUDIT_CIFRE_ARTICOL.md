@@ -197,6 +197,33 @@ pentru AMBELE medii:
   difera intre commit-uri (s-a adaugat ramura gilbert); ca IESIRE pe cele 8, nu.
   (burst-urile loss_*_burst existau deja la c61c1e2; nu au date in campanie -> irelevante.)
 
+SIGILIU PROTOCOL (raspuns la 'identical measurement protocol'):
+git diff --stat c61c1e2..426bd77 -- c1_benchmark/ = 49 fisiere / 3430 inserari, DAR
+commit-urile NU sunt atomice pe masurare (impacheteaza ML/selector/docs/figuri --
+nerelevante). Din CALEA DE MASURARE efectiva:
+  - bench_client.py      : blob byte-IDENTIC (a98c51f) intre c61c1e2 si 426bd77.
+  - bench_echo_server.py : blob byte-IDENTIC (0d6bf12).
+  - bench_core.py        : rtt_stats IDENTIC; cele 8 conditii + netem_cmd invariante la
+                           iesire (reconstructie duala, mai sus).
+  - run_campaign.py      : SCHIMBAT dar ADITIV -- adauga ramura '--mode hil' (calea SIL
+    executa identic: acelasi bench_echo_server.py Popen + sleep 1.5s + kill; payloads
+    [64,4096,65536]; build_plan peste toate CONDITIONS) + filtru --conditions (default
+    toate). Calea SIL e echivalenta comportamental cu c61c1e2.
+  - run_campaign_fair.sh : NOU la 06-26 -- codifica invocarea corecta (--reps 10, mediu
+    curat); NU schimba ce a rulat SIL, e wrapper de reproductibilitate.
+CONCLUZIE: nucleul de masurare (client, echo, statistici RTT, cele 8 conditii netem) e
+byte-identic intre campanii; orchestrator-ul difera DOAR prin ramura aditiva HIL
+(diferenta FIZICA intentionata: ecoul pe masina 2), nu prin logica de masurare.
+'identical measurement protocol' e SUSTINUT la nivel de nucleu + cale SIL. Includerea
+explicita a orchestrator-ului in domeniul afirmatiei ramane alegerea lui Alexandru.
+
+ONESTITATE (mapare campanie->cod, neverificabil retroactiv):
+Hash-ul NU a fost inregistrat per rulare; maparea presupune working tree CURAT la rulare.
+SIL (2026-06-24): a rulat 'run_campaign.py --reps 10' cu metoda fair in working-tree
+NECOMISA (codificata ulterior ca run_campaign_fair.sh in 426bd77, 06-26). Deci SIL NU e
+ancorat la c61c1e2 (care precede metoda fair); arhiva sil_N10_fair_20260624 a fost
+recuperata din Trash 2026-07-01. HIL (2026-07-01): run_campaign.py --mode hil @ 426bd77.
+
 Nota jitter (vezi 1d): la lat200_jit50 / lat200_l15 comanda are 'delay 200ms 50ms'
 FARA 'distribution' -> jitter UNIFORM in [150ms, 250ms], nu normal.
 DUPA ce citeaza aceste comenzi, Alexandru poate STERGE TODO-ul din Tabelul I.

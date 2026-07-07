@@ -772,6 +772,21 @@ a6e0d26cedfde638718ae7df54b273f9138e5f08d07336ce5230f68d799da749       272  HIL_
 ```
 Nr fisiere hashuite: 720. (CSV-urile brute transport_p<P>.csv exista alaturi, acelasi layout.)
 
+## Mapare reproductibilitate (campanie -> cod)
+
+| campanie | data (README) | cod / invocare | ancora git | cele 8 conditii |
+|----------|---------------|----------------|-----------|-----------------|
+| SIL N=10 | 2026-06-24 | run_campaign.py --reps 10 (metoda fair in working-tree; codificata ulterior ca run_campaign_fair.sh) | working-tree 06-24, hash neinregistrat -- NU c61c1e2 (fair postdateaza c61c1e2) | byte-identice |
+| HIL N=5  | 2026-07-01 | run_campaign.py --mode hil | 426bd77 (2026-06-26) | byte-identice |
+
+Diff-ul c61c1e2..426bd77 NU afecteaza cele 8 conditii studiate: reconstructie duala a
+netem_cmd -> comenzi byte-identice; rtt_stats, bench_client.py, bench_echo_server.py
+identice (dovada completa in AUDIT_CIFRE_ARTICOL.md, sec. 1e).
+CAVEAT (onestitate): commit-ul per rulare NU a fost inregistrat; maparea presupune
+working tree curat la rulare -- neverificabil retroactiv. Arhiva SIL
+(sil_N10_fair_20260624) a fost recuperata din Trash 2026-07-01.
+Aceasta mapare intra si in descrierea Zenodo (campul Description / Method).
+
 ## Structura de arhiva propusa pentru Zenodo (NU creata, NU incarcata)
 
 ```
