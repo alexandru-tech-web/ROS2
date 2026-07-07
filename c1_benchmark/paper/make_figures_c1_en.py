@@ -92,10 +92,13 @@ LOSS = {
 # from the canonical CSV before submission.
 PAYLOADS = ["64 B", "4 KB", "64 KB"]
 PAYLOAD_LOSS = {
-    ("ideal",   "cdds"):  [0.0,  0.0,  0.0],
-    ("ideal",   "zenoh"): [0.0,  0.0, 58.0],   # 58: displayed + stated in Sec. 4.1
-    ("loss_15", "cdds"):  [1.0, 20.8, 99.0],   # 1, 99: displayed
-    ("loss_15", "zenoh"): [39.0, 61.6, 98.0],  # 39, 98: displayed
+    # HIL sample loss [%] at [64 B, 4 KB, 64 KB]. Exact decimals refreshed from the canonical
+    # aggregate (make_tables.py on ~/DATE_CAMPANIE/HIL_WIFI/date, mean over reps, 2026-07-01);
+    # was: "displayed" integers read off fig_payload.png. See AUDIT_CIFRE_ARTICOL.md, Fig. 4.
+    ("ideal",   "cdds"):  [0.0,  0.0,  0.0],    # canonic HIL cdds ideal:   p64 0.0 / p4096 0.0 / p65536 0.0
+    ("ideal",   "zenoh"): [0.0,  0.0, 57.8],    # canonic HIL zenoh ideal:  0.0 / 0.0 / 57.8  (was 58.0 displayed)
+    ("loss_15", "cdds"):  [0.8, 20.8, 99.2],    # canonic HIL cdds loss_15: 0.8 / 20.8 / 99.2 (was 1.0/.. /99.0)
+    ("loss_15", "zenoh"): [39.5, 61.6, 98.3],   # canonic HIL zenoh loss_15:39.5 / 61.6 / 98.3 (was 39.0/.. /98.0)
 }
 
 

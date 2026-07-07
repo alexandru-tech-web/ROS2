@@ -154,7 +154,35 @@ Nu am rulat tc. Recomandarea de rewording (formulata, neaplicata) e in sectiunea
   57.8% (rotunjit 58%), CycloneDDS 0%.
 - Caveat 4.1 de restrans: "mean RTT of 11-13 ms at 4 KB" (nu "at 64 B and 4 KB").
 
+================================================================================
+## PAS 2 -- CSV canonic + figuri EN (paper/campaign_summary.csv, paper/figuri_en/)
+================================================================================
+2a. campaign_summary.csv: 32 randuri (env x conditie x rmw, payload 4 KB), agregare =
+    media pe rep (make_tables.collect). env in {SIL, HIL} (cerut de script).
+2d. PAYLOAD_LOSS actualizat cu zecimale canonice HIL (provenienta comentata in script):
+    ideal zenoh 64KB 58.0 -> 57.8 ; loss_15 cdds 0.8/20.8/99.2 ; loss_15 zenoh 39.5/61.6/98.3.
+    fig_payload_en.png regenerat cu aceste valori.
+2b/2c. Mod DEFAULT (embedded) genereaza: fig_divergence_en.png, fig_loss_sil_hil_en.png,
+    fig_payload_en.png. CROSS-CHECK (2c) SATISFACUT: blocul embedded LOSS din script ==
+    Tabel II canonic (verificat 32/32 la Pas 1c), deci figura de loss regenerata coincide
+    cu versiunea "din Tabelul II" prin egalitate de valori.
+
+BLOCAJ ONEST -- fig_rtt_p95_en.png (Fig. 7 / image7) NU se poate genera din CSV-ul canonic:
+  Cauza (date): HIL zenoh lat200_l15 are received=0 pe TOATE cele 5 repetitii (p95 agregat =
+    N/A -> celula goala in CSV). NU e o eroare de audit: la loss 100% nu exista RTT.
+  Cauza (script): load_summary face float() neconditionat pe rtt_p95_ms (linia ~213) ->
+    'ValueError: could not convert string to float: ""' pe celula goala; iar fig_rtt_p95
+    nu marcheaza received=0 (spre deosebire de figura RO livrata). AMBELE fixuri sunt IN
+    AFARA singurei editari permise (PAYLOAD_LOSS), deci NU le-am aplicat.
+  Consecinta: Pas 3b (swap image7) AMANAT. Decizie pentru Alexandru mai jos.
+
+================================================================================
 ## DECIZII care raman la Alexandru
-1. Restrange fraza 4.1 la "11-13 ms at 4 KB" (mai sus).
-2. Sec. 3.1 versiuni exacte (kernel/ROS/rmw) -- vezi Pas 5 (de rulat de pe masinile tale).
-3. Fig. 7 provizorie (etichete RO) -- de regenerat EN la Pas 2/3.
+================================================================================
+1. Restrange fraza 4.1 la "11-13 ms at 4 KB" (vezi FRAZE).
+2. Sec. 3.1 versiuni exacte (kernel/ROS/rmw) -- vezi Pas 5.
+3. Sec. 3.2 / ec. (1) / Lim. 6: reformulare la distributie UNIFORMA (1d; FRAZE).
+4. Sterge TODO-ul de agregare din Sec. 3.3 (agregarea e confirmata corecta -- 1a Q3).
+5. Fig. 7 (image7): fie (a) extinde make_figures_c1_en.py -- load_summary sa tolereze p95 gol
+   si fig_rtt_p95 sa marcheze received=0 (ca figura RO), apoi regenereaza + swap; fie (b)
+   pastreaza Fig. 7 RO provizorie pana atunci. NU am editat load_summary (in afara scopului).
