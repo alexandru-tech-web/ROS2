@@ -14,6 +14,18 @@ tc-netem zice ca default e normal. Raportam distributia pe care kernelul chiar a
 aplicat-o. Zero re-rulari (Regula 2: campanie inchisa).
 
 =====================================================================
+ANCORA 1a -- Sec. 3.2, propozitie noua dupa "eight conditions" (INSERARE)
+=====================================================================
+Se insereaza intre "...Table I lists the eight conditions." si "Loss uses
+netem's..." (acelasi <w:t> ca Ancora 1). Sustinuta de comanda 'ideal' din 1e
+(netem atasat chiar si la ideal: delay 0ms 0ms loss 0.0%).
+
+INSEREAZA (cu un spatiu inainte):
+  The netem qdisc is attached in every condition, including ideal (delay 0 ms,
+  jitter 0 ms, loss 0%), so all conditions run under the same queueing discipline
+  and differ only in the emulation parameters.
+
+=====================================================================
 ANCORA 1 -- Sec. 3.2, fraza cu modelul de pierdere + jitter (INLOCUIRE)
 =====================================================================
 Runul incepe cu "Degradation is injected with tc netem [9], [10]. Table I lists

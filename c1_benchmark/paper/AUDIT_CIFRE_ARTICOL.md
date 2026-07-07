@@ -173,6 +173,30 @@ lat200_jit50/lat200_l15). CONDITIONS mai contine loss_*_burst (:30-32) si gilber
 (:35-37) -- adaugate in cod DUPA campanie, FARA date in ~/DATE_CAMPANIE -> EXCLUSE
 din citare. Le mentionez doar ca sa fie clar ca nu le-am omis din greseala.
 
+PROVENIENTA GIT (ce versiune de cod a produs comenzile):
+  git log -1 --format='%h %ci' -- c1_benchmark/bench_core.py
+  -> 426bd77 2026-06-26 09:19:05 +0300  (HEAD; ultimul commit care atinge fisierul)
+Am reconstruit comenzile din codul la 426bd77. Istoric complet (3 commit-uri):
+  4cddf26 2026-06-11  harness initial
+  c61c1e2 2026-06-20  fix csv field limit + spread_c1
+  426bd77 2026-06-26  adauga conditii gilbert_* (netem gemodel)
+
+ATENTIE la datare (426bd77 NU e uniform anterior campaniei):
+  - SIL a rulat 2026-06-24  -> sub c61c1e2 (2026-06-20), ultimul commit INAINTE de 06-24.
+  - HIL a rulat 2026-07-01  -> sub 426bd77 (2026-06-26 = HEAD), ultimul INAINTE de 07-01.
+Deci 426bd77 e ULTERIOR SIL dar ANTERIOR HIL. Verificat ca reconstructia e valida
+pentru AMBELE medii:
+  diff c61c1e2..426bd77 pe bench_core.py atinge: (a) curatare ASCII in docstring;
+  (b) ADAUGA gilbert_20/25/30 in CONDITIONS; (c) refactorizeaza netem_cmd (ramura
+  'type==gilbert'). Cei 8 parametri (ideal, loss_5/15/20/25/30, lat200_jit50,
+  lat200_l15) sunt NESCHIMBATI. NOTA de onestitate: diff-ul atinge SI netem_cmd,
+  nu doar CONDITIONS -- DAR schimbarea e invarianta la iesire pentru cele 8
+  (ramura else 'loss {100*loss:.1f}%' identica). Reconstructie DUALA (netem_cmd din
+  c61c1e2 vs 426bd77 pe cele 8): toate 8 BYTE-IDENTICE. Deci comenzile de mai sus
+  valabile pentru SIL (c61c1e2) si HIL (426bd77) deopotriva. netem_cmd ca TEXT
+  difera intre commit-uri (s-a adaugat ramura gilbert); ca IESIRE pe cele 8, nu.
+  (burst-urile loss_*_burst existau deja la c61c1e2; nu au date in campanie -> irelevante.)
+
 Nota jitter (vezi 1d): la lat200_jit50 / lat200_l15 comanda are 'delay 200ms 50ms'
 FARA 'distribution' -> jitter UNIFORM in [150ms, 250ms], nu normal.
 DUPA ce citeaza aceste comenzi, Alexandru poate STERGE TODO-ul din Tabelul I.
