@@ -135,6 +135,49 @@ IMPACT ASUPRA DRAFTULUI (report-only, TEXT NEEDITAT):
 Nu am rulat tc. Recomandarea de rewording (formulata, neaplicata) e in sectiunea FRAZE.
 
 ================================================================================
+## 1e. Comenzi tc netem VERBATIM -- toate cele 8 conditii (inchide TODO Tabel I)
+================================================================================
+Scop: TODO-ul din Tabelul I ("loss_5/20/25/30 deduse din nume") sustine ca
+procentele de pierdere ar fi inferate din numele folderelor. FALS -- fiecare
+procent e EXPLICIT in tokenul 'loss X.X%' al comenzii tc. Mai jos, comenzile
+reconstruite VERBATIM ruland netem_cmd (bench_core.py:69-83) pe CONDITIONS
+(bench_core.py:22-40). Reconstructia e determinista (fara ROS, fara tc rulat).
+
+  conditie        linia   comanda tc netem (VERBATIM)
+  ------------    -----   ------------------------------------------------------------
+  ideal           :23     tc qdisc replace dev <IFACE> root netem delay 0ms 0ms loss 0.0%
+  loss_5          :24     tc qdisc replace dev <IFACE> root netem delay 0ms 0ms loss 5.0%
+  loss_15         :25     tc qdisc replace dev <IFACE> root netem delay 0ms 0ms loss 15.0%
+  loss_20         :26     tc qdisc replace dev <IFACE> root netem delay 0ms 0ms loss 20.0%
+  loss_25         :27     tc qdisc replace dev <IFACE> root netem delay 0ms 0ms loss 25.0%
+  loss_30         :28     tc qdisc replace dev <IFACE> root netem delay 0ms 0ms loss 30.0%
+  lat200_jit50    :38     tc qdisc replace dev <IFACE> root netem delay 200ms 50ms loss 0.0%
+  lat200_l15      :39     tc qdisc replace dev <IFACE> root netem delay 200ms 50ms loss 15.0%
+
+MAPARE nume-folder <-> token loss (dovada ca NU e "dedus din nume"):
+  loss_5 -> 'loss 5.0%', loss_15 -> 'loss 15.0%', loss_20 -> 'loss 20.0%',
+  loss_25 -> 'loss 25.0%', loss_30 -> 'loss 30.0%'. Numele e o eticheta; valoarea
+  aplicata vine din CONDITIONS[...]['loss'] * 100, formatat '%.1f%%' (bench_core.py:78).
+
+<IFACE> = interfata substituita la runtime:
+  - SIL: loopback 'lo' (README_SIL.md: "aceeasi masina, loopback").
+  - HIL_WIFI: interfata Wi-Fi reala pe laptop M1 + Raspberry Pi 4 (README_HIL_WIFI.md).
+    Numele exact al interfetei Wi-Fi NU e stocat in sumarele JSON -> [param de runtime].
+NOTA de provenienta: sumarele transport_p*_summary.json NU contin comanda/iface
+(chei: duration_s, loss, mean_ms, p50/p95/p99_ms, min/max_ms, n, sent, received,
+payload, rate_hz, rmw). Sursa unica de adevar pentru comenzi = bench_core.py.
+
+DOMENIU (onestitate): exact aceste 8 conditii exista in ~/DATE_CAMPANIE (verificat:
+SIL + HIL_WIFI, ambele RMW, toate au directoarele ideal/loss_5/15/20/25/30/
+lat200_jit50/lat200_l15). CONDITIONS mai contine loss_*_burst (:30-32) si gilbert_*
+(:35-37) -- adaugate in cod DUPA campanie, FARA date in ~/DATE_CAMPANIE -> EXCLUSE
+din citare. Le mentionez doar ca sa fie clar ca nu le-am omis din greseala.
+
+Nota jitter (vezi 1d): la lat200_jit50 / lat200_l15 comanda are 'delay 200ms 50ms'
+FARA 'distribution' -> jitter UNIFORM in [150ms, 250ms], nu normal.
+DUPA ce citeaza aceste comenzi, Alexandru poate STERGE TODO-ul din Tabelul I.
+
+================================================================================
 ## FRAZE GATA DE FOLOSIT (pentru Alexandru; le scrie el cu vocea lui)
 ================================================================================
 - REWORDING 3.2 / ec.(1) / Lim.6 la distributie UNIFORMA (comanda tc a rulat FARA
