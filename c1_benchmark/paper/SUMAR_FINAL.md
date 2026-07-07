@@ -25,13 +25,17 @@ Doua neconcordante de FORMULARE (nu de cifra): Sec 4.1 ("11-13 ms") si Sec 3.2/e
       0% loss." (canonic HIL ideal mean: 64B cdds 4.0 / zenoh 18.1; 4KB cdds 11.3 / zenoh 12.9.)
 (b) Sterge TODO-ul de agregare din Sec 3.3 -- metoda e CONFIRMATA corecta (media pe rep). Fraza
     "condition-level figures aggregate per-repetition summaries" ramane ca atare (e adevarata).
-(c) Rewording Sec 3.2 / ec. (1) / Lim. 6 la distributie UNIFORMA (comanda tc a rulat FARA
-    'distribution normal' -> kernel uniform; vezi 1d):
-    Sec 3.2: "delay variation (jitter) uses netem's uniform distribution (no distribution table
-      loaded; per the kernel the jitter is drawn uniformly, despite the man page's nominal
-      'Normal')."
-    ec. (1): "d_i = DELAY + x_i * JITTER,   x_i ~ U(-1, 1)."
-    Lim. (6): "uniform-distributed jitter."
+(c) FINALIZAT -> jitter UNIFORM (comanda tc a rulat FARA 'distribution normal' -> kernel
+    uniform; vezi 1d). Textul FINAL (scris de Alexandru) + ancorele exacte find/replace sunt
+    in FRAZE_FINALE_ARTICOL.md (5 ancore: Sec 3.2 proza, ec.(1) N_tab->U(-1,1), Sec 3.2 post-ec.,
+    Limitations (2), si intarirea optionala Sec 4.5). Pe scurt:
+    - Sec 3.2: jitter "applied without a distribution table ... drawn uniformly"; nota
+      discrepanta man-page-normal vs kernel-uniform (tabledist/sch_netem.c).
+    - ec. (1): "d_i = DELAY + x_i * JITTER,   x_i ~ U(-1, 1),   (1)".
+    - Limitations (2): "uniformly distributed, bounded jitter (Sec. 3.2)".
+    - Sec 4.5 (optional): canalul adauga <=250 ms/sens; max CDDS 543 ms marginesc contributia
+      mediului -> RTT-urile multi-secunda Zenoh vin din stiva de transport, nu din canal.
+    NB: NU am editat docx-ul (Regula 3); Alexandru lipeste cele 5 ancore (4 replace + 1 insert).
 (d) Fig. 4 (caption/text) -- zecimale exacte: la ideal, 64 KB pe Wi-Fi, Zenoh pierde 57.8%
     (rotunjit 58%), CycloneDDS 0%.
 (e) Sec 3.1 versiuni: vezi VERSIUNI_3.1.md (laptop cules; Pi de completat prin snippet SSH).
