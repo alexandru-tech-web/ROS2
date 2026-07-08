@@ -49,6 +49,19 @@
 #   - fig_rtt_p95 marks received=0 cells in red instead of plotting a bar.
 #   - PAYLOAD_LOSS updated to canonical decimals (audit Pas 2d, 2026-07,
 #     recomputed via the campaign pipeline on canonical data).
+#
+# v2.1 (2026-07-08):
+#   - Legends moved ABOVE the axes (outside the plot area) on all
+#     figures: fixes legend/panel-tag/value-label collisions that
+#     appear with different font metrics across environments (R17).
+#     No data changes.
+#
+# v2.2 (2026-07-08):
+#   - Value labels of the two series are offset laterally (+/-2.5 pt)
+#     so labels of similar-height adjacent bars no longer touch.
+#   - Log-scale figure gets multiplicative headroom (top = max*2.2)
+#     so the tallest label stays inside the axes; linear panels get
+#     ylim 112. No data changes.
 
 import argparse
 import csv
@@ -107,7 +120,7 @@ PAYLOAD_LOSS = {
 }
 
 
-def _bar_pair(ax, xlabels, vals_cdds, vals_zenoh, ylim=(0, 108),
+def _bar_pair(ax, xlabels, vals_cdds, vals_zenoh, ylim=(0, 112),
               value_fmt="{:.1f}"):
     n = len(xlabels)
     x = range(n)
@@ -120,18 +133,26 @@ def _bar_pair(ax, xlabels, vals_cdds, vals_zenoh, ylim=(0, 108),
     b2 = ax.bar([i + w / 2 for i in x], plot_z, width=w,
                 color=COLOR_ZENOH, edgecolor="black", linewidth=0.4,
                 label=LABEL_ZENOH)
-    for bars, vals in ((b1, vals_cdds), (b2, vals_zenoh)):
+    for bars, vals, dx in ((b1, vals_cdds, -2.5), (b2, vals_zenoh, 2.5)):
         for rect, v in zip(bars, vals):
             if v is None:
                 continue  # received=0: no bar label; caller marks it
             ax.annotate(value_fmt.format(v),
                         xy=(rect.get_x() + rect.get_width() / 2, v),
-                        xytext=(0, 1.5), textcoords="offset points",
+                        xytext=(dx, 2.0), textcoords="offset points",
                         ha="center", va="bottom", fontsize=6)
     ax.set_xticks(list(x))
     ax.set_xticklabels(xlabels, rotation=30, ha="right")
     ax.set_ylim(*ylim)
     return b1, b2
+
+
+def _legend_top(fig, ax, top):
+    """Legend above the axes, outside the plot area (collision-proof)."""
+    h, l = ax.get_legend_handles_labels()
+    fig.legend(h, l, loc="upper center", ncol=2, frameon=False,
+               bbox_to_anchor=(0.5, 1.0))
+    fig.tight_layout(rect=(0, 0, 1, top))
 
 
 def fig_divergence(outdir):
@@ -143,8 +164,7 @@ def fig_divergence(outdir):
     _bar_pair(ax, ["SIL (loopback)", "HIL (real Wi-Fi)"],
               [sil[0], hil[0]], [sil[1], hil[1]])
     ax.set_ylabel("Sample loss [%]")
-    ax.legend(loc="upper left", frameon=False)
-    fig.tight_layout()
+    _legend_top(fig, ax, top=0.90)
     path = os.path.join(outdir, "fig_divergence_en.png")
     fig.savefig(path, dpi=DPI)
     plt.close(fig)
@@ -163,9 +183,8 @@ def fig_loss_sil_hil(outdir, loss=None):
         ax.text(0.02, 0.90,
                 "SIL (loopback)" if env == "SIL" else "HIL (real Wi-Fi)",
                 transform=ax.transAxes, fontsize=8, fontweight="bold")
-    axes[0].legend(loc="upper center", frameon=False, ncol=2)
     axes[1].set_xlabel("Network condition (tc netem)")
-    fig.tight_layout()
+    _legend_top(fig, axes[0], top=0.95)
     path = os.path.join(outdir, "fig_loss_sil_hil_en.png")
     fig.savefig(path, dpi=DPI)
     plt.close(fig)
@@ -184,9 +203,8 @@ def fig_payload(outdir):
         ax.set_ylabel("Sample loss [%]")
         ax.text(0.02, 0.90, tag, transform=ax.transAxes,
                 fontsize=8, fontweight="bold")
-    axes[0].legend(loc="upper center", frameon=False, ncol=2)
     axes[1].set_xlabel("Payload size")
-    fig.tight_layout()
+    _legend_top(fig, axes[0], top=0.94)
     path = os.path.join(outdir, "fig_payload_en.png")
     fig.savefig(path, dpi=DPI)
     plt.close(fig)
@@ -249,7 +267,8 @@ def fig_rtt_p95(outdir, p95):
     vc, vz = p95[("HIL", "cdds")], p95[("HIL", "zenoh")]
     _bar_pair(ax, CONDITIONS, vc, vz, ylim=(1, None), value_fmt="{:.0f}")
     ax.set_yscale("log")
-    ax.set_ylim(bottom=1)
+    vmax = max(v for vals in (vc, vz) for v in vals if v is not None)
+    ax.set_ylim(1, vmax * 2.2)
     for vals, dx in ((vc, -0.19), (vz, +0.19)):
         for i, v in enumerate(vals):
             if v is None:
@@ -258,8 +277,7 @@ def fig_rtt_p95(outdir, p95):
                         va="bottom")
     ax.set_ylabel("RTT p95 [ms] (log scale)")
     ax.set_xlabel("Network condition (tc netem)")
-    ax.legend(loc="upper left", frameon=False)
-    fig.tight_layout()
+    _legend_top(fig, ax, top=0.90)
     path = os.path.join(outdir, "fig_rtt_p95_en.png")
     fig.savefig(path, dpi=DPI)
     plt.close(fig)
