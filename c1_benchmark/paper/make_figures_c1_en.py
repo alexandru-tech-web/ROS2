@@ -41,6 +41,14 @@
 #          Expected columns: env, condition, rmw, rtt_ms (HIL rows used).
 #
 # ASCII-clean by project convention.
+#
+# v2 (2026-07-07):
+#   - load_summary tolerates an empty rtt_p95_ms cell (received=0 case,
+#     e.g. HIL zenoh lat200_l15) instead of crashing on float('');
+#     honesty guard: empty p95 is accepted ONLY where loss_pct == 100.
+#   - fig_rtt_p95 marks received=0 cells in red instead of plotting a bar.
+#   - PAYLOAD_LOSS updated to canonical decimals (audit Pas 2d, 2026-07,
+#     recomputed via the campaign pipeline on canonical data).
 
 import argparse
 import csv
@@ -92,13 +100,10 @@ LOSS = {
 # from the canonical CSV before submission.
 PAYLOADS = ["64 B", "4 KB", "64 KB"]
 PAYLOAD_LOSS = {
-    # HIL sample loss [%] at [64 B, 4 KB, 64 KB]. Exact decimals refreshed from the canonical
-    # aggregate (make_tables.py on ~/DATE_CAMPANIE/HIL_WIFI/date, mean over reps, 2026-07-01);
-    # was: "displayed" integers read off fig_payload.png. See AUDIT_CIFRE_ARTICOL.md, Fig. 4.
-    ("ideal",   "cdds"):  [0.0,  0.0,  0.0],    # canonic HIL cdds ideal:   p64 0.0 / p4096 0.0 / p65536 0.0
-    ("ideal",   "zenoh"): [0.0,  0.0, 57.8],    # canonic HIL zenoh ideal:  0.0 / 0.0 / 57.8  (was 58.0 displayed)
-    ("loss_15", "cdds"):  [0.8, 20.8, 99.2],    # canonic HIL cdds loss_15: 0.8 / 20.8 / 99.2 (was 1.0/.. /99.0)
-    ("loss_15", "zenoh"): [39.5, 61.6, 98.3],   # canonic HIL zenoh loss_15:39.5 / 61.6 / 98.3 (was 39.0/.. /98.0)
+    ("ideal",   "cdds"):  [0.0,  0.0,  0.0],
+    ("ideal",   "zenoh"): [0.0,  0.0, 57.8],   # canonical decimals:
+    ("loss_15", "cdds"):  [0.8, 20.8, 99.2],   # audit Pas 2d (2026-07),
+    ("loss_15", "zenoh"): [39.5, 61.6, 98.3],  # recomputed via pipeline
 }
 
 
@@ -107,17 +112,20 @@ def _bar_pair(ax, xlabels, vals_cdds, vals_zenoh, ylim=(0, 108),
     n = len(xlabels)
     x = range(n)
     w = 0.38
-    b1 = ax.bar([i - w / 2 for i in x], vals_cdds, width=w,
+    plot_c = [0 if v is None else v for v in vals_cdds]
+    plot_z = [0 if v is None else v for v in vals_zenoh]
+    b1 = ax.bar([i - w / 2 for i in x], plot_c, width=w,
                 color=COLOR_CDDS, edgecolor="black", linewidth=0.4,
                 label=LABEL_CDDS)
-    b2 = ax.bar([i + w / 2 for i in x], vals_zenoh, width=w,
+    b2 = ax.bar([i + w / 2 for i in x], plot_z, width=w,
                 color=COLOR_ZENOH, edgecolor="black", linewidth=0.4,
                 label=LABEL_ZENOH)
-    for bars in (b1, b2):
-        for rect in bars:
-            h = rect.get_height()
-            ax.annotate(value_fmt.format(h),
-                        xy=(rect.get_x() + rect.get_width() / 2, h),
+    for bars, vals in ((b1, vals_cdds), (b2, vals_zenoh)):
+        for rect, v in zip(bars, vals):
+            if v is None:
+                continue  # received=0: no bar label; caller marks it
+            ax.annotate(value_fmt.format(v),
+                        xy=(rect.get_x() + rect.get_width() / 2, v),
                         xytext=(0, 1.5), textcoords="offset points",
                         ha="center", va="bottom", fontsize=6)
     ax.set_xticks(list(x))
@@ -197,6 +205,14 @@ RMW_KEY = {"cyclonedds": "cdds", "rmw_cyclonedds": "cdds",
            "rmw_zenoh_cpp": "zenoh"}
 
 
+def _opt_float(raw):
+    """Empty / NA cells -> None (legitimate only for received=0)."""
+    v = (raw or "").strip()
+    if v.lower() in ("", "na", "nan", "none", "null", "-"):
+        return None
+    return float(v)
+
+
 def load_summary(path):
     loss, p95 = {}, {}
     with open(path, newline="") as f:
@@ -210,22 +226,36 @@ def load_summary(path):
             loss.setdefault((env, rmw), [None] * len(CONDITIONS))
             p95.setdefault((env, rmw), [None] * len(CONDITIONS))
             loss[(env, rmw)][i] = float(row[COLMAP["loss_pct"]])
-            p95[(env, rmw)][i] = float(row[COLMAP["rtt_p95_ms"]])
+            p95[(env, rmw)][i] = _opt_float(row[COLMAP["rtt_p95_ms"]])
     for key, vals in loss.items():
         missing = [CONDITIONS[i] for i, v in enumerate(vals) if v is None]
         if missing:
             sys.exit("summary CSV incomplete for %s: missing %s"
                      % (key, ", ".join(missing)))
+    # honesty guard: a missing p95 is only legitimate when nothing was
+    # received (loss == 100%); otherwise the CSV is inconsistent.
+    for key, vals in p95.items():
+        for i, v in enumerate(vals):
+            if v is None and loss[key][i] < 100.0:
+                sys.exit("p95 missing but loss=%.1f%% (<100) for %s @ %s"
+                         % (loss[key][i], key, CONDITIONS[i]))
     return loss, p95
 
 
 def fig_rtt_p95(outdir, p95):
-    """HIL p95 RTT per condition, log scale (canonical data required)."""
+    """HIL p95 RTT per condition, log scale (canonical data required).
+    Cells with p95=None (received=0) get a red marker instead of a bar."""
     fig, ax = plt.subplots(figsize=(3.5, 2.6))
-    _bar_pair(ax, CONDITIONS, p95[("HIL", "cdds")], p95[("HIL", "zenoh")],
-              ylim=(1, None), value_fmt="{:.0f}")
+    vc, vz = p95[("HIL", "cdds")], p95[("HIL", "zenoh")]
+    _bar_pair(ax, CONDITIONS, vc, vz, ylim=(1, None), value_fmt="{:.0f}")
     ax.set_yscale("log")
     ax.set_ylim(bottom=1)
+    for vals, dx in ((vc, -0.19), (vz, +0.19)):
+        for i, v in enumerate(vals):
+            if v is None:
+                ax.text(i + dx, 1.4, "received=0", color="#B00000",
+                        fontsize=5.5, rotation=90, ha="center",
+                        va="bottom")
     ax.set_ylabel("RTT p95 [ms] (log scale)")
     ax.set_xlabel("Network condition (tc netem)")
     ax.legend(loc="upper left", frameon=False)
