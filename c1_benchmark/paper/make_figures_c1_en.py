@@ -62,6 +62,12 @@
 #   - Log-scale figure gets multiplicative headroom (top = max*2.2)
 #     so the tallest label stays inside the axes; linear panels get
 #     ylim 112. No data changes.
+#
+# v2.3 (2026-07-09):
+#   - Three architecture diagrams (Fig. 1 RMW abstraction, Fig. 2 SIL,
+#     Fig. 3 HIL) redrawn in English, technical tone, same visual
+#     style as the data figures. Pure matplotlib boxes/arrows; no
+#     campaign data involved.
 
 import argparse
 import csv
@@ -212,6 +218,138 @@ def fig_payload(outdir):
 
 
 # ----------------------------------------------------------------------
+# Architecture diagrams (Fig. 1-3) -- English, technical tone
+# ----------------------------------------------------------------------
+import matplotlib.patches as mpatches
+
+BOX_APP = "#E8E8F8"   # lavender: application-side layers
+BOX_RMW = "#FBEEDB"   # sand: rmw layer
+BOX_NET = "#EDEDED"   # grey: network interface layer
+BOX_CD  = "#DFF0DF"   # green tint: cyclonedds leaf
+BOX_ZN  = "#F4E3EC"   # purple tint: zenoh leaf
+EDGE = "#333333"
+
+
+def _box(ax, cx, cy, w, h, lines, fc, fs=7, mono=False):
+    r = mpatches.FancyBboxPatch((cx - w / 2, cy - h / 2), w, h,
+                                boxstyle="round,pad=0.008,rounding_size=0.015",
+                                linewidth=0.8, edgecolor=EDGE, facecolor=fc)
+    ax.add_patch(r)
+    fam = "monospace" if mono else None
+    ax.text(cx, cy, "\n".join(lines), ha="center", va="center",
+            fontsize=fs, family=fam)
+    return r
+
+
+def _arrow(ax, x0, y0, x1, y1, style="-|>", lw=0.9):
+    ax.annotate("", xy=(x1, y1), xytext=(x0, y0),
+                arrowprops=dict(arrowstyle=style, lw=lw, color=EDGE,
+                                shrinkA=1, shrinkB=1))
+
+
+def fig_rmw_stack(outdir):
+    """Fig. 1: the RMW abstraction stack with the two rmw leaves."""
+    fig, ax = plt.subplots(figsize=(3.4, 2.6))
+    ax.set_xlim(0, 1); ax.set_ylim(0, 1); ax.axis("off")
+    ys = [0.92, 0.74, 0.56, 0.38]
+    labels = [
+        ("Application code (ROS 2 node)", BOX_APP, False),
+        ("rclcpp / rclpy (client library)", BOX_APP, False),
+        ("rcl (language-agnostic client interface)", BOX_APP, False),
+        ("rmw (selected via RMW_IMPLEMENTATION)", BOX_RMW, False),
+    ]
+    for y, (txt, fc, mono) in zip(ys, labels):
+        _box(ax, 0.5, y, 0.78, 0.115, [txt], fc, fs=7, mono=mono)
+    for ya, yb in zip(ys[:-1], ys[1:]):
+        _arrow(ax, 0.5, ya - 0.058, 0.5, yb + 0.058)
+    _box(ax, 0.24, 0.16, 0.42, 0.115, ["rmw_cyclonedds_cpp"], BOX_CD,
+         fs=7, mono=True)
+    _box(ax, 0.76, 0.16, 0.42, 0.115, ["rmw_zenoh_cpp"], BOX_ZN,
+         fs=7, mono=True)
+    _arrow(ax, 0.40, ys[3] - 0.058, 0.24, 0.16 + 0.058)
+    _arrow(ax, 0.60, ys[3] - 0.058, 0.76, 0.16 + 0.058)
+    ax.text(0.24, 0.045, "DDS/RTPS: peer-to-peer UDP,\nmulticast discovery",
+            ha="center", va="center", fontsize=5.8)
+    ax.text(0.76, 0.045, "Zenoh: brokered TCP,\nrouter + gossip scouting",
+            ha="center", va="center", fontsize=5.8)
+    fig.tight_layout(pad=0.2)
+    path = os.path.join(outdir, "fig_rmw_stack_en.png")
+    fig.savefig(path, dpi=DPI)
+    plt.close(fig)
+    return path
+
+
+def fig_sil_arch(outdir):
+    """Fig. 2: SIL architecture -- single host, loopback, netem on lo."""
+    fig, ax = plt.subplots(figsize=(3.4, 2.1))
+    ax.set_xlim(0, 1); ax.set_ylim(0, 1); ax.axis("off")
+    host = mpatches.FancyBboxPatch((0.03, 0.05), 0.94, 0.80,
+                                   boxstyle="round,pad=0.008",
+                                   linewidth=0.8, edgecolor=EDGE,
+                                   facecolor="none", linestyle="--")
+    ax.add_patch(host)
+    ax.text(0.5, 0.93, "SIL -- single host (loopback)", ha="center",
+            va="center", fontsize=8, fontweight="bold")
+    _box(ax, 0.27, 0.72, 0.40, 0.155,
+         ["Client", "bench_client.py"], BOX_APP, fs=6.5, mono=False)
+    _box(ax, 0.73, 0.72, 0.40, 0.155,
+         ["Echo server", "bench_echo_server.py"], BOX_APP, fs=6.5)
+    _box(ax, 0.5, 0.45, 0.80, 0.13,
+         ["RMW: rmw_cyclonedds_cpp | rmw_zenoh_cpp (+ router)"],
+         BOX_RMW, fs=6.5)
+    _box(ax, 0.5, 0.18, 0.86, 0.13,
+         ["loopback interface (lo)  +  tc netem (delay / jitter / loss)"],
+         BOX_NET, fs=6.5)
+    _arrow(ax, 0.27, 0.72 - 0.078, 0.40, 0.45 + 0.065)
+    _arrow(ax, 0.73, 0.72 - 0.078, 0.60, 0.45 + 0.065)
+    _arrow(ax, 0.5, 0.45 - 0.065, 0.5, 0.18 + 0.065, style="<|-|>")
+    fig.tight_layout(pad=0.2)
+    path = os.path.join(outdir, "fig_sil_arch_en.png")
+    fig.savefig(path, dpi=DPI)
+    plt.close(fig)
+    return path
+
+
+def fig_hil_arch(outdir):
+    """Fig. 3: HIL architecture -- two hosts over real Wi-Fi."""
+    fig, ax = plt.subplots(figsize=(3.5, 1.85))
+    ax.set_xlim(0, 1); ax.set_ylim(0, 1); ax.axis("off")
+    ax.text(0.5, 0.95,
+            "HIL -- two hosts, real Wi-Fi (symmetric netem on both interfaces)",
+            ha="center", va="center", fontsize=6.8, fontweight="bold")
+    for x0, tag in ((0.03, "M1 (laptop)"), (0.53, "M2 (Raspberry Pi 4)")):
+        r = mpatches.FancyBboxPatch((x0, 0.06), 0.44, 0.76,
+                                    boxstyle="round,pad=0.006",
+                                    linewidth=0.8, edgecolor=EDGE,
+                                    facecolor="none", linestyle="--")
+        ax.add_patch(r)
+        ax.text(x0 + 0.22, 0.87, tag, ha="center", va="center",
+                fontsize=6.5, fontweight="bold")
+    _box(ax, 0.25, 0.70, 0.36, 0.16, ["Client", "bench_client.py"],
+         BOX_APP, fs=6)
+    _box(ax, 0.75, 0.70, 0.36, 0.16, ["Echo server", "bench_echo_server.py"],
+         BOX_CD, fs=6)
+    _box(ax, 0.25, 0.44, 0.40, 0.13, ["RMW: CDDS | Zenoh (+ router)"],
+         BOX_RMW, fs=6)
+    _box(ax, 0.75, 0.44, 0.40, 0.13, ["RMW: CDDS | Zenoh (+ router)"],
+         BOX_RMW, fs=6)
+    _box(ax, 0.25, 0.18, 0.34, 0.13, ["wlp4s0 + tc netem"], BOX_NET, fs=6)
+    _box(ax, 0.75, 0.18, 0.34, 0.13, ["wlan0 + tc netem"], BOX_NET, fs=6)
+    for x in (0.25, 0.75):
+        _arrow(ax, x, 0.70 - 0.08, x, 0.44 + 0.065)
+        _arrow(ax, x, 0.44 - 0.065, x, 0.18 + 0.065)
+    _arrow(ax, 0.25 + 0.17, 0.18, 0.75 - 0.17, 0.18, style="<|-|>")
+    ax.text(0.5, 0.085,
+            "real Wi-Fi (consumer AP) -- explicit unicast connect between routers",
+            ha="center", va="center", fontsize=5.6)
+    fig.tight_layout(pad=0.2)
+    path = os.path.join(outdir, "fig_hil_arch_en.png")
+    fig.savefig(path, dpi=DPI)
+    plt.close(fig)
+    return path
+
+
+# ----------------------------------------------------------------------
 # Canonical-CSV modes (run locally on the machine with DATE_CAMPANIE)
 # ----------------------------------------------------------------------
 COLMAP = {"env": "env", "condition": "condition", "rmw": "rmw",
@@ -325,6 +463,8 @@ def main():
     ap.add_argument("--rtt-csv", default=None,
                     help="raw RTT samples CSV for the CDF figure")
     ap.add_argument("--cdf-cond", default="lat200_jit50")
+    ap.add_argument("--arch", action="store_true",
+                    help="also draw the three architecture diagrams")
     args = ap.parse_args()
     os.makedirs(args.outdir, exist_ok=True)
 
@@ -341,6 +481,11 @@ def main():
         made.append(fig_divergence(args.outdir))
         made.append(fig_loss_sil_hil(args.outdir))
         made.append(fig_payload(args.outdir))
+
+    if args.arch:
+        made.append(fig_rmw_stack(args.outdir))
+        made.append(fig_sil_arch(args.outdir))
+        made.append(fig_hil_arch(args.outdir))
 
     if args.rtt_csv:
         made.append(fig_cdf(args.outdir, args.rtt_csv, args.cdf_cond))
