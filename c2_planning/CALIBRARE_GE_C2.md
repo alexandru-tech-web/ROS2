@@ -82,15 +82,15 @@ L=30%, B=3). B_real coincide cu B tinta; B_p95 arata coada geometrica (23 la B=8
 COMENZI netem EXACTE (text, NErulate) -- Simple Gilbert (1-h=100%, 1-k=0%) +
 perechea Bernoulli (memoryless) la acelasi L:
   -- L=5% --  Bernoulli: tc qdisc replace dev <IFACE> root netem loss 5.0000%
-     B=1 (control ~Bernoulli): tc qdisc replace dev <IFACE> root netem loss gemodel 5.2632% 100.0000% 100% 0%
+     B=1 [CORECTAT 2026-07-15 -- vezi sectiunea CORECTIE de la final]: tc qdisc replace dev <IFACE> root netem loss gemodel 5.2632% 100.0000% 100% 0%
      B=3:                      tc qdisc replace dev <IFACE> root netem loss gemodel 1.7544% 33.3333% 100% 0%
      B=8:                      tc qdisc replace dev <IFACE> root netem loss gemodel 0.6579% 12.5000% 100% 0%
   -- L=15% --  Bernoulli: tc qdisc replace dev <IFACE> root netem loss 15.0000%
-     B=1 (control ~Bernoulli): tc qdisc replace dev <IFACE> root netem loss gemodel 17.6471% 100.0000% 100% 0%
+     B=1 [CORECTAT 2026-07-15 -- vezi sectiunea CORECTIE de la final]: tc qdisc replace dev <IFACE> root netem loss gemodel 17.6471% 100.0000% 100% 0%
      B=3:                      tc qdisc replace dev <IFACE> root netem loss gemodel 5.8824% 33.3333% 100% 0%
      B=8:                      tc qdisc replace dev <IFACE> root netem loss gemodel 2.2059% 12.5000% 100% 0%
   -- L=30% --  Bernoulli: tc qdisc replace dev <IFACE> root netem loss 30.0000%
-     B=1 (control ~Bernoulli): tc qdisc replace dev <IFACE> root netem loss gemodel 42.8571% 100.0000% 100% 0%
+     B=1 [CORECTAT 2026-07-15 -- vezi sectiunea CORECTIE de la final]: tc qdisc replace dev <IFACE> root netem loss gemodel 42.8571% 100.0000% 100% 0%
      B=3:                      tc qdisc replace dev <IFACE> root netem loss gemodel 14.2857% 33.3333% 100% 0%
      B=8:                      tc qdisc replace dev <IFACE> root netem loss gemodel 5.3571% 12.5000% 100% 0%
 <IFACE> = interfata substituita la runtime (SIL: lo; HIL: interfata Wi-Fi).
@@ -160,3 +160,11 @@ INTREBARI DESCHISE (decizia e a lui Alexandru)
 6. Validare realizata: confirmam ca planul de campanie C2 LOGHEAZA secventa de
    pierdere per-esantion (nu doar sumarul), ca sa putem masura B_real din date
    (obligatoriu, per nota de onestitate PAS 1).
+
+## CORECTIE 2026-07-15: B=1 nu este control Bernoulli
+gemodel cu B=1 => r=1, care INTERZICE pierderile consecutive;
+Bernoulli adevarat le permite (la L=30%, rafala medie ~1.43).
+Controlul corect: gemodel cu DOAR p (implicit r=1-p, 1-h=1,
+1-k=0 => modelul Bernoulli, per man tc-netem). B=1 este
+ELIMINAT din grila C2; grila finala: ideal + bern_{5,15,30}
+(gemodel doar p) + ge_{5,15,30} x B{3,8}.
