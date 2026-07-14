@@ -27,6 +27,8 @@ CONDITIONS = [
     dict(name="loss_25",      base_ms=0,   jitter_ms=0,  loss=0.25),
     dict(name="loss_30",      base_ms=0,   jitter_ms=0,  loss=0.30),
     # rafale simple (netem 'loss p% r%'): pierdere CORELATA, aceeasi medie
+    # DEPRECATED: model corelat vechi (loss random CORRELATION, deprecat in man);
+    # nefolosit in C2 -- vezi CALIBRARE_GE_C2.md
     dict(name="loss_20_burst", base_ms=0,   jitter_ms=0,  loss=0.20, corr=0.50),
     dict(name="loss_25_burst", base_ms=0,   jitter_ms=0,  loss=0.25, corr=0.50),
     dict(name="loss_30_burst", base_ms=0,   jitter_ms=0,  loss=0.30, corr=0.50),
@@ -37,6 +39,22 @@ CONDITIONS = [
     dict(name="gilbert_30",   base_ms=0,   jitter_ms=0,  loss=0.30, type="gilbert", p=0.0857, r=0.2000),
     dict(name="lat200_jit50", base_ms=200, jitter_ms=50, loss=0.00),
     dict(name="lat200_l15",   base_ms=200, jitter_ms=50, loss=0.15),
+    # --- C2: pierdere corelata (Gilbert-Elliott) vs Bernoulli la ACEEASI rata medie L.
+    # Simple Gilbert (1-h=1, 1-k=0), refolosind ramura 'gilbert' EXISTENTA din netem_cmd.
+    # bern_L = Bernoulli adevarat (memoryless): via gemodel cu r=1-p (echivalent 'gemodel p';
+    #          cu 1-r==p lantul e fara memorie). ge_L_B = rafale: r=1/B, p=L/(B*(1-L)).
+    # (p, r) EXACT din CALIBRARE_GE_C2.md (procent afisat la 4 zecimale). B=1 ELIMINAT din
+    # grila (r=1 interzice pierderi consecutive => NU e Bernoulli; vezi nota din calibrare).
+    # type=gilbert => excluse implicit din campania C1; se aleg cu --conditions in C2.
+    dict(name="bern_5",   base_ms=0, jitter_ms=0, loss=0.05, type="gilbert", p=0.05,     r=0.95),
+    dict(name="bern_15",  base_ms=0, jitter_ms=0, loss=0.15, type="gilbert", p=0.15,     r=0.85),
+    dict(name="bern_30",  base_ms=0, jitter_ms=0, loss=0.30, type="gilbert", p=0.30,     r=0.70),
+    dict(name="ge_5_3",   base_ms=0, jitter_ms=0, loss=0.05, type="gilbert", p=0.017544, r=0.333333),
+    dict(name="ge_5_8",   base_ms=0, jitter_ms=0, loss=0.05, type="gilbert", p=0.006579, r=0.125),
+    dict(name="ge_15_3",  base_ms=0, jitter_ms=0, loss=0.15, type="gilbert", p=0.058824, r=0.333333),
+    dict(name="ge_15_8",  base_ms=0, jitter_ms=0, loss=0.15, type="gilbert", p=0.022059, r=0.125),
+    dict(name="ge_30_3",  base_ms=0, jitter_ms=0, loss=0.30, type="gilbert", p=0.142857, r=0.333333),
+    dict(name="ge_30_8",  base_ms=0, jitter_ms=0, loss=0.30, type="gilbert", p=0.053571, r=0.125),
 ]
 
 
