@@ -1,0 +1,16 @@
+{
+ "n": 883,
+ "sent": 989,
+ "received": 883,
+ "loss": 0.1072,
+ "mean_ms": 253.834,
+ "p50_ms": 166.78,
+ "p95_ms": 815.653,
+ "p99_ms": 1540.579,
+ "min_ms": 0.669,
+ "max_ms": 2042.636,
+ "payload": 4096,
+ "rate_hz": 50.0,
+ "duration_s": 20.0,
+ "rmw": "rmw_zenoh_cpp"
+}

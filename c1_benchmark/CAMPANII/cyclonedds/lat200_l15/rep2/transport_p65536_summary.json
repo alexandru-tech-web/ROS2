@@ -1,0 +1,10 @@
+{
+ "n": 0,
+ "sent": 989,
+ "received": 0,
+ "loss": 1.0,
+ "payload": 65536,
+ "rate_hz": 50.0,
+ "duration_s": 20.0,
+ "rmw": "rmw_cyclonedds_cpp"
+}

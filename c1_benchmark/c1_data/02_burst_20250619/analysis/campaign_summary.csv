@@ -1,0 +1,13 @@
+rmw,condition,rtt_p95_ms,transport_loss,mission_time_s,mission_completed,coverage_end
+cyclonedds,loss_20,1750.4635999999998,0.075,122.9,5/5,1.0
+cyclonedds,loss_20_burst,67.7514,0.000,118.3,5/5,1.0
+cyclonedds,loss_25,2125.6766,0.254,122.9,5/5,0.9996
+cyclonedds,loss_25_burst,275.10880000000003,0.000,113.8,5/5,0.9998799999999999
+cyclonedds,loss_30,2421.123,0.398,125.7,5/5,1.0
+cyclonedds,loss_30_burst,828.356,0.001,121.2,5/5,0.99954
+zenoh,loss_20,85.6894,0.155,122.3,5/5,0.99778
+zenoh,loss_20_burst,24.6928,0.000,113.9,5/5,0.99914
+zenoh,loss_25,395.3348,0.031,127.8,5/5,0.99968
+zenoh,loss_25_burst,403.9138,0.014,119.1,5/5,0.99914
+zenoh,loss_30,1019.1018,0.063,127.6,5/5,0.99718
+zenoh,loss_30_burst,3075.0624000000003,0.270,128.6,5/5,0.9994799999999999

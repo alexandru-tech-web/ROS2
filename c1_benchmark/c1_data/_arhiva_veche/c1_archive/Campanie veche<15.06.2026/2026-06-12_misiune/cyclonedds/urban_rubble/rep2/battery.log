@@ -1,0 +1,12 @@
+[ERROR] [1781237233.903288894] [rcl]: Failed to parse global arguments
+Traceback (most recent call last):
+  File "/home/ubuntu/ros2_ws/src/sar_plugins/nodes/battery_node.py", line 137, in <module>
+    main()
+  File "/home/ubuntu/ros2_ws/src/sar_plugins/nodes/battery_node.py", line 124, in main
+    rclpy.init()
+  File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/__init__.py", line 88, in init
+    context.init(args, domain_id=domain_id)
+  File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/context.py", line 99, in init
+    self.__context = _rclpy.Context(
+                     ^^^^^^^^^^^^^^^
+rclpy._rclpy_pybind11.RCLError: failed to initialize rcl: Couldn't parse parameter override rule: '-p failsafe_template:={"type":"drone","id":"%ID%","action":"rth"}'. Error: Unknown YAML event, at ./src/parse.c:957, at ./src/rcl/arguments.c:352

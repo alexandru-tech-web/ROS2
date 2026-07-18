@@ -1,0 +1,16 @@
+{
+ "n": 651,
+ "sent": 989,
+ "received": 651,
+ "loss": 0.3418,
+ "mean_ms": 2271.373,
+ "p50_ms": 2292.133,
+ "p95_ms": 2558.334,
+ "p99_ms": 2932.501,
+ "min_ms": 1399.07,
+ "max_ms": 3049.343,
+ "payload": 4096,
+ "rate_hz": 50.0,
+ "duration_s": 20.0,
+ "rmw": "rmw_cyclonedds_cpp"
+}

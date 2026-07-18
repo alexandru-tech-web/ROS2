@@ -1,0 +1,21 @@
+[WARN] [1781236931.307197790] [latency_probe]: New publisher discovered on topic '/sar/linkstate', offering incompatible QoS. No messages will be received from it. Last incompatible policy: RELIABILITY
+Traceback (most recent call last):
+  File "/home/ubuntu/ros2_ws/src/sar_swarm/latency_probe.py", line 105, in <module>
+    if __name__ == "__main__": main()
+                               ^^^^^^
+  File "/home/ubuntu/ros2_ws/src/sar_swarm/latency_probe.py", line 99, in main
+    try: rclpy.spin(n)
+         ^^^^^^^^^^^^^
+  File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/__init__.py", line 247, in spin
+    executor.spin_once()
+  File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/executors.py", line 926, in spin_once
+    self._spin_once_impl(timeout_sec)
+  File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/executors.py", line 907, in _spin_once_impl
+    handler, entity, node = self.wait_for_ready_callbacks(
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/executors.py", line 877, in wait_for_ready_callbacks
+    return next(self._cb_iter)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/executors.py", line 785, in _wait_for_ready_callbacks
+    raise ExternalShutdownException()
+rclpy.executors.ExternalShutdownException

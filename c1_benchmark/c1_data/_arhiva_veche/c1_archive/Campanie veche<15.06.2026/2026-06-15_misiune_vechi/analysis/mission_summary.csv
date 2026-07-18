@@ -1,0 +1,9 @@
+rmw,profile,rep,t90_s,mission_time_s,completed,coverage_end,victims_found,rtl_events
+cyclonedds,open_field,1,103.0,146.0,1,1.0,5,0
+cyclonedds,open_field,2,119.0,130.0,1,1.0,5,0
+cyclonedds,urban_rubble,1,91.0,131.5,1,1.0,5,0
+cyclonedds,urban_rubble,2,118.0,129.5,1,1.0,5,0
+zenoh,open_field,1,91.0,125.0,1,1.0,5,0
+zenoh,open_field,2,101.0,141.0,1,1.0,5,0
+zenoh,urban_rubble,1,115.0,126.5,1,1.0,5,0
+zenoh,urban_rubble,2,91.0,127.0,1,1.0,5,0
