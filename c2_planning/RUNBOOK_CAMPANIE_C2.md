@@ -22,6 +22,17 @@ Parametri:
 Intrebarea stiintifica se masoara cu c2_analysis/burst_metrics.py (rafale din golurile
 de seq) PLUS metricile C1 (loss, RTT p95) din sumare.
 
+## 0.1 DECIZII APROBATE 2026-07-14 (poarta de review: Alexandru citeste sect. 0/0.1 inainte de lansare)
+- Sonda 64 KB: DOAR daca SIL/HIL arata efect de rafala la 4 KB. Candidat combo HIL:
+  lat200_jit50 + ge_15_8 -- ambele decise DUPA SIL.
+- Patch timestamp bench_client.py: RESPINS. Protocolul ramane BYTE-IDENTIC cu C1
+  (comparabilitate inter-articole); golurile de seq ajung pentru rafale.
+- loss_*_burst: raman DEPRECATED, NU se sterg.
+- Intercalare per repetitie: NU (adiacenta per conditie inchide R9; vezi sect. 2).
+- PAYLOADS=[4096] pentru grila principala.
+- NOTA DE EVALUARE: ipoteza GE se judeca pe HIL. Efect mic pe SIL = CONSISTENTA cu C1
+  (mediul e mecanismul), NU infirmarea ipotezei.
+
 ================================================================================
 ## 1. PRE-FLIGHT (ABORT daca oricare pica)
 ================================================================================
