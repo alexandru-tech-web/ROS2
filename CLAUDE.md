@@ -114,3 +114,17 @@ N mai mare (BLOCAT pe discovery Zenoh -- vezi NOTA_METODOLOGICA_C1.md sec.8); (c
 D -- selector_core.sweep_deadline + reproduce_selector.py --objective lossaware: D* (incrucisarea
 invatat-vs-always-CycloneDDS) in (3000, 5000] ms pe selector_dataset.csv (SIL N=10), figura
 selector_dstar.png. De RECALCULAT pe HIL.
+
+## 9. Ecosistem PhD (~/PHD)
+Structura personala a lui Alexandru (creata de instaleaza_ecosistem_phd.sh, idempotent,
+fara sudo/retea). Caile reale:
+- ~/PHD/bin/phd -- comanda unica: stare | sesiune | noutate | preflight | backup.
+  Ruleaza-o pe cale COMPLETA (~/PHD/bin/phd ...); agentul NU atinge ~/.bashrc.
+- ~/PHD/REPO -> ~/ros2_ws/src (monorepo; = REPO_DIR). Aici lucrezi normal, prin git.
+- ~/PHD/DATE -> ~/DATE_CAMPANIE (datele canonice de campanie) -- READ-ONLY.
+- ~/PHD/BORD -- panoul lui Alexandru (STARE/TERMENE/JURNAL/DECIZII/GARDA_NOUTATE.md).
+  Se CITESTE pentru context; NU se editeaza necerut. NU e git repo. Poti ADAUGA doar
+  fisiere NOI cerute explicit (ex. INDEX_RADAR.md, pachete REVIEW pentru tableta).
+- ~/PHD/{TEZA,BIBLIOTECA,TEMPLATES} -- teza, referinte, sabloane docx.
+Reguli agent: scrii in REPO prin git ca de obicei; in BORD doar fisiere noi cerute;
+DATE read-only; nu rula 'phd backup' decat daca tinta SSD e montata; ~/.bashrc neatins.
