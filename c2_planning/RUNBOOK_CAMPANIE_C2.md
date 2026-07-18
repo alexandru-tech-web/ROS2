@@ -33,6 +33,16 @@ de seq) PLUS metricile C1 (loss, RTT p95) din sumare.
 - NOTA DE EVALUARE: ipoteza GE se judeca pe HIL. Efect mic pe SIL = CONSISTENTA cu C1
   (mediul e mecanismul), NU infirmarea ipotezei.
 
+## 0.1-AMENDAMENT 2026-07-19 (dupa SIL; APPEND -- pre-inregistrarea de mai sus RAMANE)
+- Criteriul sondei 64 KB: INDEPLINIT. SIL la 4 KB arata efect de rafala clar (Zenoh
+  app-loss ~7-25x intre bern_L si ge_L_8 la L=15%; vezi QUICKLOOK_C2_SIL). Sonda 64 KB
+  APROBATA: SIL, conditii {bern_15, ge_15_8}, PAYLOADS=[65536], N=10 (vezi sect. 3.1).
+- Combo HIL CONFIRMAT ca candidat: lat200_jit50 + ge_15_8 (ge_15_8 zenoh = 75.9% pe SIL).
+- Nota de evaluare RAFINATA: SIL a aratat efect MARE (nu mic, contrar premisei initiale) =>
+  intrebarea pe HIL devine "mediul FIZIC amplifica SUPLIMENTAR colapsul indus de corelare?",
+  nu "exista efect?". Ipoteza tot pe HIL; SIL = rezultat, nu verdict.
+- Calibrarea netem a ramas NEVALIDATA de calea RELIABLE -> sonda UDP best-effort (sect. 8).
+
 ================================================================================
 ## 1. PRE-FLIGHT (ABORT daca oricare pica)
 ================================================================================
@@ -91,6 +101,20 @@ Sonda 64 KB (DUPA ce SIL 4 KB e complet si validat), doar ge_15_8:
   python3 c1_benchmark/run_campaign.py --mode sil --iface lo --reps 10 \
     --rmws cyclonedds,zenoh --conditions ge_15_8 --layers transport --out "$ARCH"_probe64k
 
+## 3.1 SONDA 64 KB (post-SIL, aprobata 2026-07-19) -- doar bern_15 + ge_15_8
+ARCH64=~/DATE_CAMPANIE/C2_SIL64_$(date +%Y%m%d)
+Mecanism payload (LOCAL, NECOMIS -- documentat):
+  sed -i 's/^PAYLOADS = .*/PAYLOADS = [65536]/' c1_benchmark/run_campaign.py   # NU comite
+  # ... ruleaza cele doua conditii ... apoi REVINO:
+  git checkout -- c1_benchmark/run_campaign.py
+Pentru fiecare din {bern_15, ge_15_8}:
+  sudo -v
+  python3 c1_benchmark/run_campaign.py --mode sil --iface lo --reps 10 \
+    --rmws cyclonedds,zenoh --conditions <COND> --layers transport --out "$ARCH64"
+  tc qdisc show dev lo        # CURAT dupa (run_campaign curata in finally)
+NOTA: la 64 KB CycloneDDS trimite ~364/rulare (throttling de publicare RELIABLE, ca in C1),
+NU ~989 -> delivery = received/sent (nu received/989). Se analizeaza transport_p65536.
+
 ================================================================================
 ## 4. COMENZI HIL (doua masini, Wi-Fi real), N=10, 4 KB
 ================================================================================
@@ -136,3 +160,35 @@ Compara, la acelasi L: rafalele (longest/medie/p95) si loss/RTT p95 intre bern_L
 ge_L_B, separat pentru CycloneDDS si Zenoh -> raspunde la intrebarea C2.
 Validare distributie realizata (nota de onestitate din CALIBRARE_GE_C2.md): confirma
 din golurile de seq ca B_real ~ B tinta (3 sau 8) inainte de a trage concluzii.
+
+
+================================================================================
+## 8. VALIDAREA INSTRUMENTULUI (sonda UDP best-effort; comenzi TIPARITE, NErulate)
+================================================================================
+Scop: pe calea ROS RELIABLE, L/B de la aplicatie NU sunt cele injectate de netem (CDDS
+recupereaza, Zenoh amplifica -- vezi QUICKLOOK). O sonda UDP one-way best-effort pe lo vede
+pierderea EXACT cum o aplica netem, deci valideaza calibrarea (p,r).
+NOTA: tranzitiile gemodel sunt PER-PACHET (nu per-timp) => procesul de pierdere e
+INDEPENDENT de rata; folosim 100 Hz doar ca sa scurtam durata.
+
+Pentru FIECARE din cele 9 conditii de pierdere:
+  sudo tc qdisc replace dev lo root netem delay 0ms 0ms loss gemodel <P>% <R>% 100% 0%
+  python3 c2_analysis/probe_udp.py --rate 100 --count 10000 \
+    --out ~/DATE_CAMPANIE/C2_PROBE_$(date +%Y%m%d)/<COND>.csv
+  tc qdisc show dev lo           # confirma netem activ in timpul sondei
+  sudo tc qdisc del dev lo root  # CURATARE obligatorie dupa fiecare conditie
+  tc qdisc show dev lo           # confirma CURAT
+
+(P, R) per conditie (verbatim din c1_benchmark/test_c2_conditions.py):
+  bern_5   gemodel 5.000%  95.000%      bern_15  gemodel 15.000% 85.000%
+  bern_30  gemodel 30.000% 70.000%      ge_5_3   gemodel 1.754%  33.333%
+  ge_5_8   gemodel 0.658%  12.500%      ge_15_3  gemodel 5.882%  33.333%
+  ge_15_8  gemodel 2.206%  12.500%      ge_30_3  gemodel 14.286% 33.333%
+  ge_30_8  gemodel 5.357%  12.500%
+
+VERDICT calibrare (din summary-ul sondei):
+  - |L_real - L_tinta| < 1 pp   (L_tinta = 5/15/30%).
+  - GE: B_real in [0.7*B, 1.3*B]  (B = 3 sau 8).
+  - Bernoulli (bern_L): B_real ~ 1/(1-p)  (1.05 / 1.18 / 1.43 la 5/15/30%).
+Daca sonda TRECE -> calibrarea netem confirmata; tabelul app-level din QUICKLOOK ramane
+REZULTAT (efectul middleware-ului), nu eroare de calibrare.
