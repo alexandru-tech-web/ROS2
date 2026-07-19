@@ -85,17 +85,27 @@ Ordinea conditiilor (severitate crescatoare):
 run_campaign.py aplica netem per rulare (:137) si CURATA qdisc la final (:185, finally).
 
 ================================================================================
+## 2.1 LOGARE CONSOLA (obligatoriu de-acum -- lectia CONSOLE_LOG gol)
+================================================================================
+TOATE comenzile de campanie (run_campaign.py) se ruleaza cu console log salvat:
+  mkdir -p "$ARCH"                          # tee are nevoie de dir existent
+  <run_campaign ...> 2>&1 | tee "$ARCH/console.log"
+Log-ul prinde erorile ROS/Zenoh ("Unable to connect to a Zenoh router", "close operation
+timed out", router restart) -- necesare pt. atribuirea esecurilor per rep (la 64KB
+CONSOLE_LOG a fost GOL). Comenzile de mai jos au deja sufixul; pastreaza-l.
+
+================================================================================
 ## 3. COMENZI SIL (loopback, o masina), N=10, 4 KB
 ================================================================================
 ARCH=~/DATE_CAMPANIE/C2_SIL_$(date +%Y%m%d)     # locatie de arhiva
 Pentru FIECARE conditie (ruleaza-le pe rand, in ordinea de la sect. 2):
   sudo -v
   python3 c1_benchmark/run_campaign.py --mode sil --iface lo --reps 10 \
-    --rmws cyclonedds,zenoh --conditions <COND> --layers transport --out "$ARCH"
+    --rmws cyclonedds,zenoh --conditions <COND> --layers transport --out "$ARCH" 2>&1 | tee "$ARCH/console.log"
   tc qdisc show dev lo        # verifica CURAT dupa (run_campaign curata in finally)
 Exemplu (ge_5_3):
   python3 c1_benchmark/run_campaign.py --mode sil --iface lo --reps 10 \
-    --rmws cyclonedds,zenoh --conditions ge_5_3 --layers transport --out "$ARCH"
+    --rmws cyclonedds,zenoh --conditions ge_5_3 --layers transport --out "$ARCH" 2>&1 | tee "$ARCH/console.log"
 Sonda 64 KB (DUPA ce SIL 4 KB e complet si validat), doar ge_15_8:
   # editeaza local PAYLOADS = [4096, 65536], apoi:
   python3 c1_benchmark/run_campaign.py --mode sil --iface lo --reps 10 \
@@ -110,10 +120,23 @@ Mecanism payload (LOCAL, NECOMIS -- documentat):
 Pentru fiecare din {bern_15, ge_15_8}:
   sudo -v
   python3 c1_benchmark/run_campaign.py --mode sil --iface lo --reps 10 \
-    --rmws cyclonedds,zenoh --conditions <COND> --layers transport --out "$ARCH64"
+    --rmws cyclonedds,zenoh --conditions <COND> --layers transport --out "$ARCH64" 2>&1 | tee "$ARCH64/console.log"
   tc qdisc show dev lo        # CURAT dupa (run_campaign curata in finally)
 NOTA: la 64 KB CycloneDDS trimite ~364/rulare (throttling de publicare RELIABLE, ca in C1),
 NU ~989 -> delivery = received/sent (nu received/989). Se analizeaza transport_p65536.
+
+## 3.2 COMBO SIL: lat200_jit50_ge_15_8 (perechea SIL a divergentei; aprobat 2026-07-19)
+Conditie NOUA (aditiva, in CONDITIONS de la commit 1bc02c9): delay 200ms + jitter 50ms +
+gemodel ge_15_8 SIMULTAN. netem_cmd emite: delay 200ms 50ms loss gemodel 2.206% 12.500% 100% 0%.
+ARCH SEPARAT (RECOMANDAT): ARCHC=~/DATE_CAMPANIE/C2_SILCOMBO_$(date +%Y%m%d)
+  JUSTIFICARE: combo decis POST-SIL (nu in grila pre-inregistrata de 10) -> ARCH separat
+  pastreaza intact C2_SIL_20260718 si clarifica provenienta (HEAD ulterior, conditie noua).
+  Payload 4 KB.
+  mkdir -p "$ARCHC"; sudo -v
+  python3 c1_benchmark/run_campaign.py --mode sil --iface lo --reps 10 \
+    --rmws cyclonedds,zenoh --conditions lat200_jit50_ge_15_8 --layers transport \
+    --out "$ARCHC" 2>&1 | tee "$ARCHC/console.log"
+  tc qdisc show dev lo   # CURAT dupa
 
 ================================================================================
 ## 4. COMENZI HIL (doua masini, Wi-Fi real), N=10, 4 KB
@@ -124,7 +147,7 @@ ARCH=~/DATE_CAMPANIE/C2_HIL_WIFI_$(date +%Y%m%d)
 Pentru FIECARE conditie:
   sudo -v
   python3 c1_benchmark/run_campaign.py --mode hil --iface <IFACE_WIFI> --reps 10 \
-    --rmws cyclonedds,zenoh --conditions <COND> --layers transport --out "$ARCH"
+    --rmws cyclonedds,zenoh --conditions <COND> --layers transport --out "$ARCH" 2>&1 | tee "$ARCH/console.log"
 NOTA: pe HIL routerul Zenoh e gestionat EXTERN (run_campaign NU-l porneste, :124-127).
 
 ================================================================================
