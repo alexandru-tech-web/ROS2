@@ -64,6 +64,21 @@ def run():
             if abs(B - B_t) > 0.01:
                 fails.append("%s: B=%.3f != tinta %d" % (name, B, B_t))
         checks += 1
+    # 3b. combo lat200_jit50_ge_15_8: delay 200ms 50ms + gemodel ge_15_8 SIMULTAN
+    combo = by_name.get("lat200_jit50_ge_15_8")
+    if not combo:
+        fails.append("lat200_jit50_ge_15_8 LIPSA din CONDITIONS")
+    else:
+        exp = ("tc qdisc replace dev %s root netem delay 200ms 50ms "
+               "loss gemodel 2.206%% 12.500%% 100%% 0%%" % IFACE)
+        got = netem_cmd(IFACE, combo)
+        if got != exp:
+            fails.append("combo: cmd\n    got: %s\n    exp: %s" % (got, exp))
+        if combo.get("p") != 0.022059 or combo.get("r") != 0.125:
+            fails.append("combo: (p,r) != ge_15_8")
+        if combo.get("base_ms") != 200 or combo.get("jitter_ms") != 50:
+            fails.append("combo: delay/jitter != 200/50")
+        checks += 1
     # 4. bench_core NU a fost stricat: gilbert_* / lat200_* raman
     for must in ("ideal", "gilbert_20", "lat200_jit50", "lat200_l15"):
         if must not in by_name:

@@ -55,6 +55,10 @@ CONDITIONS = [
     dict(name="ge_15_8",  base_ms=0, jitter_ms=0, loss=0.15, type="gilbert", p=0.022059, r=0.125),
     dict(name="ge_30_3",  base_ms=0, jitter_ms=0, loss=0.30, type="gilbert", p=0.142857, r=0.333333),
     dict(name="ge_30_8",  base_ms=0, jitter_ms=0, loss=0.30, type="gilbert", p=0.053571, r=0.125),
+    # C2 combo: latenta+jitter (lat200_jit50) SI rafala corelata (ge_15_8) SIMULTAN.
+    # Refoloseste ramura gilbert din netem_cmd; base_ms/jitter_ms dau 'delay 200ms 50ms',
+    # (p,r) = ge_15_8. netem_cmd emite: delay 200ms 50ms loss gemodel 2.206% 12.500% 100% 0%.
+    dict(name="lat200_jit50_ge_15_8", base_ms=200, jitter_ms=50, loss=0.15, type="gilbert", p=0.022059, r=0.125),
 ]
 
 
