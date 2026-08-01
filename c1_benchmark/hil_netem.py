@@ -10,7 +10,9 @@ Folosire pe M2 (RPi), conditie cu conditie:
   python3 hil_netem.py <iface> <conditie> --dry    # arata comanda, NU o executa
 
 Conditiile *_burst / gilbert_* sunt INGHETATE pe HIL (corelate; in afara drumului critic A1) ->
-refuzate aici, la fel ca in run_campaign.py --mode hil."""
+refuzate aici, la fel ca in run_campaign.py --mode hil. Deschiderea DELIBERATA pentru C2 (GE pe
+legatura fizica) se cere explicit cu --allow-corr, acelasi flag ca in run_campaign.py:
+  sudo python3 hil_netem.py eth0 ge_15_8 --allow-corr"""
 import argparse
 import os
 import subprocess
@@ -26,6 +28,9 @@ def main():
     ap.add_argument("condition", nargs="?", default=None, help="numele conditiei din bench_core.CONDITIONS")
     ap.add_argument("--clear", action="store_true", help="curata netem pe iface (in loc sa aplice o conditie)")
     ap.add_argument("--dry", action="store_true", help="arata comanda, NU o executa")
+    ap.add_argument("--allow-corr", action="store_true",
+                    help="permite EXPLICIT conditiile corelate (gilbert_*/bern_*/ge_*/*_burst) "
+                         "pe HIL; implicit sunt refuzate (zavorul C1)")
     a = ap.parse_args()
 
     if a.clear or a.condition is None:
@@ -35,9 +40,10 @@ def main():
         c = by_name.get(a.condition)
         if c is None:
             sys.exit("conditie necunoscuta: %s (stiute: %s)" % (a.condition, sorted(by_name)))
-        if c.get("type") == "gilbert" or "corr" in c:
+        if (c.get("type") == "gilbert" or "corr" in c) and not a.allow_corr:
             sys.exit("conditie INGHETATA pe HIL (interferenta corelata): %s. "
-                     "Pe legatura fizica ruleaza doar loss_* + lat200_*." % a.condition)
+                     "Pe legatura fizica ruleaza doar loss_* + lat200_* "
+                     "(deschidere deliberata: --allow-corr)." % a.condition)
         cmd = netem_cmd(a.iface, c)
 
     print(cmd)

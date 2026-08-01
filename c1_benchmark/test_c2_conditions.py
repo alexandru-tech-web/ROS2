@@ -5,9 +5,12 @@ ramura 'gilbert' EXISTENTA din bench_core.netem_cmd si verifica:
   1. (p, r) stocate == tabelul din c2_planning/CALIBRARE_GE_C2.md;
   2. comanda netem la formatul EXACT de afisare (netem_cmd, %.3f);
   3. rata medie implicita L=p/(p+r) si lungimea rafalei B=1/r == tinta grilei.
+  4. zavorul HIL din hil_netem.py: ge_15_8 REFUZATA implicit, PERMISA cu --allow-corr
+     (subproces cu --dry -- nu se atinge tc si nu e nevoie de sudo).
 Rulare: python3 test_c2_conditions.py
 """
 import os
+import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -36,6 +39,36 @@ def expected_cmd(p, r):
     """Comanda asteptata, la formatul de afisare al ramurii gilbert (%.3f)."""
     return ("tc qdisc replace dev %s root netem delay 0ms 0ms "
             "loss gemodel %.3f%% %.3f%% 100%% 0%%" % (IFACE, 100 * p, 100 * r))
+
+
+def check_hil_gate(fails):
+    """Zavorul HIL pe hil_netem.py, verificat pe conditia C2 ge_15_8, cu --dry
+    (comanda e doar AFISATA -- fara tc, fara sudo, fara retea):
+      a) fara --allow-corr  -> REFUZ (cod de iesire != 0, mesaj 'INGHETATA');
+      b) cu   --allow-corr  -> cod 0 si comanda gemodel EXACT ca netem_cmd."""
+    script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "hil_netem.py")
+    base = [sys.executable, script, IFACE, "ge_15_8", "--dry"]
+    exp = expected_cmd(*REF["ge_15_8"][:2])
+
+    blocat = subprocess.run(base, capture_output=True, text=True)
+    if blocat.returncode == 0:
+        fails.append("hil_netem ge_15_8 FARA --allow-corr: ar fi trebuit sa refuze "
+                     "(cod 0, stdout: %r)" % blocat.stdout.strip())
+    if "INGHETATA" not in (blocat.stdout + blocat.stderr):
+        fails.append("hil_netem ge_15_8 FARA --allow-corr: lipseste motivul 'INGHETATA' "
+                     "(stderr: %r)" % blocat.stderr.strip())
+    if exp in blocat.stdout:
+        fails.append("hil_netem ge_15_8 FARA --allow-corr: a emis totusi comanda netem")
+
+    permis = subprocess.run(base + ["--allow-corr"], capture_output=True, text=True)
+    if permis.returncode != 0:
+        fails.append("hil_netem ge_15_8 CU --allow-corr: cod %d (stderr: %r)"
+                     % (permis.returncode, permis.stderr.strip()))
+    got = permis.stdout.strip()
+    if got != exp:
+        fails.append("hil_netem ge_15_8 CU --allow-corr: cmd\n    got: %s\n    exp: %s"
+                     % (got, exp))
+    return exp
 
 
 def run():
@@ -86,6 +119,8 @@ def run():
     # 5. B=1 corect ELIMINAT (nu exista ge_*_1)
     if any(n.startswith("ge_") and n.endswith("_1") for n in by_name):
         fails.append("B=1 ar fi trebuit eliminat, dar exista o ge_*_1")
+    # 6. zavorul HIL: refuz implicit / deschidere deliberata cu --allow-corr
+    hil_cmd = check_hil_gate(fails)
 
     if fails:
         print("FAIL (%d/%d conditii verificate):" % (checks, len(REF)))
@@ -93,6 +128,8 @@ def run():
             print("  - " + f)
         return 1
     print("SELFTEST C2 OK: %d conditii verificate (p,r + comanda netem + L,B)." % checks)
+    print("ZAVOR HIL OK: hil_netem.py refuza ge_15_8 implicit; cu --allow-corr emite")
+    print("  %s" % hil_cmd)
     print("Comenzi reconstruite (format campanie netem_cmd, %.3f):")
     for name in REF:
         print("  %-8s %s" % (name, netem_cmd(IFACE, by_name[name])))

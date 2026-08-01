@@ -66,6 +66,10 @@ def main():
     ap.add_argument("--sar-dir", default=os.path.join(HERE, "..", "sar_swarm"))
     ap.add_argument("--out", default=os.path.join(HERE, "results_c1"))
     ap.add_argument("--dry", action="store_true")
+    ap.add_argument("--allow-corr", action="store_true",
+                    help="HIL: permite EXPLICIT conditiile de interferenta corelata "
+                         "(gilbert_* / bern_* / ge_* / *_burst). Implicit sunt excluse "
+                         "pe HIL (zavorul C1); flagul e deschiderea deliberata pentru C2.")
     a = ap.parse_args()
     rmws = [r.strip() for r in a.rmws.split(",") if r.strip()]
     layers = tuple(l.strip() for l in a.layers.split(","))
@@ -81,11 +85,15 @@ def main():
     # HIL: exclude conditiile de interferenta INGHETATE -- pe legatura fizica vrem comparatia
     # AUTORITARA memoryless + latenta. *_burst (corr) nu pastreaza media; gilbert_* fac parte din
     # suprafata RF inghetata (in afara drumului critic A1). Vezi NOTA_METODOLOGICA_C1.md / HIL_RUNBOOK.md.
+    # --allow-corr = deschiderea DELIBERATA pentru C2 (GE pe legatura fizica): zavorul de mai sus
+    # ramane implicit, iar conditiile corelate trec doar cerute explicit prin --conditions.
     if a.mode == "hil":
-        excluse = [c["name"] for c in conditions if c.get("type") == "gilbert" or "corr" in c]
-        if excluse:
+        corelate = [c["name"] for c in conditions if c.get("type") == "gilbert" or "corr" in c]
+        if corelate and not a.allow_corr:
             conditions = [c for c in conditions if c.get("type") != "gilbert" and "corr" not in c]
-            print(f"[hil] exclus (inghetat, interferenta corelata): {excluse}")
+            print(f"[hil] exclus (inghetat, interferenta corelata): {corelate}")
+        elif corelate:
+            print(f"[hil] GE permis explicit (--allow-corr, C2): {corelate}")
     plan = build_plan(rmws, conditions, a.reps, layers)
     print(f"plan: {len(plan)} rulari ({len(rmws)} RMW x {len(conditions)} "
           f"conditii x {a.reps} rep x {len(layers)} straturi)")
