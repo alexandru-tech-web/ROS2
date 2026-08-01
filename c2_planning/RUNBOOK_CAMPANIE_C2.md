@@ -215,3 +215,22 @@ VERDICT calibrare (din summary-ul sondei):
   - Bernoulli (bern_L): B_real ~ 1/(1-p)  (1.05 / 1.18 / 1.43 la 5/15/30%).
 Daca sonda TRECE -> calibrarea netem confirmata; tabelul app-level din QUICKLOOK ramane
 REZULTAT (efectul middleware-ului), nu eroare de calibrare.
+
+================================================================================
+## ADDENDUM 1 AUG 2026 -- executie HIL (decizii + lectii smoke)
+================================================================================
+1. DECIZIE grila: COMPLETA in oglinda cu SIL: 10 conditii x 2 RMW x N=10 @4KB
+   + sonda 64KB HIL {bern_15, ge_15_8} + combo lat200_jit50_ge_15_8. ~2 seri.
+2. PREFLIGHT power_save (VOLATIL, la FIECARE sesiune HIL):
+   laptop: sudo iw dev wlp4s0 set power_save off ; pi: sudo iw dev wlan0 set power_save off
+   verif: sudo ping -c 250 -i 0.02 <celalalt> | tail -3 -> avg <= ~15ms
+   (1 aug: PS on bilateral -> bufferbloat 113-1144ms avg, pipe 69-108)
+3. --allow-corr (c66a853): conditiile gilbert pe HIL cer flagul pe AMBELE unelte:
+   run_campaign.py (M1) si hil_netem.py (M2). Comenzile din sect. 4 il preced.
+4. ABORT amendat: 'ideal' = pierdere POST-DISCOVERY > ~1% (prefix structural:
+   CDDS ~90-165 seq pierdute; zenoh ~10 pierdute + drenaj de backlog cu RTT mare
+   la start -- analiza raporteaza first_seq per rulare).
+5. LOG per conditie: tee "$ARCH/console_$COND.log" (console.log unic se suprascria).
+6. PRECONDITIE M2: 3 file -- ecou CDDS + ecou Zenoh (simultan; nu interopereaza)
+   + fila netem/diagnostic. netem pe M2 MANUAL per conditie:
+   sudo python3 ~/ros2_ws/src/c1_benchmark/hil_netem.py wlan0 <COND> --allow-corr
