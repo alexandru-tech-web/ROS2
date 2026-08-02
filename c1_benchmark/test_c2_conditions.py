@@ -6,10 +6,13 @@ ramura 'gilbert' EXISTENTA din bench_core.netem_cmd si verifica:
   2. comanda netem la formatul EXACT de afisare (netem_cmd, %.3f);
   3. rata medie implicita L=p/(p+r) si lungimea rafalei B=1/r == tinta grilei.
   4. zavorul HIL din hil_netem.py: ge_15_8 REFUZATA implicit, PERMISA cu --allow-corr
-     (subproces cu --dry -- nu se atinge tc si nu e nevoie de sudo).
+     (subproces cu --dry -- nu se atinge tc si nu e nevoie de sudo);
+  5. jurnalul de provenienta din hil_netem.py: formatarea liniei (functie pura),
+     append/citire pe fisiere TEMPORARE, --dry care nu scrie, --show care doar observa.
 Rulare: python3 test_c2_conditions.py
 """
 import os
+import shutil
 import subprocess
 import sys
 
@@ -71,6 +74,85 @@ def check_hil_gate(fails):
     return exp
 
 
+def check_journal(fails):
+    """Jurnalul de provenienta din hil_netem.py, pe fisiere TEMPORARE (NU se atinge
+    ~/DATE_CAMPANIE):
+      a) journal_line = formatul cerut, iar comanda tc (cu spatii) ramane INTREAGA
+         la split(None, 3);
+      b) append_journal creeaza directorul lipsa si adauga la coada; last_journal_line
+         intoarce ultima linie (None pe jurnal inexistent);
+      c) --dry NU scrie in jurnal;
+      d) --show iese cu cod 0, emite EXACT o linie 'JURNAL: ...' si lasa jurnalul
+         neatins (deci nici nu curata qdisc-ul, cum ar fi facut ramura 'condition is
+         None'). Textul lui tc NU se verifica -- formatul lui nu e contractul nostru."""
+    import tempfile
+    from hil_netem import (append_journal, journal_line, last_journal_line)
+
+    cmd = expected_cmd(*REF["ge_15_8"][:2])
+    ts = "2026-08-02T12:34:56+03:00"
+    # a) format exact + reversibilitate
+    got = journal_line(ts, "eth0", "ge_15_8", cmd)
+    exp = "%s eth0 ge_15_8 %s" % (ts, cmd)
+    if got != exp:
+        fails.append("journal_line: \n    got: %s\n    exp: %s" % (got, exp))
+    campuri = got.split(None, 3)
+    if campuri != [ts, "eth0", "ge_15_8", cmd]:
+        fails.append("journal_line: split(None,3) nu reface campurile: %r" % (campuri,))
+    clear = journal_line(ts, "wlan0", "CLEAR", "tc qdisc del dev wlan0 root")
+    if clear.split(None, 3)[2] != "CLEAR":
+        fails.append("journal_line: eticheta CLEAR pierduta: %r" % clear)
+
+    tmp = tempfile.mkdtemp()
+    jp = os.path.join(tmp, "subdir_inexistent", "netem_journal_M2.log")
+    # b) jurnal inexistent -> None; append creeaza directorul; ultima linie = ultima scrisa
+    if last_journal_line(jp) is not None:
+        fails.append("last_journal_line pe jurnal inexistent: ar trebui None")
+    if not append_journal(jp, got) or not append_journal(jp, clear):
+        fails.append("append_journal a esuat pe cale temporara %s" % jp)
+    if last_journal_line(jp) != clear:
+        fails.append("last_journal_line != ultima linie adaugata (%r)" % last_journal_line(jp))
+    with open(jp) as f:
+        randuri = [ln.rstrip("\n") for ln in f]
+    if randuri != [got, clear]:
+        fails.append("jurnalul nu s-a scris in ordine append: %r" % (randuri,))
+
+    # c) --dry nu scrie in jurnal (jurnal separat, care nu trebuie sa apara)
+    script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "hil_netem.py")
+    jdry = os.path.join(tmp, "jurnal_dry.log")
+    subprocess.run([sys.executable, script, IFACE, "ge_15_8", "--dry", "--allow-corr",
+                    "--journal", jdry], capture_output=True, text=True)
+    if os.path.exists(jdry):
+        fails.append("--dry a scris in jurnal (%s ar trebui sa nu existe)" % jdry)
+
+    # d) --show: doar observa. Pe 'lo', 'tc qdisc show' e read-only si merge fara sudo.
+    # Se verifica DOAR markerul determinist, codul de iesire si jurnalul neatins;
+    # raportul lui tc se tipareste ca atare si NU se parseaza.
+    inainte = open(jp, "rb").read()
+    r = subprocess.run([sys.executable, script, "lo", "--show", "--journal", jp],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        fails.append("--show pe lo: cod %d (stderr: %r)" % (r.returncode, r.stderr.strip()))
+    marker = [ln for ln in r.stdout.splitlines() if ln.startswith("JURNAL:")]
+    if len(marker) != 1:
+        fails.append("--show: astept EXACT o linie 'JURNAL:', am %d (stdout: %r)"
+                     % (len(marker), r.stdout))
+    elif marker[0] != "JURNAL: %s" % clear:
+        fails.append("--show: markerul nu poarta ultima linie de jurnal\n"
+                     "    got: %s\n    exp: JURNAL: %s" % (marker[0], clear))
+    if open(jp, "rb").read() != inainte:
+        fails.append("--show a modificat jurnalul")
+    # jurnal inexistent -> marker 'JURNAL: GOL', si tot nu se creeaza fisierul
+    jgol = os.path.join(tmp, "inexistent.log")
+    rg = subprocess.run([sys.executable, script, "lo", "--show", "--journal", jgol],
+                        capture_output=True, text=True)
+    if "JURNAL: GOL" not in rg.stdout.splitlines():
+        fails.append("--show pe jurnal inexistent: astept 'JURNAL: GOL' (stdout: %r)"
+                     % rg.stdout)
+    if os.path.exists(jgol):
+        fails.append("--show a creat jurnalul (%s ar trebui sa nu existe)" % jgol)
+    shutil.rmtree(tmp, ignore_errors=True)
+
+
 def run():
     by_name = {c["name"]: c for c in CONDITIONS}
     checks = 0
@@ -121,6 +203,8 @@ def run():
         fails.append("B=1 ar fi trebuit eliminat, dar exista o ge_*_1")
     # 6. zavorul HIL: refuz implicit / deschidere deliberata cu --allow-corr
     hil_cmd = check_hil_gate(fails)
+    # 7. jurnalul de provenienta (formatare + append/last + --dry/--show)
+    check_journal(fails)
 
     if fails:
         print("FAIL (%d/%d conditii verificate):" % (checks, len(REF)))
@@ -130,6 +214,8 @@ def run():
     print("SELFTEST C2 OK: %d conditii verificate (p,r + comanda netem + L,B)." % checks)
     print("ZAVOR HIL OK: hil_netem.py refuza ge_15_8 implicit; cu --allow-corr emite")
     print("  %s" % hil_cmd)
+    print("JURNAL OK: linie '<ISO> <iface> <cond|CLEAR> <cmd>' reversibila la split(None,3);")
+    print("  append/last pe cale temporara; --dry nu scrie; --show doar observa (marker JURNAL:).")
     print("Comenzi reconstruite (format campanie netem_cmd, %.3f):")
     for name in REF:
         print("  %-8s %s" % (name, netem_cmd(IFACE, by_name[name])))
