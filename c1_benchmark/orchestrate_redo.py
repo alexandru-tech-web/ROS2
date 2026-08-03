@@ -59,11 +59,18 @@ PORT = 7447
 ROS_DOMAIN = 7
 
 HOME = os.path.expanduser("~")
-ARCH = os.path.join(HOME, "DATE_CAMPANIE", "C2_HIL_WIFI_20260801")
-# logurile routerului M1 au mers aici in lantul manual de azi (nu in ARCH):
-LOGDIR_M1 = os.path.join(HOME, "DATE_CAMPANIE", "C2_HIL_SMOKE")
-# cale REMOTA (se expandeaza pe Pi, deci ramane cu tilde):
-LOGDIR_PI = "~/DATE_CAMPANIE/C2_HIL_WIFI_20260801_pi"
+ARCH_DEFAULT = os.path.join(HOME, "DATE_CAMPANIE", "C2_HIL_WIFI_20260801")
+# ARCH e SINGURA radacina: toate artefactele rularii (console, monitor CSV, logurile de
+# router/ecou) se deduc din ea, ca o sonda separata (ex. 64K) sa ceara doar --arch, fara
+# nicio editare in fisier. Se fixeaza cu set_arch(); valorile de mai jos sunt implicitul.
+ARCH = ARCH_DEFAULT
+LOGDIR_M1 = ARCH_DEFAULT
+LOGDIR_PI = "~/DATE_CAMPANIE/C2_HIL_WIFI_20260801_pi"    # cale REMOTA (tilde expandata pe Pi)
+
+# Jurnalul de provenienta netem de pe M2, EXPLICIT: hil_netem.py il deduce din '~', dar sub
+# 'sudo' HOME devine /root, deci implicitul ar scrie in /root/DATE_CAMPANIE/... (lectie din
+# rularile manuale). Calea e cea de pe M2, unde userul e tot 'ubuntu'.
+JURNAL_M2 = "/home/ubuntu/DATE_CAMPANIE/netem_journal_M2.log"
 
 SRC_M1 = os.path.join(HOME, "ros2_ws", "src", "c1_benchmark")
 SRC_M1_C2 = os.path.join(HOME, "ros2_ws", "src", "c2_analysis")
@@ -118,6 +125,19 @@ class Abort(Exception):
 
 
 # ------------------------------------------------------- functii PURE (testate)
+def set_arch(cale):
+    """Fixeaza arhiva curenta si RECALCULEAZA caile derivate din ea:
+      <ARCH>/console_<cond>_zenohredo.log, <ARCH>/monitor_<cond>_redo.csv,
+      <ARCH>/zenoh_router_m1_redo_<cond>.log (M1) si, pe M2, ~/DATE_CAMPANIE/
+      <bazA>_pi/{zenoh_router_pi,echo_zenoh}_redo_<cond>.log.
+    Directorul de pe M2 se deduce din NUMELE arhivei, ca perechea M1/M2 sa ramana lizibila."""
+    global ARCH, LOGDIR_M1, LOGDIR_PI
+    ARCH = os.path.abspath(os.path.expanduser(cale))
+    LOGDIR_M1 = ARCH
+    LOGDIR_PI = "~/DATE_CAMPANIE/%s_pi" % os.path.basename(ARCH)
+    return ARCH
+
+
 def prefix_ros():
     """Preambulul mediului ROS pentru orice comanda remota (shell ssh non-interactiv)."""
     return ("export ROS_DOMAIN_ID=%d && export RMW_IMPLEMENTATION=rmw_zenoh_cpp"
@@ -213,12 +233,17 @@ def cmd_ss_pi():
 
 
 def cmd_netem_pi(cond):
-    return ("sudo -n python3 %s/hil_netem.py %s %s --allow-corr"
-            % (SRC_PI, IFACE_PI, cond))
+    """--journal EXPLICIT: sub 'sudo' HOME=/root, deci implicitul lui hil_netem.py ar scrie
+    jurnalul de provenienta in /root/DATE_CAMPANIE/ in loc de arhiva reala."""
+    return ("sudo -n python3 %s/hil_netem.py %s %s --allow-corr --journal %s"
+            % (SRC_PI, IFACE_PI, cond, JURNAL_M2))
 
 
 def cmd_netem_show_pi():
-    return "sudo -n python3 %s/hil_netem.py %s --show" % (SRC_PI, IFACE_PI)
+    """Tot cu --journal: altfel '--show' ar citi /root/... si ar raporta 'JURNAL: GOL'
+    imediat dupa ce linia s-a scris corect in jurnalul real."""
+    return ("sudo -n python3 %s/hil_netem.py %s --show --journal %s"
+            % (SRC_PI, IFACE_PI, JURNAL_M2))
 
 
 def cmd_driver(cond):
@@ -687,8 +712,17 @@ def _selftest():
     assert rez is None, rez
     assert any("lansator neinchis" in l for l in jg.linii), jg.linii
     assert creat and creat[0].poll() is not None, "procesul local nu a fost inchis"
-    assert cmd_netem_pi("ge_15_8") == ("sudo -n python3 /home/ubuntu/ros2_ws/src/c1_benchmark"
-                                       "/hil_netem.py wlan0 ge_15_8 --allow-corr"), cmd_netem_pi("ge_15_8")
+    assert cmd_netem_pi("ge_15_8") == (
+        "sudo -n python3 /home/ubuntu/ros2_ws/src/c1_benchmark/hil_netem.py wlan0 ge_15_8"
+        " --allow-corr --journal /home/ubuntu/DATE_CAMPANIE/netem_journal_M2.log"), cmd_netem_pi("ge_15_8")
+    assert cmd_netem_show_pi() == (
+        "sudo -n python3 /home/ubuntu/ros2_ws/src/c1_benchmark/hil_netem.py wlan0 --show"
+        " --journal /home/ubuntu/DATE_CAMPANIE/netem_journal_M2.log"), cmd_netem_show_pi()
+    # jurnalul e dat EXPLICIT pe AMBELE invocari (sub sudo, HOME=/root ar duce implicitul
+    # lui hil_netem.py in /root/DATE_CAMPANIE/)
+    for c in (cmd_netem_pi("bern_30"), cmd_netem_show_pi()):
+        assert "--journal %s" % JURNAL_M2 in c, c
+        assert JURNAL_M2.startswith("/home/ubuntu/"), JURNAL_M2
     # payload-ul ssh: '$' escapat, ghilimele duble in jurul lui bash -lc
     p = ssh_payload("for p in $(pgrep x); do echo $p; done")
     assert p == 'bash -lc "for p in \\$(pgrep x); do echo \\$p; done"', p
@@ -775,9 +809,36 @@ def _selftest():
     assert monitor_csv("bern_30").endswith("/monitor_bern_30_redo.csv")
     assert log_router_m1("bern_30").endswith("/zenoh_router_m1_redo_bern_30.log")
     assert COND_ALL == ["ge_5_8", "ge_15_3", "ge_15_8", "bern_30", "ge_30_3", "ge_30_8"]
-    print("SELFTEST orchestrate_redo OK (54 verificari: parse_ss, comenzi remote, setsid pe "
+
+    # --- 8. --arch: TOATE caile derivate se muta odata cu arhiva (sonda 64K fara editari)
+    try:
+        alt = set_arch("~/DATE_CAMPANIE/C2_HIL_64K_20260803/")
+        assert alt == os.path.join(HOME, "DATE_CAMPANIE", "C2_HIL_64K_20260803"), alt
+        assert console_m1("ge_15_8") == alt + "/console_ge_15_8_zenohredo.log", console_m1("ge_15_8")
+        assert monitor_csv("ge_15_8") == alt + "/monitor_ge_15_8_redo.csv", monitor_csv("ge_15_8")
+        assert log_router_m1("ge_15_8") == alt + "/zenoh_router_m1_redo_ge_15_8.log", log_router_m1("ge_15_8")
+        # caile de pe M2 se deduc din NUMELE arhivei si raman remote (cu tilde)
+        assert log_router_pi("ge_15_8") == ("~/DATE_CAMPANIE/C2_HIL_64K_20260803_pi"
+                                            "/zenoh_router_pi_redo_ge_15_8.log"), log_router_pi("ge_15_8")
+        assert log_ecou_pi("ge_15_8") == ("~/DATE_CAMPANIE/C2_HIL_64K_20260803_pi"
+                                          "/echo_zenoh_redo_ge_15_8.log"), log_ecou_pi("ge_15_8")
+        # comenzile care poarta arhiva: driverul (--out) si auditul
+        assert "--out %s" % alt in cmd_driver("ge_15_8"), cmd_driver("ge_15_8")
+        assert cmd_driver("ge_15_8").endswith("/console_ge_15_8_zenohredo.log"), cmd_driver("ge_15_8")
+        assert cmd_audit().endswith(" " + alt), cmd_audit()
+        # pornirile isi duc logurile in noua arhiva, nu in cea veche
+        assert "C2_HIL_64K_20260803_pi" in cmd_router_pi("ge_15_8"), cmd_router_pi("ge_15_8")
+        assert "C2_HIL_64K_20260803" in cmd_router_m1("ge_15_8"), cmd_router_m1("ge_15_8")
+        assert "C2_HIL_WIFI_20260801" not in cmd_router_m1("ge_15_8"), cmd_router_m1("ge_15_8")
+        # jurnalul netem NU depinde de arhiva (e provenienta masinii M2, nu a rularii)
+        assert JURNAL_M2 in cmd_netem_pi("ge_15_8"), cmd_netem_pi("ge_15_8")
+    finally:
+        set_arch(ARCH_DEFAULT)
+    assert ARCH == ARCH_DEFAULT and LOGDIR_PI.endswith("C2_HIL_WIFI_20260801_pi"), (ARCH, LOGDIR_PI)
+    print("SELFTEST orchestrate_redo OK (71 verificari: parse_ss, comenzi remote, setsid pe "
           "pornirile in fundal, lansare fire-and-forget (cele 3 cai), polling-ul portilor, "
-          "selectie environ pe /proc fals, garda pkill self-match, filtrare audit).")
+          "selectie environ pe /proc fals, garda pkill self-match, filtrare audit, "
+          "cai derivate din --arch, --journal explicit).")
 
 
 def main(argv):
@@ -790,12 +851,17 @@ def main(argv):
                     help="tipareste FIECARE comanda exact cum ar rula; executa NIMIC")
     ap.add_argument("--no-pause", action="store_true",
                     help="fara ENTER intre conditii (implicit se face pauza)")
+    ap.add_argument("--arch", default=ARCH_DEFAULT,
+                    help="arhiva campaniei; TOATE caile derivate (console, monitor, loguri "
+                         "de router/ecou, audit) se construiesc din ea. Implicit: %s"
+                         % ARCH_DEFAULT)
     ap.add_argument("--selftest", action="store_true")
     a = ap.parse_args(argv)
 
     if a.selftest:
         _selftest()
         return 0
+    set_arch(a.arch)
     conditii = COND_ALL if a.all else a.conditii
     if not conditii:
         ap.print_usage()
@@ -806,12 +872,15 @@ def main(argv):
     cale_jurnal = None
     if not a.dry:
         if not os.path.isdir(ARCH):
-            print("arhiva nu exista: %s" % ARCH)
+            # NU o cream singuri: o cale gresit tastata ar deveni in tacere o arhiva noua.
+            print("arhiva nu exista: %s\n(daca e o sonda noua, creeaz-o intai: mkdir -p %s)"
+                  % (ARCH, ARCH))
             return 2
         cale_jurnal = os.path.join(ARCH, "orchestrator_%s.log" % stamp)
     jur = Jurnal(cale_jurnal)
     jur.titlu("orchestrate_redo: %d conditii (%s)%s"
               % (len(conditii), " ".join(conditii), "  [DRY-RUN]" if a.dry else ""))
+    jur.titlu("arhiva: %s   (loguri M2: %s)" % (ARCH, LOGDIR_PI))
     if cale_jurnal:
         jur.titlu("jurnal: %s" % cale_jurnal)
     cod = 0
