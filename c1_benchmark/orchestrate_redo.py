@@ -71,6 +71,19 @@ COND_ALL = ["ge_5_8", "ge_15_3", "ge_15_8", "bern_30", "ge_30_3", "ge_30_8"]
 # l-am omori exact pe cel care nu trebuie atins.
 ENVIRON_MARKER = "RMW_IMPLEMENTATION=rmw_zenoh_cpp"
 
+# Garda de self-match la pkill: 'pkill -f rmw_zenohd' se potriveste si pe cmdline-ul
+# shell-ului care CONTINE comanda (bash -lc "... pkill -f rmw_zenohd ..."), deci isi omoara
+# propriul parinte. Clasa de caractere rupe potrivirea pe sine (textul 'rmw_zenoh[d]' NU e
+# potrivit de regexul 'rmw_zenoh[d]'), dar potriveste in continuare binarul rmw_zenohd si
+# wrapperul 'ros2 run rmw_zenoh_cpp rmw_zenohd'.
+# Parantezele sunt ESCAPATE, nu ghilimetate, din doua motive verificate:
+#   - ghilimelele simple ar rupe forma copiabila ssh PI 'bash -lc "..."';
+#   - forma neghilimetata se expandeaza ca glob daca exista un fisier rmw_zenohd in
+#     directorul curent -> pattern-ul redevine 'rmw_zenohd' si garda dispare in tacere.
+# Escaparea supravietuieste identic la un strat (bash -lc local) si la doua (ssh + bash -lc).
+PATTERN_ROUTER = "rmw_zenoh\\[d\\]"
+PKILL_ROUTER = "pkill -f %s" % PATTERN_ROUTER
+
 STARI_SS = ("ESTAB", "SYN-SENT", "SYN-RECV", "FIN-WAIT-1", "FIN-WAIT-2", "TIME-WAIT",
             "CLOSE-WAIT", "LAST-ACK", "LISTEN", "CLOSING", "UNCONN", "CLOSED")
 
@@ -140,12 +153,12 @@ def monitor_csv(cond):
 
 def cmd_curat_pi():
     """Pi: omoara routerul si DOAR ecoul zenoh, apoi curata memoria partajata zenoh."""
-    return ("pkill -f rmw_zenohd; %s; rm -f /dev/shm/*zenoh*"
-            % cmd_selectie_ecou_zenoh())
+    return ("%s; %s; rm -f /dev/shm/*zenoh*"
+            % (PKILL_ROUTER, cmd_selectie_ecou_zenoh()))
 
 
 def cmd_curat_m1():
-    return "pkill -f rmw_zenohd ; rm -f /dev/shm/*zenoh*"
+    return "%s ; rm -f /dev/shm/*zenoh*" % PKILL_ROUTER
 
 
 def cmd_router_pi(cond):
@@ -515,6 +528,35 @@ def _selftest():
     finally:
         shutil.rmtree(fals, ignore_errors=True)
 
+    # --- 5b. garda de self-match la pkill: SIR EXACT pentru ambele comenzi de curatare
+    assert cmd_curat_m1() == "pkill -f rmw_zenoh\\[d\\] ; rm -f /dev/shm/*zenoh*", cmd_curat_m1()
+    assert cmd_curat_pi() == (
+        "pkill -f rmw_zenoh\\[d\\]; "
+        "for p in $(pgrep -f bench_echo_server); "
+        "do grep -qzx RMW_IMPLEMENTATION=rmw_zenoh_cpp /proc/$p/environ 2>/dev/null "
+        "&& kill $p; done; rm -f /dev/shm/*zenoh*"), cmd_curat_pi()
+    for c in (cmd_curat_pi(), cmd_curat_m1()):
+        assert "pkill -f rmw_zenohd" not in c, c        # forma nepazita a disparut
+    # pattern-ul EFECTIV, dupa cele doua straturi de shell (ssh -> bash -lc), CONTINE clasa
+    r = subprocess.run(["bash", "-c", 'bash -lc "printf %s ' + PATTERN_ROUTER + '"'],
+                       capture_output=True, text=True)
+    efectiv = r.stdout
+    assert efectiv == "rmw_zenoh[d]", (efectiv, r.stderr)
+    # ... si un strat singur (bash -lc local) da acelasi lucru
+    r1 = subprocess.run(["bash", "-lc", "printf %s " + PATTERN_ROUTER],
+                        capture_output=True, text=True)
+    assert r1.stdout == "rmw_zenoh[d]", r1.stdout
+
+    # --- 5c. garda chiar functioneaza: regexul efectiv NU se potriveste pe propriul cmdline,
+    # dar potriveste binarul si wrapperul 'ros2 run' (verificat cu acelasi motor ERE ca pkill)
+    def potriveste(text):
+        return subprocess.run(["grep", "-qE", efectiv], input=text,
+                              capture_output=True, text=True).returncode == 0
+    assert not potriveste('bash -lc "%s; rm -f /dev/shm/*zenoh*"' % PKILL_ROUTER)
+    assert not potriveste("pkill -f rmw_zenoh[d]")
+    assert potriveste("/opt/ros/jazzy/lib/rmw_zenoh_cpp/rmw_zenohd")
+    assert potriveste("/usr/bin/python3 /opt/ros/jazzy/bin/ros2 run rmw_zenoh_cpp rmw_zenohd")
+
     # --- 6. filtrarea auditului: antet + DOAR linia conditiei
     audit_text = ("== AUDIT COMPLETITUDINE: /x ==\n"
                   "conditie  rmw  payload reps\n"
@@ -531,8 +573,8 @@ def _selftest():
     assert monitor_csv("bern_30").endswith("/monitor_bern_30_redo.csv")
     assert log_router_m1("bern_30").endswith("/zenoh_router_m1_redo_bern_30.log")
     assert COND_ALL == ["ge_5_8", "ge_15_3", "ge_15_8", "bern_30", "ge_30_3", "ge_30_8"]
-    print("SELFTEST orchestrate_redo OK (32 verificari: parse_ss, comenzi remote, "
-          "selectie environ pe /proc fals, filtrare audit).")
+    print("SELFTEST orchestrate_redo OK (36 verificari: parse_ss, comenzi remote, "
+          "selectie environ pe /proc fals, garda pkill self-match, filtrare audit).")
 
 
 def main(argv):
