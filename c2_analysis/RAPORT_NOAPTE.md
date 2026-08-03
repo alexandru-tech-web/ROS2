@@ -1,6 +1,6 @@
 # RAPORT NOAPTE -- campania HIL C2
 
-Generat NON-interactiv de `c2_analysis/make_raport_noapte.py` la 2026-08-04 00:27:13.
+Generat NON-interactiv de `c2_analysis/make_raport_noapte.py` la 2026-08-04 00:37:24.
 Raport MECANIC: ce s-a generat, din ce date, si ce anomalii verificabile exista.
 **Nu contine interpretare stiintifica** -- aceea ramane a ta.
 
@@ -10,7 +10,7 @@ Raport MECANIC: ce s-a generat, din ce date, si ce anomalii verificabile exista.
 |---|---|
 | HIL 4KB | `/home/ubuntu/DATE_CAMPANIE/C2_HIL_WIFI_20260801` |
 | HIL 64KB | `/home/ubuntu/DATE_CAMPANIE/C2_HIL_WIFI64_20260803` |
-| SIL 4KB | `/home/ubuntu/DATE_CAMPANIE/C2_SIL_20260718` |
+| SIL 4KB | `/home/ubuntu/DATE_CAMPANIE/C2_SIL_20260718`, `/home/ubuntu/DATE_CAMPANIE/C2_SILCOMBO_20260719` |
 | SIL 64KB | `/home/ubuntu/DATE_CAMPANIE/C2_SIL64_20260719` |
 | iesiri | `/home/ubuntu/DATE_CAMPANIE/ANALIZA_C2` |
 
@@ -79,7 +79,7 @@ n0=k/N: rulari cu ZERO esantioane livrate. Coloanele livrare si first_seq (media
 
 # SIL vs HIL -- conditii comune
 
-SIL 4KB : /home/ubuntu/DATE_CAMPANIE/C2_SIL_20260718
+SIL 4KB : /home/ubuntu/DATE_CAMPANIE/C2_SIL_20260718, /home/ubuntu/DATE_CAMPANIE/C2_SILCOMBO_20260719
 SIL 64KB: /home/ubuntu/DATE_CAMPANIE/C2_SIL64_20260719
 HIL 4KB : /home/ubuntu/DATE_CAMPANIE/C2_HIL_WIFI_20260801
 HIL 64KB: /home/ubuntu/DATE_CAMPANIE/C2_HIL_WIFI64_20260803
@@ -108,8 +108,12 @@ HIL 64KB: /home/ubuntu/DATE_CAMPANIE/C2_HIL_WIFI64_20260803
 | ge_30_3 | zenoh | 2/10 | 25.3 | 10/10 | - | - | - |
 | ge_30_8 | cdds | 0/10 | 55.7 | 0/10 | 47.9 | -7.8 | +92 |
 | ge_30_8 | zenoh | 5/10 | 8.5 | 10/10 | - | - | - |
+| lat200_jit50_ge_15_8 | cdds | 0/10 | 70.1 | 0/10 | 55.3 | -14.9 | +61 |
+| lat200_jit50_ge_15_8 | zenoh | 0/10 | 73.9 | 8/10 | 1.7 | -72.2 | +76 |
 
 Delta pozitiv = HIL livreaza MAI MULT decat SIL. Medianele sunt conditionate pe supravietuitori, deci se citesc IMPREUNA cu n0.
+
+Surse SIL: C2_SILCOMBO_20260719 (lat200_jit50_ge_15_8); C2_SIL_20260718 (ideal, bern_5, ge_5_3, ge_5_8, bern_15, ge_15_3, ge_15_8, bern_30, ge_30_3, ge_30_8).
 
 ## 64KB
 
@@ -132,8 +136,8 @@ Delta pozitiv = HIL livreaza MAI MULT decat SIL. Medianele sunt conditionate pe 
 | fig/fig_hil_delivery_vs_B.pdf | 20569 |
 | fig/fig_hil_discovery_prefix.png | 68469 |
 | fig/fig_hil_discovery_prefix.pdf | 18965 |
-| fig/fig_hil_sil_vs_hil_zenoh.png | 111667 |
-| fig/fig_hil_sil_vs_hil_zenoh.pdf | 19579 |
+| fig/fig_hil_sil_vs_hil_zenoh.png | 110526 |
+| fig/fig_hil_sil_vs_hil_zenoh.pdf | 19387 |
 
 ## ANOMALII DETECTATE
 

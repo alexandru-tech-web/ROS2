@@ -51,6 +51,13 @@ ETICHETA = {"cyclonedds": "cdds", "zenoh": "zenoh"}
 EXCLUSE_SUFIXE = ("_INVALID", "_ECOUMORT")
 FIRST_SEQ_ASTEPTAT = 11
 
+# Referinta SIL e IMPARTITA pe mai multe arhive: grila L x B sta in C2_SIL_*, iar conditia
+# combinata (lat200_jit50_ge_15_8) a fost rulata separat, in C2_SILCOMBO_*. Fara a doua,
+# combo-ul exista pe HIL dar nu are pereche SIL si dispare tacut din comparatie.
+# Ordinea = prioritate: prima arhiva care are o conditie e cea canonica.
+SIL_4K_TIPARE = ("C2_SIL_*", "C2_SILCOMBO_*")
+SIL_64K_TIPARE = ("C2_SIL64*",)
+
 # ordinea canonica in tabele (grila L x B, apoi extra); necunoscutele merg la coada
 ORDINE = ["ideal",
           "bern_5", "ge_5_3", "ge_5_8",
@@ -76,13 +83,24 @@ def descopera_conditii(root, rmw):
     return valide, excluse
 
 
-def descopera_arhiva(tipar):
-    """Gaseste pe disc arhiva care se potriveste cu tiparul (ex. 'C2_SIL_*').
-    NU ghiceste nume: daca nu exista exact una, spune ce a gasit si intoarce None."""
-    gasite = sorted(p for p in glob.glob(os.path.join(DATE, tipar)) if os.path.isdir(p))
-    if len(gasite) == 1:
-        return gasite[0]
-    return None
+def descopera_arhive(tipare, baza=DATE):
+    """Toate arhivele care se potrivesc cu tiparele date, IN ORDINEA tiparelor, fara
+    duplicate. Ordinea conteaza: prima arhiva care contine o conditie e cea CANONICA
+    (vezi comune()). Tiparele sunt disjuncte prin constructie: 'C2_SIL_*' nu prinde
+    'C2_SIL64_*' (cifra in loc de underscore) si nici 'C2_SILCOMBO_*' (litera)."""
+    out = []
+    for t in tipare:
+        for p in sorted(glob.glob(os.path.join(baza, t))):
+            if os.path.isdir(p) and p not in out:
+                out.append(p)
+    return out
+
+
+def descopera_arhiva(tipar, baza=DATE):
+    """Varianta pentru o singura arhiva: intoarce calea daca exista EXACT una, altfel None
+    (NU ghiceste nume)."""
+    gasite = descopera_arhive([tipar], baza)
+    return gasite[0] if len(gasite) == 1 else None
 
 
 def citeste_rep(rep_dir, payload):
@@ -253,13 +271,13 @@ def tex_tabel(randuri, titlu, nota=""):
 
 
 def md_sil_vs_hil(perechi, titlu):
-    """perechi: lista de (cond, rmw, celula_sil, celula_hil). Delta = HIL - SIL."""
+    """perechi: (cond, rmw, celula_sil, celula_hil[, sursa_sil]). Delta = HIL - SIL."""
     cap = ["conditie", "RMW", "SIL n0", "SIL livr% med", "HIL n0", "HIL livr% med",
            "delta livr% (HIL-SIL)", "delta first_seq"]
     out = ["## %s" % titlu, "",
            "| " + " | ".join(cap) + " |",
            "|" + "|".join(["---"] * len(cap)) + "|"]
-    for cond, rmw, s, h in perechi:
+    for cond, rmw, s, h, *rest in perechi:
         d = (None if (s["liv_med"] is None or h["liv_med"] is None)
              else h["liv_med"] - s["liv_med"])
         dfs = (None if (s["first_seq_med"] is None or h["first_seq_med"] is None)
@@ -270,19 +288,41 @@ def md_sil_vs_hil(perechi, titlu):
             ("%+.1f" % d) if d is not None else "-",
             ("%+d" % round(dfs)) if dfs is not None else "-"]) + " |")
     out += ["", "Delta pozitiv = HIL livreaza MAI MULT decat SIL. Medianele sunt "
-            "conditionate pe supravietuitori, deci se citesc IMPREUNA cu n0.", ""]
+            "conditionate pe supravietuitori, deci se citesc IMPREUNA cu n0."]
+    # provenienta: din ce arhiva SIL vine fiecare conditie (referinta SIL e impartita)
+    surse = {}
+    for t in perechi:
+        if len(t) > 4:
+            surse.setdefault(t[4], set()).add(t[0])
+    if len(surse) > 1:
+        out.append("")
+        out.append("Surse SIL: " + "; ".join(
+            "%s (%s)" % (src, ", ".join(sorted(cs, key=lambda c: (
+                ORDINE.index(c) if c in ORDINE else len(ORDINE), c))))
+            for src, cs in sorted(surse.items())) + ".")
+    out.append("")
     return "\n".join(out)
 
 
-def comune(root_sil, root_hil, payload):
-    """Perechile (cond, rmw, celula_sil, celula_hil) pe conditiile prezente in AMBELE."""
+def comune(roots_sil, root_hil, payload):
+    """Perechile (cond, rmw, celula_sil, celula_hil, sursa_sil) pe conditiile prezente
+    si in SIL si in HIL. roots_sil poate fi o cale sau o LISTA de arhive SIL (grila +
+    combo); la conditii care apar in mai multe, castiga PRIMA din lista, iar sursa
+    efectiva se intoarce ca ultim element, ca sa nu se piarda provenienta."""
+    if isinstance(roots_sil, str):
+        roots_sil = [roots_sil]
     perechi = []
     for rmw in RMWS:
-        cs, _ = descopera_conditii(root_sil, rmw)
         ch, _ = descopera_conditii(root_hil, rmw)
-        for c in [x for x in cs if x in ch]:
-            perechi.append((c, rmw, celula(root_sil, rmw, c, payload),
-                            celula(root_hil, rmw, c, payload)))
+        vazute = set()
+        for rs in roots_sil:
+            cs, _ = descopera_conditii(rs, rmw)
+            for c in cs:
+                if c in ch and c not in vazute:
+                    vazute.add(c)
+                    perechi.append((c, rmw, celula(rs, rmw, c, payload),
+                                    celula(root_hil, rmw, c, payload),
+                                    os.path.basename(rs)))
     perechi.sort(key=lambda t: (ORDINE.index(t[0]) if t[0] in ORDINE else len(ORDINE),
                                 t[0], t[1]))
     return perechi
@@ -370,7 +410,54 @@ def _selftest():
         h = dict(s); h["liv_med"] = 50.0; h["first_seq_med"] = 40
         m = md_sil_vs_hil([("ge_15_8", "zenoh", s, h)], "D")
         assert "+30.0" in m and "+29" in m, m
-        print("SELFTEST make_hil_tables OK (24 verificari, fixture temporar in /tmp).")
+
+        # --- descoperirea SIL pe AMBELE tipare (grila + combo), pe o baza falsa
+        baza = tempfile.mkdtemp(prefix="hil_sil_selftest_")
+        try:
+            for nume in ("C2_SIL_20260718", "C2_SILCOMBO_20260719", "C2_SIL64_20260719",
+                         "C2_HIL_WIFI_20260801", "ALTCEVA"):
+                os.makedirs(os.path.join(baza, nume))
+            g = descopera_arhive(SIL_4K_TIPARE, baza=baza)
+            assert [os.path.basename(x) for x in g] == ["C2_SIL_20260718",
+                                                        "C2_SILCOMBO_20260719"], g
+            # tiparele nu se calca: 64K nu intra la 4K, si nici invers
+            assert [os.path.basename(x) for x in descopera_arhive(SIL_64K_TIPARE, baza=baza)] \
+                == ["C2_SIL64_20260719"]
+            assert "C2_SIL64_20260719" not in [os.path.basename(x) for x in g], g
+            assert descopera_arhiva("C2_SIL_*", baza=baza).endswith("C2_SIL_20260718")
+            # mai multe potriviri pentru un singur tipar -> None (nu ghicim)
+            assert descopera_arhiva("C2_SIL*", baza=baza) is None
+
+            # comune() peste doua arhive SIL: combo vine din a doua, restul din prima,
+            # iar duplicatele sunt luate din PRIMA (prioritate) si nu se repeta
+            sil_a = os.path.join(baza, "C2_SIL_20260718")
+            sil_b = os.path.join(baza, "C2_SILCOMBO_20260719")
+            hil = os.path.join(baza, "C2_HIL_WIFI_20260801")
+            for r, conds in ((sil_a, ["ge_15_8", "ideal"]),
+                             (sil_b, ["lat200_jit50_ge_15_8", "ideal"]),
+                             (hil, ["ge_15_8", "ideal", "lat200_jit50_ge_15_8"])):
+                for c in conds:
+                    rd = os.path.join(r, "zenoh", c, "rep1")
+                    os.makedirs(rd)
+                    with open(os.path.join(rd, "transport_p4096.csv"), "w") as f:
+                        f.write("seq,rtt_ms\n11,1.0\n")
+                    with open(os.path.join(rd, "transport_p4096_summary.json"), "w") as f:
+                        json.dump({"n": 1, "sent": 10, "received": 1}, f)
+            per = comune([sil_a, sil_b], hil, 4096)
+            nume_cond = [t[0] for t in per]
+            assert nume_cond == ["ideal", "ge_15_8", "lat200_jit50_ge_15_8"], nume_cond
+            assert len(nume_cond) == len(set(nume_cond)), "conditie duplicata"
+            surse = {t[0]: t[4] for t in per}
+            assert surse["ideal"] == "C2_SIL_20260718", surse       # prima are prioritate
+            assert surse["lat200_jit50_ge_15_8"] == "C2_SILCOMBO_20260719", surse
+            # nota de provenienta apare cand contribuie mai multe arhive
+            mm = md_sil_vs_hil(per, "4KB")
+            assert "Surse SIL:" in mm and "C2_SILCOMBO_20260719 (lat200_jit50_ge_15_8)" in mm, mm
+            # o singura sursa -> fara nota (nu adaugam zgomot)
+            assert "Surse SIL:" not in md_sil_vs_hil(comune([sil_a], hil, 4096), "4KB")
+        finally:
+            shutil.rmtree(baza, ignore_errors=True)
+        print("SELFTEST make_hil_tables OK (35 verificari, fixture temporar in /tmp).")
     finally:
         shutil.rmtree(root, ignore_errors=True)
 
@@ -420,12 +507,12 @@ def main(argv):
     scrie(os.path.join(out, "tabel_hil_64k.tex"),
           tex_tabel(r64, "HIL Wi-Fi 64KB -- %s" % os.path.basename(arh64), nota64))
 
-    # SIL descoperit pe disc (nu ghicit)
-    sil4 = descopera_arhiva("C2_SIL_*")
-    sil64 = descopera_arhiva("C2_SIL64*")
+    # SIL descoperit pe disc (nu ghicit); 4KB = grila + combo, in ordinea prioritatii
+    sil4 = descopera_arhive(SIL_4K_TIPARE)
+    sil64 = descopera_arhive(SIL_64K_TIPARE)
     bucati = ["# SIL vs HIL -- conditii comune", "",
-              "SIL 4KB : %s" % (sil4 or "NEGASIT"),
-              "SIL 64KB: %s" % (sil64 or "NEGASIT"),
+              "SIL 4KB : %s" % (", ".join(sil4) or "NEGASIT"),
+              "SIL 64KB: %s" % (", ".join(sil64) or "NEGASIT"),
               "HIL 4KB : %s" % arh4,
               "HIL 64KB: %s" % arh64, ""]
     if sil4:

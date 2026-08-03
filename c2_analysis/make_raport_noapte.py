@@ -98,8 +98,11 @@ def construieste(arh4, arh64, out_dir, caiuri_fig, stamp):
         "|---|---|",
         "| HIL 4KB | `%s` |" % arh4,
         "| HIL 64KB | `%s` |" % arh64,
-        "| SIL 4KB | `%s` |" % (T.descopera_arhiva("C2_SIL_*") or "NEGASIT"),
-        "| SIL 64KB | `%s` |" % (T.descopera_arhiva("C2_SIL64*") or "NEGASIT"),
+        # referinta SIL 4KB e IMPARTITA (grila + combo): se listeaza toate arhivele
+        "| SIL 4KB | %s |" % (", ".join("`%s`" % p for p in
+                                        T.descopera_arhive(T.SIL_4K_TIPARE)) or "NEGASIT"),
+        "| SIL 64KB | %s |" % (", ".join("`%s`" % p for p in
+                                         T.descopera_arhive(T.SIL_64K_TIPARE)) or "NEGASIT"),
         "| iesiri | `%s` |" % out_dir,
         "",
         "Directoare-proba excluse explicit din tabele: %s."

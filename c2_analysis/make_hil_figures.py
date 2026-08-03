@@ -34,7 +34,7 @@ import matplotlib.pyplot as plt
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from make_hil_tables import (ARH_4K_DEFAULT, ARH_64K_DEFAULT, OUT_DEFAULT, PAY_4K,
-                             RMWS, celula, comune, descopera_arhiva)
+                             RMWS, SIL_4K_TIPARE, celula, comune, descopera_arhive)
 
 COLOR = {"cyclonedds": "#4477AA", "zenoh": "#AA3377"}
 LABEL = {"cyclonedds": "rmw_cyclonedds", "zenoh": "rmw_zenoh"}
@@ -205,7 +205,7 @@ def fig_discovery(root, out):
 
 def fig_sil_vs_hil(perechi, out):
     """F4: zenoh 4KB, perechi de bare SIL vs HIL pe conditiile comune."""
-    p = [(c, s, h) for c, rmw, s, h in perechi if rmw == "zenoh"]
+    p = [(c, s, h) for c, rmw, s, h, *_ in perechi if rmw == "zenoh"]
     fig, ax = plt.subplots(figsize=(7.16, 2.6))
     x = list(range(len(p)))
     w = 0.38
@@ -245,7 +245,7 @@ def genereaza(arh4, arh64, out):
     caiuri += fig_heatmap(G, out)
     caiuri += fig_delivery_vs_B(G, out)
     caiuri += fig_discovery(arh4, out)
-    sil4 = descopera_arhiva("C2_SIL_*")
+    sil4 = descopera_arhive(SIL_4K_TIPARE)      # grila + combo
     if sil4:
         caiuri += fig_sil_vs_hil(comune(sil4, arh4, PAY_4K), out)
     else:
