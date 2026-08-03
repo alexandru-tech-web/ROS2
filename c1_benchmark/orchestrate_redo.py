@@ -73,6 +73,7 @@ LOGDIR_PI = "~/DATE_CAMPANIE/C2_HIL_WIFI_20260801_pi"    # cale REMOTA (tilde ex
 JURNAL_M2 = "/home/ubuntu/DATE_CAMPANIE/netem_journal_M2.log"
 
 SRC_M1 = os.path.join(HOME, "ros2_ws", "src", "c1_benchmark")
+SETUP_M1 = os.path.join(HOME, "ros2_ws", "install", "setup.bash")   # cale ABSOLUTA
 SRC_M1_C2 = os.path.join(HOME, "ros2_ws", "src", "c2_analysis")
 SRC_PI = "/home/ubuntu/ros2_ws/src/c1_benchmark"    # cale absoluta, ca in blocul manual
 
@@ -247,12 +248,19 @@ def cmd_netem_show_pi():
 
 
 def cmd_driver(cond):
-    """Driverul campaniei, cu tee ca in blocul manual. 'set -o pipefail' e adaugat ca sa
-    conteze codul lui run_campaign.py, nu al lui tee (altfel poarta 5 ar fi decorativa)."""
-    return ("set -o pipefail; python3 %s/run_campaign.py --mode hil --iface %s --reps 10"
+    """Driverul campaniei, cu tee ca in blocul manual.
+    Preambulul de mediu e EXPLICIT, ca la pornirile de router/ecou: driverul ruleaza sub
+    'bash -c' (fara profil), deci ar mosteni mediul terminalului din care a fost pornit
+    orchestratorul. Un ROS_DOMAIN_ID diferit de 7 nu da eroare -- da pierdere TOTALA in
+    tacere (clientul nu vede ecoul din domeniul 7). Calea lui setup.bash e absoluta.
+    RMW_IMPLEMENTATION NU se pune aici: run_campaign.py il fixeaza el, per rulare.
+    'set -o pipefail' face sa conteze codul lui run_campaign.py, nu al lui tee (altfel
+    poarta 5 ar fi decorativa)."""
+    return ("export ROS_DOMAIN_ID=%d && source %s && "
+            "set -o pipefail; python3 %s/run_campaign.py --mode hil --iface %s --reps 10"
             " --rmws zenoh --conditions %s --layers transport --allow-corr --out %s"
             " 2>&1 | tee %s"
-            % (SRC_M1, IFACE_M1, cond, ARCH, console_m1(cond)))
+            % (ROS_DOMAIN, SETUP_M1, SRC_M1, IFACE_M1, cond, ARCH, console_m1(cond)))
 
 
 def cmd_audit():
@@ -728,8 +736,17 @@ def _selftest():
     assert p == 'bash -lc "for p in \\$(pgrep x); do echo \\$p; done"', p
     assert ssh_display("true") == 'ssh ubuntu@192.168.100.19 \'bash -lc "true"\'', ssh_display("true")
     assert ssh_argv("true")[:2] == ["ssh", PI]
-    # driverul: --rmws zenoh, --allow-corr, tee in consola conditiei, pipefail
+    # driverul: preambul de mediu EXPLICIT (domeniul 7 + setup.bash pe cale absoluta),
+    # inaintea lui 'set -o pipefail', in acelasi bash -c
     d = cmd_driver("ge_15_8")
+    preambul_driver = ("export ROS_DOMAIN_ID=7 && source %s/ros2_ws/install/setup.bash && "
+                       "set -o pipefail; " % HOME)
+    assert d.startswith(preambul_driver), d
+    assert d.count("ROS_DOMAIN_ID=7") == 1, d          # exact o data, nu duplicat
+    assert d.count("source ") == 1 and "~/ros2_ws/install" not in d, d   # cale absoluta
+    assert "RMW_IMPLEMENTATION" not in d, d            # il fixeaza run_campaign.py, per rulare
+    assert d.index("ROS_DOMAIN_ID") < d.index("set -o pipefail") < d.index("run_campaign.py"), d
+    # driverul: --rmws zenoh, --allow-corr, tee in consola conditiei, pipefail
     for bucata in ("set -o pipefail;", "--mode hil", "--iface wlp4s0", "--reps 10",
                    "--rmws zenoh", "--conditions ge_15_8", "--layers transport",
                    "--allow-corr", "| tee ", "console_ge_15_8_zenohredo.log"):
@@ -835,7 +852,7 @@ def _selftest():
     finally:
         set_arch(ARCH_DEFAULT)
     assert ARCH == ARCH_DEFAULT and LOGDIR_PI.endswith("C2_HIL_WIFI_20260801_pi"), (ARCH, LOGDIR_PI)
-    print("SELFTEST orchestrate_redo OK (71 verificari: parse_ss, comenzi remote, setsid pe "
+    print("SELFTEST orchestrate_redo OK (76 verificari: parse_ss, comenzi remote, setsid pe "
           "pornirile in fundal, lansare fire-and-forget (cele 3 cai), polling-ul portilor, "
           "selectie environ pe /proc fals, garda pkill self-match, filtrare audit, "
           "cai derivate din --arch, --journal explicit).")
