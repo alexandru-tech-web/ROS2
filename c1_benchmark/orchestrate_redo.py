@@ -84,6 +84,13 @@ ENVIRON_MARKER = "RMW_IMPLEMENTATION=rmw_zenoh_cpp"
 PATTERN_ROUTER = "rmw_zenoh\\[d\\]"
 PKILL_ROUTER = "pkill -f %s" % PATTERN_ROUTER
 
+# Pornirile in fundal (router Pi, router M1, ecou) folosesc 'setsid nohup ... </dev/null &':
+# sesiune noua => procesul nu mai atarna de canalul ssh, iar sshd il elibereaza imediat.
+# Timeoutul lor e totusi mai larg (aparare in adancime): daca legatura Wi-Fi e proasta,
+# handshake-ul ssh singur poate depasi 60 s, si nu vrem un ABORT fals la pornire.
+TIMEOUT_SSH = 60          # comenzi remote scurte (curatare, porti, netem, ss)
+TIMEOUT_PORNIRE = 120     # pasii 4, 5, 6: pornirile in fundal
+
 STARI_SS = ("ESTAB", "SYN-SENT", "SYN-RECV", "FIN-WAIT-1", "FIN-WAIT-2", "TIME-WAIT",
             "CLOSE-WAIT", "LAST-ACK", "LISTEN", "CLOSING", "UNCONN", "CLOSED")
 
@@ -165,7 +172,7 @@ def cmd_router_pi(cond):
     return ("%s && export RUST_LOG=info"
             " && export ZENOH_ROUTER_CONFIG_URI=~/ros2_ws/src/c1_benchmark/router_pi.json5"
             " && mkdir -p %s"
-            " && nohup ros2 run rmw_zenoh_cpp rmw_zenohd > %s 2>&1 </dev/null &"
+            " && setsid nohup ros2 run rmw_zenoh_cpp rmw_zenohd > %s 2>&1 </dev/null &"
             % (prefix_ros(), LOGDIR_PI, log_router_pi(cond)))
 
 
@@ -173,13 +180,13 @@ def cmd_router_m1(cond):
     return ("%s && export RUST_LOG=info"
             " && export ZENOH_ROUTER_CONFIG_URI=~/ros2_ws/src/c1_benchmark/router_m1.json5"
             " && mkdir -p %s"
-            " && nohup ros2 run rmw_zenoh_cpp rmw_zenohd > %s 2>&1 </dev/null &"
+            " && setsid nohup ros2 run rmw_zenoh_cpp rmw_zenohd > %s 2>&1 </dev/null &"
             % (prefix_ros(), LOGDIR_M1, log_router_m1(cond)))
 
 
 def cmd_ecou_pi(cond):
     return ("%s && mkdir -p %s"
-            " && nohup python3 %s/bench_echo_server.py > %s 2>&1 </dev/null &"
+            " && setsid nohup python3 %s/bench_echo_server.py > %s 2>&1 </dev/null &"
             % (prefix_ros(), LOGDIR_PI, SRC_PI, log_ecou_pi(cond)))
 
 
@@ -328,18 +335,18 @@ def ruleaza_conditie(jur, cond, dry):
             jur.scrie("(fara date vechi pentru %s: %s nu exista)" % (cond, vechi))
 
         # 2. Pi: router jos + DOAR ecoul zenoh jos + shm zenoh curatat
-        ruleaza(jur, ssh_argv(cmd_curat_pi()), ssh_display(cmd_curat_pi()), dry, timeout=60)
+        ruleaza(jur, ssh_argv(cmd_curat_pi()), ssh_display(cmd_curat_pi()), dry, timeout=TIMEOUT_SSH)
         # 3. M1: router jos + shm zenoh curatat
         ruleaza(jur, ["bash", "-lc", cmd_curat_m1()],
                 'bash -lc "%s"' % cmd_curat_m1(), dry)
 
         # 4. Pi: routerul sus + POARTA 'reached at'
         ruleaza(jur, ssh_argv(cmd_router_pi(cond)), ssh_display(cmd_router_pi(cond)),
-                dry, timeout=60)
+                dry, timeout=TIMEOUT_PORNIRE)
         asteapta(jur, 3, dry)
         cod, _ = ruleaza(jur, ssh_argv(cmd_poarta_log(log_router_pi(cond))),
                          ssh_display(cmd_poarta_log(log_router_pi(cond))),
-                         dry, capture=True, timeout=60)
+                         dry, capture=True, timeout=TIMEOUT_SSH)
         if cod != 0:
             raise Abort("1 (router Pi)",
                         "logul routerului de pe M2 nu contine 'reached at'",
@@ -349,7 +356,7 @@ def ruleaza_conditie(jur, cond, dry):
 
         # 5. M1: routerul sus + POARTA 'reached at'
         ruleaza(jur, ["bash", "-lc", cmd_router_m1(cond)],
-                'bash -lc "%s"' % cmd_router_m1(cond), dry)
+                'bash -lc "%s"' % cmd_router_m1(cond), dry, timeout=TIMEOUT_PORNIRE)
         asteapta(jur, 3, dry)
         cod, _ = ruleaza(jur, ["bash", "-lc", cmd_poarta_log(log_router_m1(cond))],
                          'bash -lc "%s"' % cmd_poarta_log(log_router_m1(cond)),
@@ -362,12 +369,12 @@ def ruleaza_conditie(jur, cond, dry):
 
         # 6. Pi: ecoul zenoh sus
         ruleaza(jur, ssh_argv(cmd_ecou_pi(cond)), ssh_display(cmd_ecou_pi(cond)),
-                dry, timeout=60)
+                dry, timeout=TIMEOUT_PORNIRE)
         asteapta(jur, 2, dry)
 
         # 7. POARTA de atasare (loopback pe M2 + M1 conectat)
         cod, iesire = ruleaza(jur, ssh_argv(cmd_ss_pi()), ssh_display(cmd_ss_pi()),
-                              dry, capture=True, timeout=60)
+                              dry, capture=True, timeout=TIMEOUT_SSH)
         if not dry:
             v = parse_ss(iesire)
             jur.scrie("atasare: %d conexiuni active pe %d (loopback=%d, M1=%d)"
@@ -382,7 +389,7 @@ def ruleaza_conditie(jur, cond, dry):
         # 8. Pi: netem pentru conditie + confirmarea qdisc-ului
         cod, _ = ruleaza(jur, ["ssh", PI, cmd_netem_pi(cond)],
                          "ssh %s \"%s\"" % (PI, cmd_netem_pi(cond)),
-                         dry, capture=True, timeout=60)
+                         dry, capture=True, timeout=TIMEOUT_SSH)
         if cod != 0:
             raise Abort("4 (netem M2)",
                         "hil_netem.py a iesit cu cod %d pe M2 -- conditia %s NU e aplicata"
@@ -391,7 +398,7 @@ def ruleaza_conditie(jur, cond, dry):
                         "sudo python3 %s/hil_netem.py %s %s --allow-corr"
                         % (SRC_PI, IFACE_PI, cond))
         ruleaza(jur, ["ssh", PI, cmd_netem_show_pi()],
-                "ssh %s \"%s\"" % (PI, cmd_netem_show_pi()), dry, capture=True, timeout=60)
+                "ssh %s \"%s\"" % (PI, cmd_netem_show_pi()), dry, capture=True, timeout=TIMEOUT_SSH)
 
         # 9. local: monitorul (observator pur) in fundal
         argv_mon = ["python3", os.path.join(SRC_M1, "monitor_zenoh.py"),
@@ -476,15 +483,26 @@ def _selftest():
     astept_router = (P + " && export RUST_LOG=info"
                      " && export ZENOH_ROUTER_CONFIG_URI=~/ros2_ws/src/c1_benchmark/router_pi.json5"
                      " && mkdir -p ~/DATE_CAMPANIE/C2_HIL_WIFI_20260801_pi"
-                     " && nohup ros2 run rmw_zenoh_cpp rmw_zenohd >"
+                     " && setsid nohup ros2 run rmw_zenoh_cpp rmw_zenohd >"
                      " ~/DATE_CAMPANIE/C2_HIL_WIFI_20260801_pi/zenoh_router_pi_redo_ge_15_8.log"
                      " 2>&1 </dev/null &")
     assert cmd_router_pi("ge_15_8") == astept_router, cmd_router_pi("ge_15_8")
     astept_ecou = (P + " && mkdir -p ~/DATE_CAMPANIE/C2_HIL_WIFI_20260801_pi"
-                   " && nohup python3 /home/ubuntu/ros2_ws/src/c1_benchmark/bench_echo_server.py >"
+                   " && setsid nohup python3 /home/ubuntu/ros2_ws/src/c1_benchmark/bench_echo_server.py >"
                    " ~/DATE_CAMPANIE/C2_HIL_WIFI_20260801_pi/echo_zenoh_redo_ge_15_8.log"
                    " 2>&1 </dev/null &")
     assert cmd_ecou_pi("ge_15_8") == astept_ecou, cmd_ecou_pi("ge_15_8")
+    # toate cele TREI porniri in fundal ruleaza in sesiune noua (sshd elibereaza canalul):
+    # 'setsid nohup' imediat inaintea binarului, si redirectarile + '&' pastrate.
+    for c in (cmd_router_pi("ge_15_8"), cmd_router_m1("ge_15_8"), cmd_ecou_pi("ge_15_8")):
+        assert "setsid nohup " in c, c
+        assert c.count("setsid") == 1 and c.count("nohup") == 1, c
+        assert c.endswith("2>&1 </dev/null &"), c
+    assert "setsid nohup ros2 run" in cmd_router_m1("ge_15_8"), cmd_router_m1("ge_15_8")
+    # setsid nu aduce caractere speciale: payload-ul ssh ramane neschimbat de escapare
+    assert "setsid nohup" in ssh_payload(cmd_router_pi("ge_15_8")), ssh_payload(cmd_router_pi("ge_15_8"))
+    # timeout diferentiat: pornirile au marja mai mare decat comenzile scurte
+    assert TIMEOUT_PORNIRE == 120 and TIMEOUT_SSH == 60, (TIMEOUT_PORNIRE, TIMEOUT_SSH)
     assert cmd_netem_pi("ge_15_8") == ("sudo -n python3 /home/ubuntu/ros2_ws/src/c1_benchmark"
                                        "/hil_netem.py wlan0 ge_15_8 --allow-corr"), cmd_netem_pi("ge_15_8")
     # payload-ul ssh: '$' escapat, ghilimele duble in jurul lui bash -lc
@@ -573,8 +591,9 @@ def _selftest():
     assert monitor_csv("bern_30").endswith("/monitor_bern_30_redo.csv")
     assert log_router_m1("bern_30").endswith("/zenoh_router_m1_redo_bern_30.log")
     assert COND_ALL == ["ge_5_8", "ge_15_3", "ge_15_8", "bern_30", "ge_30_3", "ge_30_8"]
-    print("SELFTEST orchestrate_redo OK (36 verificari: parse_ss, comenzi remote, "
-          "selectie environ pe /proc fals, garda pkill self-match, filtrare audit).")
+    print("SELFTEST orchestrate_redo OK (42 verificari: parse_ss, comenzi remote, setsid pe "
+          "pornirile in fundal, selectie environ pe /proc fals, garda pkill self-match, "
+          "filtrare audit).")
 
 
 def main(argv):
