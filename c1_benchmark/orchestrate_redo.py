@@ -20,11 +20,17 @@ CE NU FACE (deliberat):
   - NU modifica run_campaign.py / bench_client.py / bench_echo_server.py (protocol
     INGHETAT mid-campanie): le apeleaza doar ca pe niste binare.
 
-PORTI (fiecare oprire e un ABORT cu mesaj despre CE s-a rupt si CE sa verifice omul):
-  1. routerul Pi a pornit    -- logul contine 'reached at'
-  2. routerul M1 a pornit    -- logul contine 'reached at'
+PORNIRILE (pasii 4, 5, 6) sunt FIRE-AND-FORGET: procesele pleaca prin 'setsid nohup ...
+</dev/null &', iar lansatorul local e asteptat cel mult 10 s. Cod nenul in acest interval =
+esec real (auth/DNS/sintaxa) -> ABORT; depasirea celor 10 s NU e esec (sshd mai tine uneori
+canalul): inchidem DOAR procesul local si lasam poarta sa spuna adevarul.
+
+PORTI (fiecare oprire e un ABORT cu mesaj despre CE s-a rupt si CE sa verifice omul).
+Portile 1-3 fac POLLING la 2 s -- pornirile lente nu mai sunt ratate de un sleep fix:
+  1. routerul Pi a pornit    -- 'reached at' in log, reincercat maxim 30 s
+  2. routerul M1 a pornit    -- 'reached at' in log, reincercat maxim 30 s
   3. sesiunea s-a atasat     -- pe M2: pereche loopback [::1]:7447 (ecoul <-> router local)
-                                SI o linie cu 192.168.100.14 (M1 <-> router M2)
+                                SI o linie cu 192.168.100.14 (M1 <-> router M2), maxim 15 s
   4. netem aplicat pe M2     -- hil_netem.py iese cu 0 (altfel conditia NU e aplicata si
                                 rularea ar fi invalida, deci nu se porneste driverul)
   5. driverul a terminat 0   -- run_campaign.py sub 'set -o pipefail' (tee nu mascheaza codul)
@@ -86,10 +92,16 @@ PKILL_ROUTER = "pkill -f %s" % PATTERN_ROUTER
 
 # Pornirile in fundal (router Pi, router M1, ecou) folosesc 'setsid nohup ... </dev/null &':
 # sesiune noua => procesul nu mai atarna de canalul ssh, iar sshd il elibereaza imediat.
-# Timeoutul lor e totusi mai larg (aparare in adancime): daca legatura Wi-Fi e proasta,
-# handshake-ul ssh singur poate depasi 60 s, si nu vrem un ABORT fals la pornire.
+# De aceea pornirile sunt FIRE-AND-FORGET: lansatorul local e asteptat doar GRATIE_LANSARE
+# secunde. Cod nenul in acest interval = esec REAL (auth, DNS, sintaxa) -> ABORT. Depasirea
+# gratiei NU e esec: uneori sshd tine canalul deschis chiar si asa; atunci omoram doar
+# procesul ssh LOCAL (cel de fundal traieste, e in alta sesiune) si lasam POARTA sa decida.
+# Adevarul despre 'a pornit sau nu' vine EXCLUSIV de la porti, nu de la lansator.
 TIMEOUT_SSH = 60          # comenzi remote scurte (curatare, porti, netem, ss)
-TIMEOUT_PORNIRE = 120     # pasii 4, 5, 6: pornirile in fundal
+GRATIE_LANSARE = 10.0     # cat asteptam local un lansator de fundal (pasii 4, 5, 6)
+POLL_INTERVAL = 2.0       # ritmul de reincercare al portilor
+POLL_ROUTER = 30.0        # poarta 'reached at' (router Pi / M1)
+POLL_ATASARE = 15.0       # poarta de atasare a sesiunii (ss pe M2)
 
 STARI_SS = ("ESTAB", "SYN-SENT", "SYN-RECV", "FIN-WAIT-1", "FIN-WAIT-2", "TIME-WAIT",
             "CLOSE-WAIT", "LAST-ACK", "LISTEN", "CLOSING", "UNCONN", "CLOSED")
@@ -319,6 +331,91 @@ def asteapta(jur, secunde, dry):
         time.sleep(secunde)
 
 
+def _exec(argv, timeout):
+    """Executie tacuta pentru sonde (portile isi scriu singure raportul).
+    Intoarce (cod, iesire); cod 124 marcheaza timeout/eroare de lansare."""
+    try:
+        r = subprocess.run(argv, capture_output=True, text=True, timeout=timeout)
+    except (subprocess.TimeoutExpired, OSError):
+        return 124, ""
+    return r.returncode, (r.stdout or "")
+
+
+def lanseaza(jur, argv, display, dry, poarta, verifica, gratie=GRATIE_LANSARE,
+             popen=subprocess.Popen):
+    """Porneste un proces de FUNDAL (setsid nohup ... &) si asteapta lansatorul local cel
+    mult `gratie` secunde:
+      - cod 0 in interval           -> lansatorul si-a facut treaba;
+      - cod NENUL in interval       -> esec REAL (auth/DNS/sintaxa) -> ABORT;
+      - nu se termina in `gratie`   -> NU e esec: omoram doar procesul local (ssh/bash);
+                                       procesul remote traieste in sesiunea lui, iar
+                                       verdictul il da poarta care urmeaza.
+    Intoarce codul lansatorului, sau None daca a fost inchis de noi dupa gratie.
+    `popen` e injectabil ca selftestul sa poata acoperi calea de gratie."""
+    jur.cmd(display)
+    if dry:
+        return 0
+    try:
+        p = popen(argv)
+    except OSError as e:
+        raise Abort(poarta, "nu am putut lansa: %s (%s)" % (display, e), verifica)
+    try:
+        cod = p.wait(timeout=gratie)
+    except subprocess.TimeoutExpired:
+        p.terminate()
+        try:
+            p.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            p.kill()
+        jur.scrie("lansator neinchis dupa %gs (comportament cunoscut) -- am inchis DOAR "
+                  "procesul local; procesul de fundal traieste prin setsid, decide poarta"
+                  % gratie)
+        return None
+    if cod != 0:
+        raise Abort(poarta, "lansatorul a iesit cu cod %d in primele %gs: %s"
+                    % (cod, gratie, display), verifica)
+    return cod
+
+
+def poarta_polling(sonda, interval, maxim, ceas=time.time, dormi=time.sleep, raport=None):
+    """Reincearca `sonda` la fiecare `interval` secunde, cel mult `maxim` secunde de la
+    prima incercare. sonda() -> (ok, detaliu). Intoarce (ok, incercari, ultimul_detaliu).
+    Bucla e PURA (ceasul si somnul sunt injectate), de aceea se testeaza fara sa doarma."""
+    t0 = ceas()
+    incercari = 0
+    while True:
+        incercari += 1
+        ok, detaliu = sonda()
+        if raport:
+            raport(incercari, ceas() - t0, ok, detaliu)
+        if ok:
+            return True, incercari, detaliu
+        if ceas() - t0 >= maxim:
+            return False, incercari, detaliu
+        dormi(interval)
+
+
+def poarta_reached(jur, dry, argv, display, eticheta, poarta, verifica, maxim=POLL_ROUTER):
+    """Poarta 'routerul a pornit': 'reached at' cautat REPETAT in log (inlocuieste
+    perechea sleep fix + un singur grep, care rata pornirile lente)."""
+    jur.cmd(display)
+    if dry:
+        return
+
+    def sonda():
+        cod, out = _exec(argv, TIMEOUT_SSH)
+        return cod == 0, out.strip()
+
+    def raport(n, t, ok, detaliu):
+        jur.scrie("%s: incercarea %d (t+%.0fs) -> %s"
+                  % (eticheta, n, t, ("OK, %s potriviri" % detaliu) if ok else "inca nu"))
+
+    ok, incercari, _ = poarta_polling(sonda, POLL_INTERVAL, maxim, raport=raport)
+    if not ok:
+        raise Abort(poarta, "dupa %gs (%d incercari) logul tot nu contine 'reached at'"
+                    % (maxim, incercari), verifica)
+
+
 # ------------------------------------------------------------------- lantul
 def ruleaza_conditie(jur, cond, dry):
     """Lantul complet pentru o conditie. Ridica Abort la prima poarta picata."""
@@ -340,47 +437,56 @@ def ruleaza_conditie(jur, cond, dry):
         ruleaza(jur, ["bash", "-lc", cmd_curat_m1()],
                 'bash -lc "%s"' % cmd_curat_m1(), dry)
 
-        # 4. Pi: routerul sus + POARTA 'reached at'
-        ruleaza(jur, ssh_argv(cmd_router_pi(cond)), ssh_display(cmd_router_pi(cond)),
-                dry, timeout=TIMEOUT_PORNIRE)
-        asteapta(jur, 3, dry)
-        cod, _ = ruleaza(jur, ssh_argv(cmd_poarta_log(log_router_pi(cond))),
-                         ssh_display(cmd_poarta_log(log_router_pi(cond))),
-                         dry, capture=True, timeout=TIMEOUT_SSH)
-        if cod != 0:
-            raise Abort("1 (router Pi)",
-                        "logul routerului de pe M2 nu contine 'reached at'",
-                        "pe Pi: tail -30 %s ; verifica ZENOH_ROUTER_CONFIG_URI si daca "
-                        "portul %d e liber (ss -tln | grep %d)"
-                        % (log_router_pi(cond), PORT, PORT))
+        # 4. Pi: routerul sus (fire-and-forget) + POARTA 1 cu polling
+        lanseaza(jur, ssh_argv(cmd_router_pi(cond)), ssh_display(cmd_router_pi(cond)), dry,
+                 "1 (lansare router Pi)",
+                 "verifica legatura: ssh %s true ; si daca ~/ros2_ws/install exista pe M2" % PI)
+        poarta_reached(jur, dry, ssh_argv(cmd_poarta_log(log_router_pi(cond))),
+                       ssh_display(cmd_poarta_log(log_router_pi(cond))),
+                       "poarta 1 (router Pi)", "1 (router Pi)",
+                       "pe Pi: tail -30 %s ; verifica ZENOH_ROUTER_CONFIG_URI si daca "
+                       "portul %d e liber (ss -tln | grep %d)"
+                       % (log_router_pi(cond), PORT, PORT))
 
-        # 5. M1: routerul sus + POARTA 'reached at'
-        ruleaza(jur, ["bash", "-lc", cmd_router_m1(cond)],
-                'bash -lc "%s"' % cmd_router_m1(cond), dry, timeout=TIMEOUT_PORNIRE)
-        asteapta(jur, 3, dry)
-        cod, _ = ruleaza(jur, ["bash", "-lc", cmd_poarta_log(log_router_m1(cond))],
-                         'bash -lc "%s"' % cmd_poarta_log(log_router_m1(cond)),
-                         dry, capture=True)
-        if cod != 0:
-            raise Abort("2 (router M1)",
-                        "logul routerului de pe M1 nu contine 'reached at'",
-                        "local: tail -30 %s ; verifica router_m1.json5 si portul %d"
-                        % (log_router_m1(cond), PORT))
+        # 5. M1: routerul sus (acelasi tratament) + POARTA 2 cu polling
+        lanseaza(jur, ["bash", "-lc", cmd_router_m1(cond)],
+                 'bash -lc "%s"' % cmd_router_m1(cond), dry,
+                 "2 (lansare router M1)",
+                 "local: verifica daca 'ros2 run rmw_zenoh_cpp rmw_zenohd' porneste manual")
+        poarta_reached(jur, dry, ["bash", "-lc", cmd_poarta_log(log_router_m1(cond))],
+                       'bash -lc "%s"' % cmd_poarta_log(log_router_m1(cond)),
+                       "poarta 2 (router M1)", "2 (router M1)",
+                       "local: tail -30 %s ; verifica router_m1.json5 si portul %d"
+                       % (log_router_m1(cond), PORT))
 
-        # 6. Pi: ecoul zenoh sus
-        ruleaza(jur, ssh_argv(cmd_ecou_pi(cond)), ssh_display(cmd_ecou_pi(cond)),
-                dry, timeout=TIMEOUT_PORNIRE)
+        # 6. Pi: ecoul zenoh sus (fire-and-forget)
+        lanseaza(jur, ssh_argv(cmd_ecou_pi(cond)), ssh_display(cmd_ecou_pi(cond)), dry,
+                 "3 (lansare ecou zenoh)",
+                 "pe Pi: verifica daca %s/bench_echo_server.py exista si porneste manual"
+                 % SRC_PI)
         asteapta(jur, 2, dry)
 
-        # 7. POARTA de atasare (loopback pe M2 + M1 conectat)
-        cod, iesire = ruleaza(jur, ssh_argv(cmd_ss_pi()), ssh_display(cmd_ss_pi()),
-                              dry, capture=True, timeout=TIMEOUT_SSH)
+        # 7. POARTA de atasare (loopback pe M2 + M1 conectat), tot cu polling:
+        # sesiunea zenoh se leaga in cateva secunde, nu instantaneu.
+        jur.cmd(ssh_display(cmd_ss_pi()))
         if not dry:
-            v = parse_ss(iesire)
-            jur.scrie("atasare: %d conexiuni active pe %d (loopback=%d, M1=%d)"
-                      % (v["active"], PORT, v["loopback"], v["m1"]))
-            if not v["ok"]:
-                raise Abort("3 (atasare sesiune)", "; ".join(v["motive"]),
+            def sonda_atasare():
+                _cod, out = _exec(ssh_argv(cmd_ss_pi()), TIMEOUT_SSH)
+                v = parse_ss(out)
+                return v["ok"], v
+
+            def raport_atasare(n, t, ok, v):
+                jur.scrie("poarta 3 (atasare): incercarea %d (t+%.0fs) -> %d active, "
+                          "loopback=%d, M1=%d%s"
+                          % (n, t, v["active"], v["loopback"], v["m1"],
+                             "" if ok else " -- inca nu"))
+
+            ok, incercari, v = poarta_polling(sonda_atasare, POLL_INTERVAL, POLL_ATASARE,
+                                              raport=raport_atasare)
+            if not ok:
+                raise Abort("3 (atasare sesiune)",
+                            "dupa %gs (%d incercari): %s"
+                            % (POLL_ATASARE, incercari, "; ".join(v["motive"])),
                             "pe Pi: tail -30 %s si tail -30 %s ; verifica daca ecoul zenoh "
                             "chiar ruleaza (pgrep -af bench_echo_server) si daca routerele "
                             "s-au vazut reciproc"
@@ -501,8 +607,86 @@ def _selftest():
     assert "setsid nohup ros2 run" in cmd_router_m1("ge_15_8"), cmd_router_m1("ge_15_8")
     # setsid nu aduce caractere speciale: payload-ul ssh ramane neschimbat de escapare
     assert "setsid nohup" in ssh_payload(cmd_router_pi("ge_15_8")), ssh_payload(cmd_router_pi("ge_15_8"))
-    # timeout diferentiat: pornirile au marja mai mare decat comenzile scurte
-    assert TIMEOUT_PORNIRE == 120 and TIMEOUT_SSH == 60, (TIMEOUT_PORNIRE, TIMEOUT_SSH)
+    assert (GRATIE_LANSARE, POLL_INTERVAL, POLL_ROUTER, POLL_ATASARE, TIMEOUT_SSH) \
+        == (10.0, 2.0, 30.0, 15.0, 60), "constantele de asteptare s-au schimbat"
+
+    # --- 4b. bucla de polling: reusita, expirare, reusita din prima (ceas si somn FALSE,
+    # deci testul nu doarme deloc)
+    class Ceas(object):
+        def __init__(self):
+            self.t = 0.0
+            self.somnuri = []
+
+        def __call__(self):
+            return self.t
+
+        def dormi(self, s):
+            self.somnuri.append(s)
+            self.t += s
+
+    c = Ceas()
+    incearca = [False, False, True]           # reuseste la a 3-a incercare
+    ok, n, det = poarta_polling(lambda: (incearca[min(len(incearca) - 1, len(c.somnuri))], "d"),
+                                2.0, 30.0, ceas=c, dormi=c.dormi)
+    assert ok and n == 3 and c.somnuri == [2.0, 2.0], (ok, n, c.somnuri)
+
+    c2 = Ceas()
+    ok2, n2, _ = poarta_polling(lambda: (False, "nimic"), 2.0, 30.0, ceas=c2, dormi=c2.dormi)
+    assert not ok2 and c2.t == 30.0 and n2 == 16, (ok2, n2, c2.t)   # 0,2,...,30
+
+    c3 = Ceas()
+    ok3, n3, _ = poarta_polling(lambda: (False, ""), 2.0, 15.0, ceas=c3, dormi=c3.dormi)
+    assert not ok3 and n3 == 9 and c3.t == 16.0, (ok3, n3, c3.t)    # 0,2,...,16
+
+    c4 = Ceas()
+    ok4, n4, _ = poarta_polling(lambda: (True, "gata"), 2.0, 30.0, ceas=c4, dormi=c4.dormi)
+    assert ok4 and n4 == 1 and c4.somnuri == [], (ok4, n4, c4.somnuri)
+    rapoarte = []
+    poarta_polling(lambda: (True, "x"), 2.0, 30.0, ceas=Ceas(), dormi=lambda s: None,
+                   raport=lambda n, t, ok, d: rapoarte.append((n, ok)))
+    assert rapoarte == [(1, True)], rapoarte
+
+    # --- 4c. lanseaza(): cele trei cai, cu subprocese REALE (scurte)
+    class JurnalMut(object):
+        def __init__(self):
+            self.linii = []
+
+        def scrie(self, text, prefix="  "):
+            self.linii.append(str(text))
+
+        def cmd(self, display):
+            self.linii.append("$ " + display)
+
+        def titlu(self, text):
+            self.linii.append(str(text))
+
+    jm = JurnalMut()
+    assert lanseaza(jm, ["true"], "true", False, "X", "Y") == 0
+    # cod nenul in interval = esec REAL -> Abort
+    try:
+        lanseaza(JurnalMut(), ["bash", "-c", "exit 3"], "exit 3", False, "X (lansare)",
+                 "verifica ceva")
+        raise AssertionError("un cod nenul ar fi trebuit sa dea Abort")
+    except Abort as e:
+        assert e.poarta == "X (lansare)" and "cod 3" in e.mesaj, (e.poarta, e.mesaj)
+    # --dry nu lanseaza nimic
+    jd = JurnalMut()
+    assert lanseaza(jd, ["bash", "-c", "exit 3"], "exit 3", True, "X", "Y") == 0
+    assert jd.linii == ["$ exit 3"], jd.linii
+    # calea de GRATIE: procesul nu se termina in gratie -> None, mesaj, proces local inchis
+    creat = []
+
+    def popen_captura(argv, **kw):
+        p = subprocess.Popen(argv, **kw)
+        creat.append(p)
+        return p
+
+    jg = JurnalMut()
+    rez = lanseaza(jg, ["sleep", "30"], "sleep 30", False, "X", "Y", gratie=0.5,
+                   popen=popen_captura)
+    assert rez is None, rez
+    assert any("lansator neinchis" in l for l in jg.linii), jg.linii
+    assert creat and creat[0].poll() is not None, "procesul local nu a fost inchis"
     assert cmd_netem_pi("ge_15_8") == ("sudo -n python3 /home/ubuntu/ros2_ws/src/c1_benchmark"
                                        "/hil_netem.py wlan0 ge_15_8 --allow-corr"), cmd_netem_pi("ge_15_8")
     # payload-ul ssh: '$' escapat, ghilimele duble in jurul lui bash -lc
@@ -591,9 +775,9 @@ def _selftest():
     assert monitor_csv("bern_30").endswith("/monitor_bern_30_redo.csv")
     assert log_router_m1("bern_30").endswith("/zenoh_router_m1_redo_bern_30.log")
     assert COND_ALL == ["ge_5_8", "ge_15_3", "ge_15_8", "bern_30", "ge_30_3", "ge_30_8"]
-    print("SELFTEST orchestrate_redo OK (42 verificari: parse_ss, comenzi remote, setsid pe "
-          "pornirile in fundal, selectie environ pe /proc fals, garda pkill self-match, "
-          "filtrare audit).")
+    print("SELFTEST orchestrate_redo OK (54 verificari: parse_ss, comenzi remote, setsid pe "
+          "pornirile in fundal, lansare fire-and-forget (cele 3 cai), polling-ul portilor, "
+          "selectie environ pe /proc fals, garda pkill self-match, filtrare audit).")
 
 
 def main(argv):
