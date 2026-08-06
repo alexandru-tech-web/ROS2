@@ -134,12 +134,16 @@ MIN_PT = 7.0           # nimic sub 7 pt: sub asta textul moare la tipar
 
 JITTER = 0.08          # semi-latimea benzii de puncte (figuri late)
 JITTER_1COL = 0.06     # idem, pe o coloana: banda se ingusteaza odata cu figura
-# Banda n0 sta sub panou, dar si SUB randul de etichete de tick: la corpul de tipar (7 pt)
-# si inaltimile mici de la v3.0, vechiul -0.13 o aducea lipita de eticheta ('3' + '2/10' se
-# citeau ca un singur bloc). Perechea (N0_Y, N0_LABELPAD) e aleasa masurand distantele
-# reale dupa desenare; selftestul verifica sa nu se atinga nici de tick-uri, nici de titlul
-# de axa.
-N0_Y = -0.34           # pozitia benzii n0, in fractiuni de axa (NEGATIV = sub panou)
+# Banda n0 sta sub panou, dar si SUB randul de etichete de tick. v3.1: pozitia se da in
+# PUNCTE TIPOGRAFICE sub axa, nu in fractiuni de axa. Fractiunea se scaleaza cu inaltimea
+# panoului, deci acelasi -0.34 insemna alta distanta fizica pe o figura de 2.3 in fata de
+# una de 2.8 in; in puncte, distanta e aceeasi peste tot, ca si corpul de litera.
+# 30, nu 26: masurat pe figurile reale, eticheta de tick pe DOUA randuri ('1' + '(bern)')
+# coboara 26.6 pt sub axa, deci 26 ar cadea chiar peste ea. La 30 pt banda are ~3 pt aer
+# si deasupra (fata de tick-uri) si dedesubt (fata de titlul axei, care incepe la 42.6 pt
+# datorita lui N0_LABELPAD). Cifrele sunt verificate de aserttiile geometrice, pe toate
+# figurile care au benzi.
+N0_OFFSET_PT = 30      # cat de jos sub axa sta banda n0 (puncte)
 N0_LABELPAD = 16       # cat coboara titlul axei x, ca banda n0 sa aiba rand propriu
 
 
@@ -174,13 +178,17 @@ def strip_cell(ax, x_center, values, color, marker="o", hollow=False, size=13,
 
 
 def n0_band(ax, x, k, N):
-    """Eticheta 'k/N' (rulari cu received=0) in BANDA DE SUB AXA: x in coordonate de date,
-    y in fractiuni de axa (negativ), clip_on=False ca sa nu fie taiata de panou.
-    NU se deseneaza niciodata in interiorul axelor -- acolo ar acoperi exact punctele pe
-    care figura vrea sa le arate. Apelantul decide cand o cheama (de regula doar k>0).
-    Intoarce obiectul Text, ca sa poata fi verificat geometric in selftest."""
-    return ax.text(x, N0_Y, "%d/%d" % (k, N), transform=ax.get_xaxis_transform(),
-                   ha="center", va="top", fontsize=MIN_PT, color=RECV0, clip_on=False)
+    """Eticheta 'k/N' (rulari cu received=0) in BANDA DE SUB AXA: ancorata la baza axei
+    (y=0 in transformarea axei x, x in coordonate de date) si coborata cu N0_OFFSET_PT
+    PUNCTE. Offsetul in puncte, nu in fractiuni de axa, e ce face banda sa cada la aceeasi
+    distanta fizica pe toate figurile, indiferent de inaltimea lor.
+    clip_on=False: nu se taie la marginea panoului. NU se deseneaza niciodata in interiorul
+    axelor -- acolo ar acoperi exact punctele pe care figura vrea sa le arate. Apelantul
+    decide cand o cheama (de regula doar k>0). Intoarce obiectul Annotation, verificabil
+    geometric in selftest."""
+    return ax.annotate("%d/%d" % (k, N), xy=(x, 0), xycoords=ax.get_xaxis_transform(),
+                       xytext=(0, -N0_OFFSET_PT), textcoords="offset points",
+                       ha="center", va="top", fontsize=MIN_PT, color=RECV0, clip_on=False)
 
 
 def salveaza(fig, nume, out=None):
@@ -554,9 +562,12 @@ def _selftest():
             for c in conds4:
                 scrie(rmw, c, [80, 75, 70, 65, 60, 55, 50, 45, 40, 35])
             scrie(rmw, "lat200_jit50", [90] * 10)
-            scrie(rmw, "lat200_jit50_ge_15_8", [30] * 10)
+            # combo cu 2 rulari moarte -> F3 CHIAR primeste o banda n0, ca aserttiile
+            # geometrice sa nu treaca pe gol acolo
+            scrie(rmw, "lat200_jit50_ge_15_8", [0, 0] + [30] * 8)
             for c in ("bern_15", "ge_15_8"):
-                scrie(rmw, c, [20] * 10, payload=65536)
+                # 3 rulari moarte la 64KB -> F2 primeste si ea banda n0
+                scrie(rmw, c, [0, 0, 0] + [20] * 7, payload=65536)
         # celula cu 9 rulari moarte din 10 -- cazul care trebuie sa produca banda n0
         shutil.rmtree(os.path.join(root, "zenoh", "ge_30_8"))
         scrie("zenoh", "ge_30_8", [0] * 9 + [12])
@@ -577,16 +588,21 @@ def _selftest():
         assert _jitter(1) == [0.0]
         plt.close(fig)
 
-        # n0_band: SUB axa (y negativ in fractiuni de axa), netaiata de panou
-        fig, ax = plt.subplots()
-        t = n0_band(ax, 1.0, 9, 10)
-        assert t.get_text() == "9/10", t.get_text()
-        assert t.get_position()[1] < 0, t.get_position()
-        assert t.get_clip_on() is False
-        fig.canvas.draw()
-        y_disp = t.get_transform().transform(t.get_position())[1]
-        assert y_disp < ax.get_window_extent().y0, "banda n0 a intrat in panou"
-        plt.close(fig)
+        # n0_band: SUB axa, netaiata de panou, si la aceeasi distanta FIZICA indiferent
+        # de inaltimea figurii (v3.1: offset in puncte, nu in fractiuni de axa)
+        distante = []
+        for inaltime in (2.3, 2.8):
+            fig, ax = plt.subplots(figsize=(3.5, inaltime))
+            t = n0_band(ax, 1.0, 9, 10)
+            assert t.get_text() == "9/10", t.get_text()
+            assert t.get_clip_on() is False
+            fig.canvas.draw()
+            assert t.get_window_extent().y1 < ax.get_window_extent().y0, \
+                "banda n0 a intrat in panou"
+            distante.append(ax.get_window_extent().y0 - t.get_window_extent().y1)
+            plt.close(fig)
+        assert abs(distante[0] - distante[1]) < 0.5, \
+            "banda n0 nu e la aceeasi distanta fizica pe inaltimi diferite: %s" % distante
 
         # axa secundara in secunde: TREBUIE sa fie aliniata cu cea in pachete, altfel
         # figura minte (vezi axa_secundara_secunde)
@@ -635,9 +651,11 @@ def _selftest():
             assert not mici, "%s: text sub %g pt: %s" % (nume, MIN_PT, mici)
             # banda n0 are RAND PROPRIU: nu atinge nici etichetele de tick, nici titlul
             # axei x (la corp de tipar se lipeau: '3' + '2/10' se citeau ca un bloc)
+            benzi_pe_figura = 0
             for ax in axs:
                 benzi = [t for t in ax.texts if t.get_text().count("/") == 1
                          and t.get_text().replace("/", "").isdigit()]
+                benzi_pe_figura += len(benzi)
                 if not benzi:
                     continue
                 tick_jos = min(t.get_window_extent().y0 for t in ax.get_xticklabels()
@@ -648,6 +666,10 @@ def _selftest():
                 if (et.get_text() or "").strip():
                     assert min(t.get_window_extent().y0 for t in benzi) > \
                         et.get_window_extent().y1, "%s: banda n0 atinge titlul axei" % nume
+            # F1-F3 TREBUIE sa aiba benzi (datele sintetice contin rulari moarte), altfel
+            # verificarea de mai sus ar trece pe gol. F4 nu are: nu deseneaza livrare.
+            if nume.startswith(("F1", "F2", "F3")):
+                assert benzi_pe_figura > 0, "%s: nicio banda n0 -- verificarea nu a mordat" % nume
             plt.close(f)
 
         # v3.0: PDF-ul (canonic) exista, iar PNG-ul poarta chiar 600 dpi
@@ -700,7 +722,7 @@ def _selftest():
         ax, t = gasite[0]
         assert t.get_transform().transform(t.get_position())[1] < ax.get_window_extent().y0
         plt.close(fig)
-        print("SELFTEST make_figures_c2 OK (34 verificari, date sintetice in /tmp; "
+        print("SELFTEST make_figures_c2 OK (35 verificari, date sintetice in /tmp; "
               "dimensiuni fizice + corp de litera >= %g pt + PDF/PNG@%d dpi; banda n0 "
               "verificata geometric; legende confruntate pe proprietati cu artefactele "
               "desenate). Serif: %s." % (MIN_PT, DPI_PNG, SERIF))
