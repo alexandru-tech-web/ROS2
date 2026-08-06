@@ -40,7 +40,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from bench_core import CONDITIONS, build_plan, netem_cmd, netem_clear_cmd
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-PAYLOADS = [64, 4096, 65536]          # B: comanda / telemetrie / harta
+PAYLOADS = [4096]
 
 
 def sh(cmd, dry, **kw):
