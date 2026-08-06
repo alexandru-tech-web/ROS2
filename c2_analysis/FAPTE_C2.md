@@ -28,6 +28,13 @@ Cod FROZEN, protocol BYTE-IDENTIC cu C1 (comparabil): bench_client.py, bench_ech
 - delivery/loss = MEDIA pe cele 10 repetitii a valorilor per-rulare (make_tables_c2.py:delivery).
   std = abaterea standard de populatie (pstdev). B_real = media lungimilor de rafala din
   GOLURILE de seq (burst_metrics.failure_bursts, IMPORTAT).
+- ATENTIE, TABELELE si FIGURILE agrega DIFERIT, deliberat: tabelele raman pe medie+-pstdev
+  (comparabilitate cu C1), dar figurile (make_figures_c2.py v2.0) arata FIECARE repetitie ca
+  punct, cu MEDIANA ca reper, si numarul de rulari cu received=0 separat, sub axa ("k/N").
+  Motivul: mai multe celule sunt BIMODALE (o parte din rulari livreaza, alta cade la zero);
+  acolo media descrie o populatie care nu exista, iar deviatia standard sugereaza o
+  imprastiere simetrica pe care datele nu o au. Cifra din tabel si norul din figura sunt
+  ambele corecte -- masoara lucruri diferite.
 
 ## Editari locale PAYLOADS (documentate, NECOMISE)
 - Grila 4KB: PAYLOADS=[4096] local, revenit (C2_SIL_20260718 are DOAR transport_p4096).

@@ -22,8 +22,9 @@ changelog:
         scala continua si o linie ar sugera interpolare intre valori masurate;
       - F2 (64KB): forma markerului codifica sarcina utila, culoarea RMW-ul; fara error bars;
       - F4: lollipop pe symlog, max plin + p95 romb gol, cu axa secundara in secunde.
-    Iesirea s-a mutat in ~/DATE_CAMPANIE/ANALIZA_C2/fig/ (langa restul analizei), cu
-    ACELEASI nume de fisier; se scriu PNG (300 dpi) si PDF.
+    Iesirea ramane in repo, c2_analysis/figuri_c2/, cu ACELEASI nume ca la v1.1 (deci
+    figurile vechi sunt inlocuite, nu dublate); pe langa PNG (300 dpi) se scrie si PDF,
+    pentru includere in LaTeX fara pierdere de calitate.
 """
 import os
 import statistics as st
@@ -46,7 +47,10 @@ RECV0 = "#7A0000"
 DPI = 300
 RMWS = ("cyclonedds", "zenoh")
 HOME = os.path.expanduser("~")
-OUT = os.path.join(HOME, "DATE_CAMPANIE", "ANALIZA_C2", "fig")
+# Figurile stau IN REPO, langa codul care le genereaza (regula de igiena a datelor:
+# datele brute NU intra in git, dar sumarele si FIGURILE da). Numele sunt cele istorice,
+# deci v2.0 suprascrie exact fisierele v1.1.
+OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "figuri_c2")
 plt.rcParams.update({"font.size": 8, "axes.titlesize": 9, "legend.fontsize": 7})
 
 JITTER = 0.08          # semi-latimea benzii de puncte

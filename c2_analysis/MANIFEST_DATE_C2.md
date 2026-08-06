@@ -12,5 +12,6 @@ sha256sum-uri ale fisierelor .json/.csv. Recalcul:
 
 Provenienta HEAD per set: vezi FAPTE_C2.md (sect. Provenienta).
 Arhivare Zenodo propusa: cele 4 seturi C2 + sumarele agregate (make_tables_c2.py) +
-figurile (make_figures_c2.py v1.0) + FAPTE_C2.md. Licenta date: CC-BY-4.0 (ca C1).
+figurile (make_figures_c2.py v2.0, in c2_analysis/figuri_c2/, PNG 300dpi + PDF) +
+FAPTE_C2.md. Licenta date: CC-BY-4.0 (ca C1).
 Nota: datele fizice raman in ~/DATE_CAMPANIE/ (+ backup ~/PHD_backup_20260719.tar.gz).
