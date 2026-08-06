@@ -53,6 +53,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
+from matplotlib import font_manager
 from matplotlib.lines import Line2D
 from matplotlib.markers import MarkerStyle
 
@@ -64,40 +65,101 @@ COLOR_CDDS = "#4477AA"
 COLOR_ZENOH = "#AA3377"
 COLOR = {"cyclonedds": COLOR_CDDS, "zenoh": COLOR_ZENOH}
 LABEL = {"cyclonedds": "rmw_cyclonedds", "zenoh": "rmw_zenoh"}
+# pe o coloana (3.5 in) legenda trebuie sa incapa pe UN rand: la 8 pt, patru etichete
+# lungi cer ~4.4 in si ar iesi din coloana exact la inserare -- adica fix ce evita
+# proiectarea la dimensiunea finala. Prefixul 'rmw_' e redundant in context.
+LABEL_SCURT = {"cyclonedds": "cyclonedds", "zenoh": "zenoh"}
 RECV0 = "#7A0000"
 # gri NEUTRU pentru cheile care explica FORMA, nu apartenenta la un RMW (v2.1). Nu e negru:
 # negrul ar sugera o a treia serie desenata, griul se citeste ca 'oricare dintre culori'.
 GRI = "#555555"
-DPI = 300
+DPI_PNG = 600          # PNG = fallback de rezolutie mare; canonicul e PDF-ul vectorial
 RMWS = ("cyclonedds", "zenoh")
 HOME = os.path.expanduser("~")
 # Figurile stau IN REPO, langa codul care le genereaza (regula de igiena a datelor:
 # datele brute NU intra in git, dar sumarele si FIGURILE da). Numele sunt cele istorice,
 # deci v2.0 suprascrie exact fisierele v1.1.
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "figuri_c2")
-plt.rcParams.update({"font.size": 8, "axes.titlesize": 9, "legend.fontsize": 7})
-
-JITTER = 0.08          # semi-latimea benzii de puncte
-N0_Y = -0.13           # pozitia benzii n0, in fractiuni de axa (NEGATIV = sub panou)
 
 
-def _jitter(n):
-    """Deviatii deterministe in [-JITTER, +JITTER], bine imprastiate si NEmonotone
+def _serif_disponibil():
+    """Times New Roman daca e instalat, altfel DejaVu Serif. Se alege o singura data,
+    la import, si se raporteaza in main(): tipografia figurii nu trebuie sa depinda tacut
+    de ce fonturi are masina pe care s-a rulat generatorul."""
+    disponibile = {f.name for f in font_manager.fontManager.ttflist}
+    for nume in ("Times New Roman", "DejaVu Serif"):
+        if nume in disponibile:
+            return nume
+    return "serif"
+
+
+SERIF = _serif_disponibil()
+
+# HOUSE_STYLE -- UN SINGUR loc pentru tipografie si asezare (v3.0). Figurile se proiecteaza
+# LA DIMENSIUNEA FINALA: nu se mai micsoreaza la inserare, deci ce se vede aici e ce se vede
+# in pagina. Corpurile de litera sunt cele de tipar (8-9 pt), iar dimensiunile fizice sunt
+# fixate per figura (SIZES), nu ajustate din ochi.
+HOUSE_STYLE = {
+    "font.family": "serif",
+    "font.serif": [SERIF, "DejaVu Serif"],
+    "mathtext.fontset": "stix",
+    "pdf.fonttype": 42,                 # TrueType incorporat: text SELECTABIL in PDF
+    "font.size": 8,
+    "axes.labelsize": 8.5,
+    "axes.titlesize": 9,
+    "xtick.labelsize": 8,
+    "ytick.labelsize": 8,
+    "legend.fontsize": 8,
+    "lines.linewidth": 1.0,
+    "axes.spines.top": False,
+    "axes.spines.right": False,
+    "axes.grid": True,
+    "axes.grid.axis": "y",              # grid DOAR pe y: pe x categorial n-ar insemna nimic
+    "grid.alpha": 0.4,
+    "grid.linestyle": ":",
+    "grid.linewidth": 0.4,
+    "figure.constrained_layout.use": True,
+}
+plt.rcParams.update(HOUSE_STYLE)
+
+# Dimensiuni FIZICE, in inch (latime x inaltime), per figura. 7.16 = doua coloane IEEE,
+# 3.5 = o coloana. Sunt contract, nu sugestie: selftestul le verifica.
+SIZES = {
+    "fig_c2_delivery_vs_B": (7.16, 2.5),
+    "fig_c2_longest_burst": (7.16, 2.3),
+    "fig_c2_64k_inversion": (3.5, 2.7),
+    "fig_c2_combo_context": (3.5, 2.8),
+}
+MIN_PT = 7.0           # nimic sub 7 pt: sub asta textul moare la tipar
+
+JITTER = 0.08          # semi-latimea benzii de puncte (figuri late)
+JITTER_1COL = 0.06     # idem, pe o coloana: banda se ingusteaza odata cu figura
+# Banda n0 sta sub panou, dar si SUB randul de etichete de tick: la corpul de tipar (7 pt)
+# si inaltimile mici de la v3.0, vechiul -0.13 o aducea lipita de eticheta ('3' + '2/10' se
+# citeau ca un singur bloc). Perechea (N0_Y, N0_LABELPAD) e aleasa masurand distantele
+# reale dupa desenare; selftestul verifica sa nu se atinga nici de tick-uri, nici de titlul
+# de axa.
+N0_Y = -0.34           # pozitia benzii n0, in fractiuni de axa (NEGATIV = sub panou)
+N0_LABELPAD = 16       # cat coboara titlul axei x, ca banda n0 sa aiba rand propriu
+
+
+def _jitter(n, amp=JITTER):
+    """Deviatii deterministe in [-amp, +amp], bine imprastiate si NEmonotone
     (secventa cu pas de sectiune de aur). Determinist = figura identica la fiecare rulare."""
     if n <= 1:
         return [0.0]
-    return [((i * 0.6180339887) % 1.0 - 0.5) * 2 * JITTER for i in range(n)]
+    return [((i * 0.6180339887) % 1.0 - 0.5) * 2 * amp for i in range(n)]
 
 
 def strip_cell(ax, x_center, values, color, marker="o", hollow=False, size=13,
-               linewidth=0.9, alpha=0.8):
+               linewidth=0.9, alpha=0.8, jitter=JITTER, med_lw=1.9):
     """TOATE rularile unei celule, ca puncte cu jitter, plus mediana ca liniuta lata.
     Fara medie si fara deviatie standard: la distributii bimodale ele mint.
     Intoarce SCATTER-ul desenat (v2.1: ca sa poata fi dat direct legendei drept handle,
     fara proxy care ar putea diverge de el); None pe celula fara nicio rulare."""
     if not values:
         return None
-    xs = [x_center + d for d in _jitter(len(values))]
+    xs = [x_center + d for d in _jitter(len(values), jitter)]
     sc = ax.scatter(xs, values, marker=marker, s=size, alpha=alpha, zorder=4,
                     facecolors="none" if hollow else color,
                     edgecolors=color, linewidths=linewidth)
@@ -105,8 +167,8 @@ def strip_cell(ax, x_center, values, color, marker="o", hollow=False, size=13,
     # liniuta medianei se leaga de latimea norului de puncte, nu e o constanta: la
     # figurile cu sloturi apropiate (F2, 0.18 intre sloturi) o liniuta fixa mai lata
     # decat slotul intra peste vecin si cele doua mediane par una singura
-    w = JITTER * 1.15
-    ax.plot([x_center - w, x_center + w], [med, med], lw=1.9, color=color,
+    w = jitter * 1.15
+    ax.plot([x_center - w, x_center + w], [med, med], lw=med_lw, color=color,
             solid_capstyle="butt", zorder=6)
     return sc
 
@@ -118,17 +180,20 @@ def n0_band(ax, x, k, N):
     care figura vrea sa le arate. Apelantul decide cand o cheama (de regula doar k>0).
     Intoarce obiectul Text, ca sa poata fi verificat geometric in selftest."""
     return ax.text(x, N0_Y, "%d/%d" % (k, N), transform=ax.get_xaxis_transform(),
-                   ha="center", va="top", fontsize=5.8, color=RECV0, clip_on=False)
+                   ha="center", va="top", fontsize=MIN_PT, color=RECV0, clip_on=False)
 
 
 def salveaza(fig, nume, out=None):
-    """PNG (300 dpi) + PDF, acelasi continut. Intoarce caile scrise."""
+    """Export DUBLU (v3.0): PDF vectorial = formatul CANONIC de inserat in lucrare (text
+    selectabil, fara raster), PNG la 600 dpi = fallback pentru previzualizari si pentru
+    fluxurile care nu inghit PDF. Ambele decupate strans, cu aceeasi margine."""
     out = out or OUT
     os.makedirs(out, exist_ok=True)
     caiuri = []
-    for ext in ("png", "pdf"):
+    for ext in ("pdf", "png"):
         p = os.path.join(out, "%s.%s" % (nume, ext))
-        fig.savefig(p, dpi=DPI, bbox_inches="tight")
+        fig.savefig(p, dpi=(DPI_PNG if ext == "png" else None),
+                    bbox_inches="tight", pad_inches=0.02)
         caiuri.append(p)
     plt.close(fig)
     return caiuri
@@ -143,15 +208,15 @@ def axa_secundara_secunde(ax, hz=50.0):
     sec = ax.secondary_yaxis("right", functions=(lambda p: p / hz, lambda s: s * hz))
     sec.set_yscale("symlog", linthresh=1.0 / hz)
     sec.set_yticks([0, 1 / hz, 10 / hz, 100 / hz, 400 / hz])
-    sec.set_yticklabels(["0", "0.02", "0.2", "2", "8"], fontsize=7)
-    sec.set_ylabel("gap duration [s] @ %g Hz" % hz, fontsize=7.5)
+    sec.set_yticklabels(["0", "0.02", "0.2", "2", "8"])
+    sec.set_ylabel("gap duration [s] @ %g Hz" % hz)
     return sec
 
 
-def _handle(rmw, marker="o", ms=4.5):
+def _handle(rmw, marker="o", ms=4.5, scurt=False):
     """Proxy pentru o serie RMW: cerc PLIN in culoarea RMW -- exact ce se deseneaza."""
-    return Line2D([0], [0], marker=marker, ls="none", color=COLOR[rmw], label=LABEL[rmw],
-                  ms=ms)
+    return Line2D([0], [0], marker=marker, ls="none", color=COLOR[rmw],
+                  label=(LABEL_SCURT if scurt else LABEL)[rmw], ms=ms)
 
 
 def _handle_forma(marker, label, hollow, ms=4.5, mew=1.0):
@@ -172,8 +237,7 @@ def _build_delivery_vs_B(root4):
     B = [1, 3, 8]
     xpos = [0, 1, 2]                        # pozitii EGALE, categoriale
     dx = 0.17
-    fig, axes = plt.subplots(1, 3, figsize=(7.16, 2.7), sharey=True,
-                             constrained_layout=True)
+    fig, axes = plt.subplots(1, 3, figsize=SIZES["fig_c2_delivery_vs_B"], sharey=True)
     for ax, (L, conds) in zip(axes, Ls):
         for i, rmw in enumerate(RMWS):
             for x, c in zip(xpos, conds):
@@ -183,22 +247,21 @@ def _build_delivery_vs_B(root4):
                 if r0:
                     n0_band(ax, xc, r0, len(dv))
         ax.set_title("mean loss L=%d%%" % L)
-        ax.set_xlabel("mean burst length B [pkts]", fontsize=8)
+        ax.set_xlabel("mean burst length B [pkts]", labelpad=N0_LABELPAD)
         ax.set_xticks(xpos)
-        ax.set_xticklabels(["1\n(bern)", "3", "8"], fontsize=7.5)
+        ax.set_xticklabels(["1\n(bern)", "3", "8"])
         ax.set_xlim(-0.5, 2.5)
         ax.set_ylim(-3, 105)
-        ax.grid(True, axis="y", ls=":", lw=0.4, alpha=0.6)
     axes[0].set_ylabel("delivery ratio [%]")
     manere = [_handle(r) for r in RMWS]
     # liniuta medianei: gri neutru (in panou e colorata pe RMW), NU neagra
     manere.append(Line2D([0], [0], color=GRI, lw=1.9, label="median"))
     leg = fig.legend(handles=manere, loc="outside upper center", ncol=3, frameon=False,
-                     fontsize=7)
+                     columnspacing=1.0, handletextpad=0.4)
     # 'k/N' e TEXT sub axa, nu un marker: se explica printr-o nota in exact culoarea in
     # care e desenat, nu printr-o cheie de legenda care ar promite un simbol inexistent
-    fig.text(0.5, -0.06, "k/N under the axis = runs with zero delivery (out of N)",
-             ha="center", va="top", fontsize=6, color=RECV0)
+    fig.text(0.5, -0.03, "k/N under the axis = runs with zero delivery (out of N)",
+             ha="center", va="top", fontsize=MIN_PT, color=RECV0)
     return fig, list(axes), leg
 
 
@@ -212,30 +275,31 @@ def _build_64k_inversion(root4, root64):
     """F2: 4KB vs 64KB pe {bern_15, ge_15_8}. Forma markerului = sarcina utila
     (cerc 4KB, romb 64KB), culoarea = RMW. Fara error bars: se vad toate rularile."""
     conds = ["bern_15", "ge_15_8"]
-    fig, ax = plt.subplots(figsize=(7.16, 2.7))
-    slots = [("cyclonedds", 4096, -0.27, "o"), ("cyclonedds", 65536, -0.09, "D"),
-             ("zenoh", 4096, 0.09, "o"), ("zenoh", 65536, 0.27, "D")]
+    fig, ax = plt.subplots(figsize=SIZES["fig_c2_64k_inversion"])
+    # o coloana: sloturile se string, banda de jitter se ingusteaza la fel de mult, iar
+    # liniuta medianei se ingroasa ca sa ramana citibila la latimea mica
+    slots = [("cyclonedds", 4096, -0.21, "o"), ("cyclonedds", 65536, -0.07, "D"),
+             ("zenoh", 4096, 0.07, "o"), ("zenoh", 65536, 0.21, "D")]
     for x, c in enumerate(conds):
         for rmw, pay, off, mk in slots:
             root = root64 if pay == 65536 else root4
             dv, r0, _ = delivery(root, rmw, c, pay)
             xc = x + off
-            strip_cell(ax, xc, dv, COLOR[rmw], marker=mk, size=15)
+            strip_cell(ax, xc, dv, COLOR[rmw], marker=mk, size=13,
+                       jitter=JITTER_1COL, med_lw=2.0)
             if r0:
                 n0_band(ax, xc, r0, len(dv))
     ax.set_ylim(-3, 105)
     ax.set_xlim(-0.5, len(conds) - 0.5)
     ax.set_ylabel("delivery ratio [%]")
     ax.set_xticks(range(len(conds)))
-    ax.set_xticklabels(conds, fontsize=8)
-    ax.grid(True, axis="y", ls=":", lw=0.4, alpha=0.6)
+    ax.set_xticklabels(conds)
     # cheile de sarcina utila: gri PLINE, fiindca in panou markerele sunt PLINE
-    manere = [_handle(r) for r in RMWS] + [
-        _handle_forma("o", "4 KB payload", hollow=False),
-        _handle_forma("D", "64 KB payload", hollow=False)]
-    leg = ax.legend(handles=manere, loc="lower center", bbox_to_anchor=(0.5, 1.02), ncol=4,
-                    frameon=False, fontsize=7)
-    fig.tight_layout(rect=(0, 0, 1, 0.9))
+    manere = [_handle(r, scurt=True) for r in RMWS] + [
+        _handle_forma("o", "4 KB", hollow=False),
+        _handle_forma("D", "64 KB", hollow=False)]
+    leg = fig.legend(handles=manere, loc="outside upper center", ncol=4, frameon=False,
+                     columnspacing=1.0, handletextpad=0.4)
     return fig, [ax], leg
 
 
@@ -258,8 +322,8 @@ def _build_combo_context(root4, rootcombo, rootc1, marker_c1="s"):
             ("ge_15_8", "C2 4KB", root4, "ge_15_8", 4096, False),
             ("lat200_jit50", "C1 SIL ref", rootc1, "lat200_jit50", 4096, True),
             ("lat+ge_15_8", "C2 combo", rootcombo, "lat200_jit50_ge_15_8", 4096, False)]
-    fig, ax = plt.subplots(figsize=(3.4 * 1.3, 2.6))
-    dx = 0.17
+    fig, ax = plt.subplots(figsize=SIZES["fig_c2_combo_context"])
+    dx = 0.15
     sc_c1 = None
     for x, (_, _, root, cond, pay, hollow) in enumerate(sets):
         for i, rmw in enumerate(RMWS):
@@ -271,7 +335,8 @@ def _build_combo_context(root4, rootcombo, rootc1, marker_c1="s"):
                             marker=(marker_c1 if hollow else "o"), hollow=hollow,
                             size=(13 * 1.3 if hollow else 13),
                             linewidth=(1.4 if hollow else 0.9),
-                            alpha=(1.0 if hollow else 0.8))
+                            alpha=(1.0 if hollow else 0.8),
+                            jitter=JITTER_1COL, med_lw=2.0)
             if hollow and sc is not None:
                 sc_c1 = sc                      # HANDLE-ul real, nu o copie
             if r0:
@@ -280,15 +345,15 @@ def _build_combo_context(root4, rootcombo, rootc1, marker_c1="s"):
     ax.set_xlim(-0.5, len(sets) - 0.5)
     ax.set_ylabel("delivery ratio [%]")
     ax.set_xticks(range(len(sets)))
-    ax.set_xticklabels(["%s\n%s" % (s[0], s[1]) for s in sets], fontsize=6.8)
-    ax.grid(True, axis="y", ls=":", lw=0.4, alpha=0.6)
-    manere = [_handle(r) for r in RMWS]
+    # etichete pe DOUA randuri: numele conditiei si campania din care vine. La 3.5 in si
+    # 8 pt, pe un singur rand s-ar suprapune ('lat200_jit50' + 'lat+ge_15_8' sunt lungi).
+    ax.set_xticklabels(["%s\n%s" % (s[0], s[1]) for s in sets], fontsize=MIN_PT)
+    manere = [_handle(r, scurt=True) for r in RMWS]
     if sc_c1 is not None:
-        sc_c1.set_label("C1 reference (hollow)")
+        sc_c1.set_label("C1 ref")
         manere.append(sc_c1)                    # chiar artefactul desenat
-    leg = ax.legend(handles=manere, loc="lower center", bbox_to_anchor=(0.5, 1.02), ncol=3,
-                    frameon=False, fontsize=6.5)
-    fig.tight_layout(rect=(0, 0, 1, 0.88))
+    leg = fig.legend(handles=manere, loc="outside upper center", ncol=3, frameon=False,
+                     columnspacing=1.0, handletextpad=0.4)
     return fig, [ax], leg
 
 
@@ -304,7 +369,7 @@ def _build_longest_burst(root4):
     (un zero e REZULTAT, nu date lipsa). Axa secundara: aceleasi valori in secunde."""
     conds = ["bern_5", "ge_5_3", "ge_5_8", "bern_15", "ge_15_3", "ge_15_8",
              "bern_30", "ge_30_3", "ge_30_8"]
-    fig, ax = plt.subplots(figsize=(7.16, 2.7))
+    fig, ax = plt.subplots(figsize=SIZES["fig_c2_longest_burst"])
     dx = 0.18
     for x, c in enumerate(conds):
         for i, rmw in enumerate(RMWS):
@@ -324,19 +389,17 @@ def _build_longest_burst(root4):
             # peste o valoare care aici inseamna 'nicio rafala', adica opusul
     ax.set_yscale("symlog", linthresh=1)
     ax.set_ylim(0, 400)
-    ax.set_ylabel("longest failure burst [pkts]", fontsize=8)
+    ax.set_ylabel("longest failure burst [pkts]")
     ax.set_xticks(range(len(conds)))
-    ax.set_xticklabels(conds, rotation=45, ha="right", fontsize=7)
+    ax.set_xticklabels(conds, rotation=45, ha="right")
     ax.set_xlim(-0.5, len(conds) - 0.5)
-    ax.grid(True, axis="y", ls=":", lw=0.4, alpha=0.6)
     axa_secundara_secunde(ax)
     # cheile de statistica: gri neutru, cu FORMA, FILL-ul si MARIMEA din panou
     manere = [_handle(r) for r in RMWS] + [
         _handle_forma("o", "max over N runs", hollow=False, ms=3.8),
         _handle_forma("D", "p95 over N runs", hollow=True, ms=7.0)]
-    leg = ax.legend(handles=manere, loc="lower center", bbox_to_anchor=(0.5, 1.02), ncol=4,
-                    frameon=False, fontsize=7)
-    fig.tight_layout(rect=(0, 0, 1, 0.9))
+    leg = fig.legend(handles=manere, loc="outside upper center", ncol=4, frameon=False,
+                     columnspacing=1.0, handletextpad=0.4)
     return fig, [ax], leg
 
 
@@ -410,6 +473,29 @@ def _artefacte_desenate(axes):
             if p:
                 out.append(p)
     return out
+
+
+def texte_prea_mici(fig, minim=MIN_PT):
+    """Toate textele NEVIDE sub pragul de corp de litera (v3.0). Figura trebuie desenata
+    inainte, altfel etichetele de axa nu au inca text."""
+    mici = []
+    for t in fig.findobj(plt.Text):
+        s = (t.get_text() or "").strip()
+        if s and t.get_fontsize() < minim - 1e-9:
+            mici.append((s[:24], round(t.get_fontsize(), 2)))
+    return mici
+
+
+def _png_dpi(cale):
+    """DPI-ul dintr-un PNG, citit din chunk-ul pHYs (fara dependinte in plus)."""
+    with open(cale, "rb") as f:
+        d = f.read(4096)
+    i = d.find(b"pHYs")
+    if i < 0:
+        return None
+    px_pe_metru = int.from_bytes(d[i + 4:i + 8], "big")
+    unitate = d[i + 12]
+    return round(px_pe_metru * 0.0254) if unitate == 1 else None
 
 
 def verifica_legenda(axes, leg):
@@ -539,7 +625,42 @@ def _selftest():
             assert lg is not None, "%s: fara legenda" % nume
             probleme = verifica_legenda(axs, lg)
             assert not probleme, "%s: %s" % (nume, probleme)
+            # v3.0: dimensiune fizica EXACTA (contract, nu sugestie) + corp de litera
+            cheie = nume.split()[1]
+            spec = SIZES["fig_c2_%s" % cheie]
+            gasit = tuple(round(float(v), 4) for v in f.get_size_inches())
+            assert all(abs(a - b) < 0.01 for a, b in zip(gasit, spec)), (nume, gasit, spec)
+            f.canvas.draw()
+            mici = texte_prea_mici(f)
+            assert not mici, "%s: text sub %g pt: %s" % (nume, MIN_PT, mici)
+            # banda n0 are RAND PROPRIU: nu atinge nici etichetele de tick, nici titlul
+            # axei x (la corp de tipar se lipeau: '3' + '2/10' se citeau ca un bloc)
+            for ax in axs:
+                benzi = [t for t in ax.texts if t.get_text().count("/") == 1
+                         and t.get_text().replace("/", "").isdigit()]
+                if not benzi:
+                    continue
+                tick_jos = min(t.get_window_extent().y0 for t in ax.get_xticklabels()
+                               if t.get_text().strip())
+                assert max(t.get_window_extent().y1 for t in benzi) < tick_jos, \
+                    "%s: banda n0 atinge etichetele de tick" % nume
+                et = ax.xaxis.label
+                if (et.get_text() or "").strip():
+                    assert min(t.get_window_extent().y0 for t in benzi) > \
+                        et.get_window_extent().y1, "%s: banda n0 atinge titlul axei" % nume
             plt.close(f)
+
+        # v3.0: PDF-ul (canonic) exista, iar PNG-ul poarta chiar 600 dpi
+        for baza in SIZES:
+            pdf = os.path.join(out, baza + ".pdf")
+            png = os.path.join(out, baza + ".png")
+            assert os.path.getsize(pdf) > 1000, pdf
+            assert _png_dpi(png) == DPI_PNG, (png, _png_dpi(png))
+        # tipografia ceruta chiar e activa
+        assert plt.rcParams["pdf.fonttype"] == 42
+        assert plt.rcParams["font.family"] == ["serif"], plt.rcParams["font.family"]
+        assert plt.rcParams["mathtext.fontset"] == "stix"
+        assert SERIF in ("Times New Roman", "DejaVu Serif"), SERIF
 
         # verificatorul PRINDE divergentele (altfel testul de mai sus nu dovedeste nimic):
         f, ax = plt.subplots()
@@ -579,9 +700,10 @@ def _selftest():
         ax, t = gasite[0]
         assert t.get_transform().transform(t.get_position())[1] < ax.get_window_extent().y0
         plt.close(fig)
-        print("SELFTEST make_figures_c2 OK (24 verificari, date sintetice in /tmp; "
-              "banda n0 verificata geometric sub panou; legenda fiecarei figuri "
-              "confruntata pe proprietati cu artefactele desenate).")
+        print("SELFTEST make_figures_c2 OK (34 verificari, date sintetice in /tmp; "
+              "dimensiuni fizice + corp de litera >= %g pt + PDF/PNG@%d dpi; banda n0 "
+              "verificata geometric; legende confruntate pe proprietati cu artefactele "
+              "desenate). Serif: %s." % (MIN_PT, DPI_PNG, SERIF))
     finally:
         shutil.rmtree(baza, ignore_errors=True)
 
