@@ -1,0 +1,335 @@
+{
+ "schema": "c3_policy_table/1",
+ "generat_de": "tools/derive_policy.py",
+ "surse": [
+  {
+   "fisier": "tabel_hil_4k.md",
+   "sha256": "9a05aed60f2d8143bbf9375fbe14627f9318177dfb1971552009b028d990d8b6",
+   "randuri": 22
+  },
+  {
+   "fisier": "tabel_hil_64k.md",
+   "sha256": "eb30254565a9c6f45cffc3f32e9e39ed1d73540fe36d385b1d5e9d886c0e3ec2",
+   "randuri": 6
+  }
+ ],
+ "default_transport": "cyclonedds",
+ "default_motiv": "castiga 12 din 13 celule acoperite (cyclonedds=12, zenoh=1); folosit pentru celule neacoperite de grila si cand vecinul e prea departe",
+ "excluse": [
+  "lat200_jit50_ge_15_8 (tabel_hil_4k.md: nereprezentabil in cheia (L,B))"
+ ],
+ "celule": [
+  {
+   "L": 0.0,
+   "B": 1.0,
+   "payload": 4096,
+   "transport": "cyclonedds",
+   "marja": 0.0,
+   "covered": true,
+   "sursa": "tabel_hil_4k.md",
+   "conditie": "ideal",
+   "detaliu": {
+    "cyclonedds": {
+     "livrare_efectiva": 100.0,
+     "n0": 0,
+     "N": 10,
+     "mediana_supr": 100.0
+    },
+    "zenoh": {
+     "livrare_efectiva": 100.0,
+     "n0": 0,
+     "N": 10,
+     "mediana_supr": 100.0
+    }
+   }
+  },
+  {
+   "L": 5.0,
+   "B": 1.0,
+   "payload": 4096,
+   "transport": "cyclonedds",
+   "marja": 0.0,
+   "covered": true,
+   "sursa": "tabel_hil_4k.md",
+   "conditie": "bern_5",
+   "detaliu": {
+    "cyclonedds": {
+     "livrare_efectiva": 100.0,
+     "n0": 0,
+     "N": 10,
+     "mediana_supr": 100.0
+    },
+    "zenoh": {
+     "livrare_efectiva": 100.0,
+     "n0": 0,
+     "N": 10,
+     "mediana_supr": 100.0
+    }
+   }
+  },
+  {
+   "L": 5.0,
+   "B": 3.0,
+   "payload": 4096,
+   "transport": "cyclonedds",
+   "marja": 18.8,
+   "covered": true,
+   "sursa": "tabel_hil_4k.md",
+   "conditie": "ge_5_3",
+   "detaliu": {
+    "cyclonedds": {
+     "livrare_efectiva": 100.0,
+     "n0": 0,
+     "N": 10,
+     "mediana_supr": 100.0
+    },
+    "zenoh": {
+     "livrare_efectiva": 81.2,
+     "n0": 0,
+     "N": 10,
+     "mediana_supr": 81.2
+    }
+   }
+  },
+  {
+   "L": 5.0,
+   "B": 8.0,
+   "payload": 4096,
+   "transport": "cyclonedds",
+   "marja": 98.3,
+   "covered": true,
+   "sursa": "tabel_hil_4k.md",
+   "conditie": "ge_5_8",
+   "detaliu": {
+    "cyclonedds": {
+     "livrare_efectiva": 99.8,
+     "n0": 0,
+     "N": 10,
+     "mediana_supr": 99.8
+    },
+    "zenoh": {
+     "livrare_efectiva": 1.5,
+     "n0": 9,
+     "N": 10,
+     "mediana_supr": 15.0
+    }
+   }
+  },
+  {
+   "L": 15.0,
+   "B": 1.0,
+   "payload": 4096,
+   "transport": "cyclonedds",
+   "marja": 29.7,
+   "covered": true,
+   "sursa": "tabel_hil_4k.md",
+   "conditie": "bern_15",
+   "detaliu": {
+    "cyclonedds": {
+     "livrare_efectiva": 78.4,
+     "n0": 0,
+     "N": 10,
+     "mediana_supr": 78.4
+    },
+    "zenoh": {
+     "livrare_efectiva": 48.7,
+     "n0": 0,
+     "N": 10,
+     "mediana_supr": 48.7
+    }
+   }
+  },
+  {
+   "L": 15.0,
+   "B": 3.0,
+   "payload": 4096,
+   "transport": "cyclonedds",
+   "marja": 94.62,
+   "covered": true,
+   "sursa": "tabel_hil_4k.md",
+   "conditie": "ge_15_3",
+   "detaliu": {
+    "cyclonedds": {
+     "livrare_efectiva": 95.0,
+     "n0": 0,
+     "N": 10,
+     "mediana_supr": 95.0
+    },
+    "zenoh": {
+     "livrare_efectiva": 0.38,
+     "n0": 9,
+     "N": 10,
+     "mediana_supr": 3.8
+    }
+   }
+  },
+  {
+   "L": 15.0,
+   "B": 8.0,
+   "payload": 4096,
+   "transport": "cyclonedds",
+   "marja": 89.61,
+   "covered": true,
+   "sursa": "tabel_hil_4k.md",
+   "conditie": "ge_15_8",
+   "detaliu": {
+    "cyclonedds": {
+     "livrare_efectiva": 95.7,
+     "n0": 0,
+     "N": 10,
+     "mediana_supr": 95.7
+    },
+    "zenoh": {
+     "livrare_efectiva": 6.09,
+     "n0": 3,
+     "N": 10,
+     "mediana_supr": 8.7
+    }
+   }
+  },
+  {
+   "L": 30.0,
+   "B": 1.0,
+   "payload": 4096,
+   "transport": "cyclonedds",
+   "marja": 19.0,
+   "covered": true,
+   "sursa": "tabel_hil_4k.md",
+   "conditie": "bern_30",
+   "detaliu": {
+    "cyclonedds": {
+     "livrare_efectiva": 19.0,
+     "n0": 0,
+     "N": 10,
+     "mediana_supr": 19.0
+    },
+    "zenoh": {
+     "livrare_efectiva": 0.0,
+     "n0": 10,
+     "N": 10,
+     "mediana_supr": null
+    }
+   }
+  },
+  {
+   "L": 30.0,
+   "B": 3.0,
+   "payload": 4096,
+   "transport": "cyclonedds",
+   "marja": 37.7,
+   "covered": true,
+   "sursa": "tabel_hil_4k.md",
+   "conditie": "ge_30_3",
+   "detaliu": {
+    "cyclonedds": {
+     "livrare_efectiva": 37.7,
+     "n0": 0,
+     "N": 10,
+     "mediana_supr": 37.7
+    },
+    "zenoh": {
+     "livrare_efectiva": 0.0,
+     "n0": 10,
+     "N": 10,
+     "mediana_supr": null
+    }
+   }
+  },
+  {
+   "L": 30.0,
+   "B": 8.0,
+   "payload": 4096,
+   "transport": "cyclonedds",
+   "marja": 47.9,
+   "covered": true,
+   "sursa": "tabel_hil_4k.md",
+   "conditie": "ge_30_8",
+   "detaliu": {
+    "cyclonedds": {
+     "livrare_efectiva": 47.9,
+     "n0": 0,
+     "N": 10,
+     "mediana_supr": 47.9
+    },
+    "zenoh": {
+     "livrare_efectiva": 0.0,
+     "n0": 10,
+     "N": 10,
+     "mediana_supr": null
+    }
+   }
+  },
+  {
+   "L": 0.0,
+   "B": 1.0,
+   "payload": 65536,
+   "transport": "cyclonedds",
+   "marja": 70.5,
+   "covered": true,
+   "sursa": "tabel_hil_64k.md",
+   "conditie": "ideal",
+   "detaliu": {
+    "cyclonedds": {
+     "livrare_efectiva": 100.0,
+     "n0": 0,
+     "N": 10,
+     "mediana_supr": 100.0
+    },
+    "zenoh": {
+     "livrare_efectiva": 29.5,
+     "n0": 0,
+     "N": 10,
+     "mediana_supr": 29.5
+    }
+   }
+  },
+  {
+   "L": 15.0,
+   "B": 1.0,
+   "payload": 65536,
+   "transport": "zenoh",
+   "marja": 1.7,
+   "covered": true,
+   "sursa": "tabel_hil_64k.md",
+   "conditie": "bern_15",
+   "detaliu": {
+    "cyclonedds": {
+     "livrare_efectiva": 0.5,
+     "n0": 0,
+     "N": 10,
+     "mediana_supr": 0.5
+    },
+    "zenoh": {
+     "livrare_efectiva": 2.2,
+     "n0": 0,
+     "N": 10,
+     "mediana_supr": 2.2
+    }
+   }
+  },
+  {
+   "L": 15.0,
+   "B": 8.0,
+   "payload": 65536,
+   "transport": "cyclonedds",
+   "marja": 6.2,
+   "covered": true,
+   "sursa": "tabel_hil_64k.md",
+   "conditie": "ge_15_8",
+   "detaliu": {
+    "cyclonedds": {
+     "livrare_efectiva": 6.2,
+     "n0": 0,
+     "N": 10,
+     "mediana_supr": 6.2
+    },
+    "zenoh": {
+     "livrare_efectiva": 0.0,
+     "n0": 10,
+     "N": 10,
+     "mediana_supr": null
+    }
+   }
+  }
+ ]
+}
