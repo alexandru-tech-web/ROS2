@@ -14,6 +14,13 @@ fara sa scoata un sunet; de aceea nu exista varianta 'logam un avertisment si co
 Cablajul (ce transport merge pe ce canal UDS) se da AICI, nu in nod: nodul isi valideaza
 caile fata de tabela de politica si nu are voie sa stie ce transporturi exista.
 
+SONDA DE CANAL nu e pornita de aici cand se lucreaza pe doua masini: reflectorul ei ruleaza
+pe masina CEALALTA, altfel nu ar masura nimic (ar trimite pachete catre sine peste loopback,
+unde netem nu se aplica). Argumentul 'reflector' spune gateway-ului unde sa il caute. Pentru
+rulari pe o singura masina -- doar probe de mecanism, NU campanie -- 'reflector_local:=true'
+porneste si reflectorul aici; pornirea lui e logata zgomotos tocmai fiindca o rulare in care
+sonda masoara loopback, nu linkul, ar produce cifre care arata valid si nu sunt.
+
 Uz:
   ros2 launch c3_gateway c3_gateway.launch.py jurnal:=/tmp/rulare1 eticheta:=ge_15_8
 """
@@ -22,6 +29,7 @@ import os
 from launch import LaunchDescription
 from launch.actions import (DeclareLaunchArgument, EmitEvent, ExecuteProcess, GroupAction,
                             LogInfo, RegisterEventHandler, SetEnvironmentVariable)
+from launch.conditions import IfCondition
 from launch.event_handlers import OnProcessExit
 from launch.events import Shutdown
 from launch.substitutions import LaunchConfiguration
@@ -29,6 +37,7 @@ from launch.substitutions import LaunchConfiguration
 PACHET = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 AGENT = os.path.join(PACHET, "c3_gateway", "agent", "transport_agent.py")
 GATEWAY = os.path.join(PACHET, "c3_gateway", "nodes", "gateway_node.py")
+SONDA = os.path.join(PACHET, "c3_gateway", "sonda", "sonda_canal.py")
 PY = "/usr/bin/python3"          # interpretorul ROS (3.12); 'python3' e Anaconda si nu are rclpy
 
 CAI = (("cyclonedds", "rmw_cyclonedds_cpp", "agent_cdds"),
@@ -55,6 +64,8 @@ def generate_launch_description():
     jurnal = LaunchConfiguration("jurnal")
     eticheta = LaunchConfiguration("eticheta")
     topic = LaunchConfiguration("topic")
+    reflector = LaunchConfiguration("reflector")
+    port_sonda = LaunchConfiguration("port_sonda")
 
     gateway = ExecuteProcess(
         cmd=[PY, GATEWAY,
@@ -62,7 +73,9 @@ def generate_launch_description():
              "--cale", "%s:%s" % (CAI[1][0], CAI[1][2]),
              "--topic", topic,
              "--jurnal", jurnal,
-             "--eticheta", eticheta],
+             "--eticheta", eticheta,
+             "--reflector", reflector,
+             "--port-sonda", port_sonda],
         name="c3_gateway", output="screen")
 
     actiuni = [
@@ -72,9 +85,22 @@ def generate_launch_description():
                               description="eticheta rularii (ex. numele conditiei netem)"),
         DeclareLaunchArgument("topic", default_value="/c3/app:4096",
                               description="'nume:payload_nominal' -- decizia e per topic"),
+        DeclareLaunchArgument("reflector", default_value="127.0.0.1",
+                              description="gazda reflectorului sondei de canal (masina 2)"),
+        DeclareLaunchArgument("port_sonda", default_value="47311"),
+        DeclareLaunchArgument("reflector_local", default_value="false",
+                              description="porneste reflectorul AICI -- doar probe locale, "
+                                          "NU campanie (loopback nu trece prin netem)"),
         LogInfo(msg="C3: pornesc gateway + 2 agenti (cyclonedds, zenoh)"),
     ]
     actiuni += [_agent(*c) for c in CAI]
+    actiuni.append(GroupAction(
+        [LogInfo(msg="ATENTIE: reflectorul sondei de canal ruleaza LOCAL. Pierderea "
+                     "masurata e cea de pe loopback, nu de pe link. Valabil doar pentru "
+                     "probe de mecanism."),
+         ExecuteProcess(cmd=[PY, SONDA, "--rol", "reflector", "--port", port_sonda],
+                        name="sonda_reflector", output="screen")],
+        condition=IfCondition(LaunchConfiguration("reflector_local"))))
     actiuni.append(gateway)
 
     # daca ORICE proces moare, cade tot: o rulare cu un singur agent ar produce date care
