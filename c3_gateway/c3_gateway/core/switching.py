@@ -64,6 +64,24 @@ PRAG_PLECARE_PP = 12.0
 PRAG_INTOARCERE_PP = 5.0
 K_SIGMA = 2.0
 
+# A patra frana: NU comuta pe o cale despre care sonda spune ca e moarta. C2 a aratat ca
+# starea sesiunii minte -- o cale nefolosita poate fi cazuta exact cand ai nevoie de ea
+# (zenoh: 10/10 rulari moarte in trei celule). De aceea sonda merge PERMANENT pe ambele cai,
+# iar estimarea caii candidate e o intrare a deciziei, nu o informatie decorativa.
+PRAG_CALE_MOARTA = 0.90         # livrare sub 10% = cale inutilizabila, oricat ar zice tabela
+MIN_ESANTIOANE_CANDIDAT = 20    # sub atat nu stim nimic despre candidat; nu sarim in gol
+
+
+def cale_utilizabila(est):
+    """O cale pe care AI VOIE sa comuti. Necunoscuta = neutilizabila (conservator):
+    daca nu avem inca destule esantioane de la sonda, a comuta ar fi un pariu, nu o decizie."""
+    if est is None or est.n_samples < MIN_ESANTIOANE_CANDIDAT:
+        return False, "candidat necunoscut (%s esantioane)" % (
+            "0" if est is None else est.n_samples)
+    if est.L >= PRAG_CALE_MOARTA:
+        return False, "candidatul livreaza %.0f%% (sonda)" % ((1.0 - est.L) * 100.0)
+    return True, ""
+
 
 class Comutator(object):
     """Masina de stare. decide(estimare, acum) -> (transport, motiv).
@@ -87,8 +105,10 @@ class Comutator(object):
         """Asimetria: spre implicit e ieftin, dinspre implicit e scump."""
         return self.prag_intoarcere if candidat == self.implicit else self.prag_plecare
 
-    def decide(self, estimare, acum):
-        """estimare: obiect cu .L (fractie), .B, .sigma_L, .stable. acum: secunde."""
+    def decide(self, estimare, acum, estimari_cai=None):
+        """estimare: starea linkului vazuta pe calea ACTIVA (.L fractie, .B, .sigma_L,
+        .stable). acum: secunde. estimari_cai: {transport: Estimare} -- starea FIECAREI cai,
+        din sonda permanenta; e folosita ca sa nu comutam pe o cale moarta."""
         d = self.politica.decide(estimare.L * 100.0, estimare.B, self.payload)
         candidat = d.transport
 
@@ -97,6 +117,11 @@ class Comutator(object):
 
         if not estimare.stable:
             return self.transport, "estimare instabila (B nedemn de incredere)"
+
+        if estimari_cai is not None:
+            ok, de_ce = cale_utilizabila(estimari_cai.get(candidat))
+            if not ok:
+                return self.transport, "candidatul %s nu e utilizabil: %s" % (candidat, de_ce)
 
         prag = self._prag(candidat)
         if d.marja < prag:
@@ -189,8 +214,27 @@ def _selftest():
     t, motiv = c.decide(est(0.30), 100.0)
     assert t == "cyclonedds" and "comutat" in motiv, ("8 pp ar trebui sa ajunga pentru "
                                                       "INTOARCERE", motiv)
+    # 8. VETO DE CALE MOARTA: tabela zice sa comutam, marja e uriasa, dar sonda spune ca
+    # respectiva cale nu livreaza. Exact scenariul din C2 (zenoh 10/10 rulari moarte).
+    c = Comutator(pol2, 4096)
+    moarta = Estimare(0.98, 8.0, 0.01, 500, 50, True)      # livreaza 2%
+    t, motiv = c.decide(est(0.15), 10.0, {"zenoh": moarta})
+    assert t == "cyclonedds" and c.n_comutari == 0, (t, motiv)
+    assert "nu e utilizabil" in motiv and "livreaza" in motiv, motiv
+    # aceeasi decizie, dar cu candidatul sanatos: se comuta
+    c2 = Comutator(pol2, 4096)
+    vie = Estimare(0.15, 8.0, 0.01, 500, 50, True)
+    t, motiv = c2.decide(est(0.15), 10.0, {"zenoh": vie})
+    assert t == "zenoh" and "comutat" in motiv, (t, motiv)
+    # candidat NECUNOSCUT (prea putine esantioane de la sonda) = nu sarim in gol
+    c3 = Comutator(pol2, 4096)
+    putin = Estimare(0.10, 8.0, 0.01, 3, 1, True)
+    t, motiv = c3.decide(est(0.15), 10.0, {"zenoh": putin})
+    assert t == "cyclonedds" and "necunoscut" in motiv, (t, motiv)
+    assert cale_utilizabila(None) == (False, "candidat necunoscut (0 esantioane)")
+
     print("SELFTEST switching OK (dwell derivat, histerezis asimetric, poarta de "
-          "incertitudine).")
+          "incertitudine, veto de cale moarta).")
 
 
 def main(argv):

@@ -147,7 +147,7 @@ class EstimatorLink(object):
 
 
 def _selftest():
-    from channel import CanalGE          # noqa: import local, doar pentru selftest
+    from canal_ge import CanalGE          # noqa: import local, doar pentru selftest
 
     # 1. fara pierderi: L -> 0, niciun gol, B ramane la initial, stable False
     e = EstimatorLink()

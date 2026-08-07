@@ -96,6 +96,13 @@ class Politica(object):
     def payloaduri(self):
         return sorted({c["payload"] for c in self.celule})
 
+    def transporturi(self):
+        """Transporturile despre care tabela stie ceva. Nodurile isi valideaza cablajul
+        fata de lista asta, ca sa nu poata inventa o cale care nu are acoperire in date."""
+        t = {c["transport"] for c in self.celule}
+        t.add(self.implicit)
+        return t
+
 
 def _tabela_sintetica():
     """Tabela mica, folosita in selfteste, ca ele sa nu depinda de datele reale."""
@@ -159,6 +166,7 @@ def _selftest():
     if os.path.isfile(TABELA_IMPLICITA):
         reala = Politica.din_fisier()
         assert reala.payloaduri() == [4096, 65536], reala.payloaduri()
+        assert reala.transporturi() == {"cyclonedds", "zenoh"}, reala.transporturi()
         d = reala.decide(15.0, 8.0, 4096)
         assert d.covered is True and d.transport in ("cyclonedds", "zenoh"), d
         assert d.sursa.endswith(".md"), d

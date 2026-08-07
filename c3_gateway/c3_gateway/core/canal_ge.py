@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""channel.py -- canal Gilbert-Elliott DETERMINIST, pentru teste. NUCLEU PUR: nu importa
+"""canal_ge.py -- canal Gilbert-Elliott DETERMINIST, pentru teste. NUCLEU PUR: nu importa
 rclpy, socket sau os.environ.
 
 Modelul e cel din C2 (Simple Gilbert, 1-h=1 / 1-k=0): doua stari, G (livreaza intotdeauna)

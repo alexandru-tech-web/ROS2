@@ -38,7 +38,7 @@ AICI = os.path.dirname(os.path.abspath(__file__))
 CORE = os.path.join(os.path.dirname(AICI), "c3_gateway", "core")
 sys.path.insert(0, CORE)
 
-from channel import CanalGE                                  # noqa: E402
+from canal_ge import CanalGE                                  # noqa: E402
 from estimator import ALPHA_B, ALPHA_L, EstimatorLink        # noqa: E402
 
 HZ = 50.0

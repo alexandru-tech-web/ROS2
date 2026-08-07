@@ -20,11 +20,11 @@ AICI = os.path.dirname(os.path.abspath(__file__))
 CORE = os.path.join(os.path.dirname(AICI), "c3_gateway", "core")
 sys.path.insert(0, CORE)
 
-import channel                                            # noqa: E402
+import canal_ge                                            # noqa: E402
 import estimator                                          # noqa: E402
 import policy                                             # noqa: E402
 import switching                                          # noqa: E402
-from channel import CanalGE                               # noqa: E402
+from canal_ge import CanalGE                               # noqa: E402
 from estimator import EstimatorLink                       # noqa: E402
 from policy import Politica                               # noqa: E402
 from switching import Comutator, DWELL_MIN_S              # noqa: E402
@@ -34,7 +34,7 @@ INTERZISE = ("rclpy", "socket", "rosidl", "std_msgs", "rmw", "launch")
 
 
 def ruleaza_selfteste():
-    for m in (channel, estimator, policy, switching):
+    for m in (canal_ge, estimator, policy, switching):
         m._selftest()
 
 
