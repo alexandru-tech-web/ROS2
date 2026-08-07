@@ -1,0 +1,5 @@
+# iesiri tranzitorii ale harness-ului de gate (se regenereaza la fiecare rulare)
+*.out
+*.err
+router.log
+timing_*.txt
