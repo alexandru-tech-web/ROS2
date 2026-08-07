@@ -9,6 +9,8 @@ testele de INTEGRARE, adica exact intrebarile la care un modul singur nu poate r
   I3. Politica NU comuta cand marja e sub incertitudinea estimarii -- testat cu sigma
       REALA, cea raportata de estimator dupa ce a mestecat canalul, nu cu una inventata.
   I4. Nucleul e PUR: niciun modul din core/ nu importa rclpy, socket sau os.environ.
+  I5. Estimarea care ajunge in tabela vine de la SONDA DE CANAL, nu prin transport: dwell-ul
+      trebuie sa fie derivat din rata sondei, altfel cifra nu are acoperire.
 
 Rulare: python3 test/test_c3_core.py
 """
@@ -22,6 +24,7 @@ sys.path.insert(0, CORE)
 
 import canal_ge                                            # noqa: E402
 import estimator                                          # noqa: E402
+import overhead                                           # noqa: E402
 import policy                                             # noqa: E402
 import switching                                          # noqa: E402
 from canal_ge import CanalGE                               # noqa: E402
@@ -34,7 +37,7 @@ INTERZISE = ("rclpy", "socket", "rosidl", "std_msgs", "rmw", "launch")
 
 
 def ruleaza_selfteste():
-    for m in (canal_ge, estimator, policy, switching):
+    for m in (canal_ge, estimator, overhead, policy, switching):
         m._selftest()
 
 
@@ -162,12 +165,37 @@ def i4_nucleu_pur():
     return "I4 nucleu pur: %d module, verificate pe AST" % len(fisiere)
 
 
+def i5_dwell_din_sonda_de_canal():
+    """Dupa corectia de la etapa 3.5, estimatorul (L,B) e hranit EXCLUSIV de sonda de canal.
+    Dwell-ul trebuie deci sa fie derivat din rata ACELEIA, nu din rata traficului aplicatiei.
+    Daca cineva reface legatura cu 50 Hz, cifra de dwell devine o promisiune fara acoperire:
+    ai voie sa comuti dupa 3.4 s, dar estimarea inca descrie regimul vechi."""
+    asteptat = switching.ASEZARE_ESANTIOANE / switching.HZ_SONDA_CANAL
+    assert abs(switching.DWELL_MIN_S - asteptat) < 1e-9, (switching.DWELL_MIN_S, asteptat)
+    assert not hasattr(switching, "RATA_ESTIMARE_HZ"), \
+        "RATA_ESTIMARE_HZ (rata aplicatiei) nu mai are ce cauta in derivarea dwell-ului"
+    # vetoul primeste Viabilitate, NU Estimare: daca ar primi o Estimare, ar insemna ca
+    # (L,B) masurat prin transport a intrat din nou pe usa din dos
+    from estimator import Estimare
+    e = Estimare(0.05, 2.0, 0.005, 1000, 50, True)
+    try:
+        switching.cale_utilizabila(e)
+    except AttributeError:
+        pass
+    else:
+        raise AssertionError("cale_utilizabila accepta o Estimare -- vetoul trebuie sa "
+                             "ceara o Viabilitate, altfel (L,B) prin transport revine")
+    return ("I5 dwell %.2f s = %d esantioane / %.0f Hz (sonda de canal), veto pe Viabilitate"
+            % (switching.DWELL_MIN_S, switching.ASEZARE_ESANTIOANE,
+               switching.HZ_SONDA_CANAL))
+
+
 def main(argv):
     print("== selftesturile modulelor ==")
     ruleaza_selfteste()
     print("\n== teste de integrare ==")
     for t in (i1_lant_complet, i2_anti_flapping, i3_marja_sub_incertitudine,
-              i4_nucleu_pur):
+              i4_nucleu_pur, i5_dwell_din_sonda_de_canal):
         print("  " + t())
     print("\nSUITA C3 (nucleu) OK.")
     return 0
