@@ -7,16 +7,31 @@ merita sa te MISTI acolo. Sunt intrebari diferite: prima e despre date, a doua d
 
 TREI FRANE, fiecare cu alt rol:
 
-1. DWELL-TIME MINIM -- derivat, nu ales
-   Costul masurat de re-stabilire (FAPTE_C3.md, sectiunea d): 0.429 s mediana pe
-   cyclonedds, 0.428 s pe zenoh, 5 repetitii fiecare, cu abonatul deja pornit. Se ia
-   plafonul superior, 0.43 s.
-   Regula de amortizare: nu vrem sa cheltuim pe re-stabilire mai mult de 10% din timpul
-   petrecut pe un transport. De aici
-       DWELL_MIN_S = FACTOR_AMORTIZARE * COST_RESTABILIRE_S = 10 * 0.43 = 4.3 s
-   Factorul 10 e alegerea de proiectare (echivalent: acceptam pana la 10% timp mort);
-   0.43 s e MASURATOARE. Daca se schimba masuratoarea, se schimba si dwell-time-ul, fara
-   sa umble nimeni la o constanta magica.
+1. DWELL-TIME MINIM -- derivat din DOUA masuratori, se ia maximul
+   In dual-path ambii agenti raman pornit permanent, deci o comutare NU reporneste nimic:
+   costul ei e redirectionarea octetilor pe alt socket UNIX. Masurat la etapa 2 (UDS, 4 KB):
+   p50 = 92.6 us, p99 = 214 us per traversare. Se ia p99, conservator.
+       termen_1 = COST_COMUTARE_S * FACTOR_AMORTIZARE = 214 us * 10 = 2.14 ms
+   Termenul asta e insa neglijabil. Ce leaga cu adevarat mainile gateway-ului e cat ii ia
+   ESTIMATORULUI sa afle ca regimul s-a schimbat: daca ai voie sa comuti iar inainte ca
+   estimarea sa se fi asezat, decizi pe o stare care inca descrie regimul VECHI.
+   Masurat cu tools/measure_settling.py (treapta pe canal GE sintetic, 9 celule ale grilei
+   C2 x 3 regimuri de plecare x 40 seed-uri, asezare = biasul intra si ramane in +/-1 sigma):
+       mediana 171 esantioane   p95 817 esantioane
+   In secunde, cifra depinde de RITMUL cu care e hranit estimatorul, si de aceea e scrisa
+   ca esantioane / rata:
+       termen_2 = ASEZARE_ESANTIOANE / RATA_ESTIMARE_HZ = 171 / 50 = 3.42 s
+       DWELL_MIN_S = max(termen_1, termen_2) = 3.42 s
+   De ce MEDIANA si nu p95: cele mai lente celule sunt cele cu pierdere mica si rafale
+   lungi (L=5%, B=8: 817 esantioane), unde golurile vin rar si estimatorul afla incet. Dar
+   exact acolo marja dintre transporturi e uriasa (98.3 pp in tabela C2), deci o estimare
+   inca neasezata da oricum raspunsul corect. Un dwell de 16 s ar face gateway-ul orb la
+   schimbari reale de regim un sfert de minut. Tail-ul e acoperit de celelalte doua frane.
+   ATENTIE la ritm: cifra de 3.42 s presupune 50 Hz, adica ritmul traficului aplicatiei pe
+   calea ACTIVA. Calea inactiva e hranita doar de sonda (5 Hz), unde aceleasi 171 de
+   esantioane inseamna 34 s. Asta NU incetineste comutarea (decizia foloseste estimarea
+   caii active), dar inseamna ca sanatatea caii de rezerva se afla de zece ori mai incet --
+   o limita reala a proiectului, nu un detaliu de implementare.
 
 2. HISTEREZIS ASIMETRIC -- doua praguri, nu unul
    Pragurile sunt asimetrice pentru ca RISCURILE sunt asimetrice. Transportul implicit din
@@ -38,9 +53,12 @@ TREI FRANE, fiecare cu alt rol:
 """
 import sys
 
-COST_RESTABILIRE_S = 0.43       # MASURAT: FAPTE_C3.md (d), plafonul celor doua mediane
-FACTOR_AMORTIZARE = 10.0        # ALES: acceptam cel mult ~10% timp mort din re-stabiliri
-DWELL_MIN_S = FACTOR_AMORTIZARE * COST_RESTABILIRE_S     # 4.3 s
+COST_COMUTARE_S = 214e-6        # MASURAT etapa 2: UDS 4 KB, p99 per traversare
+FACTOR_AMORTIZARE = 10.0        # ALES: acceptam cel mult ~10% timp mort din comutari
+ASEZARE_ESANTIOANE = 171        # MASURAT: tools/measure_settling.py, mediana (p95 = 817)
+RATA_ESTIMARE_HZ = 50.0         # ritmul traficului aplicatiei pe calea activa
+DWELL_MIN_S = max(FACTOR_AMORTIZARE * COST_COMUTARE_S,
+                  ASEZARE_ESANTIOANE / RATA_ESTIMARE_HZ)     # 3.42 s
 
 PRAG_PLECARE_PP = 12.0
 PRAG_INTOARCERE_PP = 5.0
@@ -113,9 +131,12 @@ def _selftest():
 
     pol = Politica(_tabela_sintetica())
 
-    # 1. dwell-time-ul e DERIVAT din masuratoare, nu scris de mana
-    assert abs(DWELL_MIN_S - 4.3) < 1e-9, DWELL_MIN_S
-    assert DWELL_MIN_S == FACTOR_AMORTIZARE * COST_RESTABILIRE_S
+    # 1. dwell-time-ul e DERIVAT din doua masuratori, si castiga cea mai mare
+    assert abs(DWELL_MIN_S - 171 / 50.0) < 1e-9, DWELL_MIN_S
+    assert DWELL_MIN_S == max(FACTOR_AMORTIZARE * COST_COMUTARE_S,
+                              ASEZARE_ESANTIOANE / RATA_ESTIMARE_HZ)
+    assert DWELL_MIN_S > FACTOR_AMORTIZARE * COST_COMUTARE_S, \
+        "asezarea estimatorului trebuie sa domine costul de comutare, nu invers"
 
     # 2. pe payload 64 KB, la (L=15, B=1), tabela zice zenoh -- dar marja e 1.7 pp,
     # sub pragul de plecare: NU se comuta. Exact celula pentru care exista pragurile.
@@ -177,9 +198,11 @@ def main(argv):
         _selftest()
         return 0
     print(__doc__.strip())
-    print("\nCOST_RESTABILIRE_S = %.3f (masurat)  x  FACTOR_AMORTIZARE = %.0f"
-          "  ->  DWELL_MIN_S = %.2f s" % (COST_RESTABILIRE_S, FACTOR_AMORTIZARE,
-                                          DWELL_MIN_S))
+    print("\ncomutare %.0f us x %.0f = %.2f ms | asezare %d esantioane / %.0f Hz = %.2f s"
+          "  ->  DWELL_MIN_S = %.2f s"
+          % (COST_COMUTARE_S * 1e6, FACTOR_AMORTIZARE,
+             FACTOR_AMORTIZARE * COST_COMUTARE_S * 1e3, ASEZARE_ESANTIOANE,
+             RATA_ESTIMARE_HZ, ASEZARE_ESANTIOANE / RATA_ESTIMARE_HZ, DWELL_MIN_S))
     print("PRAG_PLECARE = %.1f pp | PRAG_INTOARCERE = %.1f pp | K_SIGMA = %.1f"
           % (PRAG_PLECARE_PP, PRAG_INTOARCERE_PP, K_SIGMA))
     return 0

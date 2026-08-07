@@ -126,6 +126,17 @@ class EstimatorLink(object):
         rho = max(0.0, min(0.999, 1.0 - p - r))     # taiat: nu pretindem sub-iid
         return math.sqrt(var_iid * (1.0 + rho) / (1.0 - rho))
 
+    def sigma_B(self):
+        """Abaterea standard a estimarii lui B. Lungimile golurilor sunt geometrice(r) cu
+        abaterea sqrt(1-r)/r; media lor exponentiala are, in regim stationar, varianta de
+        alpha_B/(2-alpha_B) ori varianta unui esantion. Spre deosebire de L, aici nu e
+        nevoie de corectie de corelatie: golurile succesive sunt independente sub Simple
+        Gilbert (fiecare rafala reincepe din starea buna)."""
+        B = max(self._B, 1.0)
+        r = 1.0 / B
+        sd_gol = math.sqrt(max(0.0, 1.0 - r)) / r
+        return sd_gol * math.sqrt(self.alpha_B / (2.0 - self.alpha_B))
+
     def stable(self):
         """B e utilizabil pentru decizii? Vezi pragurile si motivul lor in docstring."""
         return (self._L >= self.L_min_pentru_B) and (self.n_goluri >= self.goluri_min)
