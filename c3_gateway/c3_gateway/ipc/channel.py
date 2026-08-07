@@ -234,12 +234,43 @@ def verifica_conformitate(tip, eticheta=None):
         dt = acum() - t0
         assert 0.1 < dt < 1.0, "timeout-ul nu e respectat: %.3f s" % dt
 
+        # 3b. SONDARE fara asteptare (timeout=0): intoarce None si NU declara perechea
+        # moarta. Pe socket, timeout=0 inseamna mod neblocant, iar exceptia de acolo e
+        # subclasa de OSError -- exact tiparul care, prins gresit, omoara canalul la o
+        # simpla sondare (a si facut-o, in prima varianta).
+        assert gazda.recv(timeout=0.0) is None
+        assert gazda.stare().viu is True, ("sondarea fara asteptare a omorat canalul",
+                                           gazda.stare())
+        # ... si canalul ramane UTILIZABIL dupa sondare: pe socket, timeout-ul e stare
+        # lipicioasa, deci un send de dupa o sondare neblocanta pica daca nu e resetat
+        gazda.send(b"dupa-sondare", 7)
+        t0 = acum()
+        ecou = None
+        while ecou is None and acum() - t0 < 5.0:
+            ecou = gazda.recv(timeout=0.5)
+        assert ecou is not None and ecou.seq == 7 + 1000, ecou
+
         # 4. payload peste limita e REFUZAT explicit
         try:
             gazda.send(b"y" * (gazda.max_payload + 1), 1)
             raise AssertionError("payload supradimensionat acceptat")
         except ValueError:
             pass
+
+        # 4b. SARCINA SUSTINUTA. Trei mesaje nu prind nimic: bug-ul care a costat cel mai
+        # mult in etapa asta (o citire rupta a campului de bataie din memoria partajata,
+        # interpretata drept 'pereche moarta') aparea abia dupa cateva sute de mesaje.
+        # Deci canalul trebuie sa reziste la trafic continuu, nu doar la un salut.
+        n_dus = 300
+        primite_sustinut = 0
+        for i in range(n_dus):
+            gazda.send(b"s" * 512, 10000 + i)
+            m = gazda.recv(timeout=1.0)
+            if m is not None:
+                primite_sustinut += 1
+            assert gazda.stare().viu, ("canalul a murit sub sarcina, la mesajul %d: %s"
+                                       % (i, gazda.stare().motiv))
+        assert primite_sustinut >= n_dus * 0.99, (primite_sustinut, n_dus)
 
         # 5. abia ACUM ii cerem oaspetelui sa iasa: pana aici a fost viu si tacut, ceea ce
         # face verificarile 3 si 4 sa masoare ce trebuie

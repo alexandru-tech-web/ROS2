@@ -157,6 +157,8 @@ class CanalSHM(Canal):
         self._inel_citesc = 1 - self._inel_scriu
         self._shm = None
         self._sem = {}
+        self._pid_pereche = None      # citit o data, apoi retinut
+        self._suspiciune_de = None    # de cand banuim ca perechea tace
         nume_shm = "c3shm_%s" % nume
         total = MARIME_CAP + 2 * self.n_sloturi * self.marime_slot
         if rol == "gazda":
@@ -204,15 +206,36 @@ class CanalSHM(Canal):
         return struct.unpack_from(fmt, self._shm.buf, ofs)[0]
 
     def _verifica_pereche(self):
+        """ATENTIE, lectie platita: scrierea unui camp de 8 octeti in memoria partajata
+        (struct.pack_into pe .buf) NU e atomica in CPython. Un cititor concurent vede stari
+        intermediare -- masurat pe masina asta: 103.384 de zerouri si 21.782 de valori
+        aberante la 3,5 milioane de citiri in paralel cu un scriitor. Prima versiune lua
+        acele zerouri drept 'bataie veche' si declara perechea moarta dupa cateva sute de
+        mesaje, desi era vie si consuma. De aici cele doua reguli de mai jos:
+          1. o citire NEPLAUZIBILA nu e informatie, e o citire rupta -> se ignora;
+          2. suspiciunea trebuie sa PERSISTE un interval intreg inainte de verdict.
+        PID-ul se citeste o singura data si se retine: nu se schimba niciodata, deci nu are
+        rost sa fie recitit (si sa fie expus la aceeasi rupere) la fiecare mesaj."""
         if self._shm is None:
             return
-        pid = self._citeste("<q", OFS_PID + 8 * self._el)
-        if pid and not _pid_viu(pid):
-            self._marcheaza_mort("pid %d disparut" % pid)
+        if self._pid_pereche is None:
+            pid = self._citeste("<q", OFS_PID + 8 * self._el)
+            if 0 < pid < 4194304:                 # plauzibil ca PID pe Linux
+                self._pid_pereche = pid
+        if self._pid_pereche is not None and not _pid_viu(self._pid_pereche):
+            self._marcheaza_mort("pid %d disparut" % self._pid_pereche)
             return
         b = self._citeste("<d", OFS_BATAIE + 8 * self._el)
-        if b > 0 and acum() - b > self.timeout_bataie:
-            self._marcheaza_mort("fara bataie de %.2f s" % (acum() - b))
+        t = acum()
+        if not (0.0 < b <= t + 1.0):              # citire rupta: fara informatie
+            return
+        if t - b > self.timeout_bataie:
+            if self._suspiciune_de is None:
+                self._suspiciune_de = t
+            elif t - self._suspiciune_de > self.timeout_bataie:
+                self._marcheaza_mort("fara bataie de %.2f s" % (t - b))
+        else:
+            self._suspiciune_de = None
 
     def conecteaza(self, timeout=5.0):
         if self.rol == "oaspete":

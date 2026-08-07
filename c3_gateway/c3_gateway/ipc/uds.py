@@ -85,8 +85,16 @@ class CanalUDS(Canal):
     def _send(self, cadru):
         if self._sock is None:
             raise CanalInchis("neconectat")
+        # Timeout-ul socketului e STARE LIPICIOASA: un recv(timeout=0) anterior l-a lasat
+        # neblocant, iar sendall-ul de aici ar primi EAGAIN si l-am lua drept moarte. Se
+        # pune explicit, la fiecare operatie.
+        self._sock.settimeout(1.0)
         try:
             self._sock.sendall(cadru)
+        except (socket.timeout, BlockingIOError):
+            # buffer plin: perechea nu consuma. Nu e moarte -- e contrapresiune, acelasi
+            # inteles ca 'inel plin' la shm.
+            raise CanalInchis("send blocat 1 s (perechea nu consuma)")
         except (BrokenPipeError, ConnectionResetError, OSError) as e:
             self._marcheaza_mort("send: %s" % type(e).__name__)
             raise CanalInchis("perechea a murit la send: %s" % e)
@@ -97,7 +105,11 @@ class CanalUDS(Canal):
         self._sock.settimeout(timeout)
         try:
             cadru = self._sock.recv(self.max_payload + 64)
-        except socket.timeout:
+        except (socket.timeout, BlockingIOError):
+            # BlockingIOError apare la timeout=0 (socket neblocant) si inseamna 'nimic
+            # ACUM', nu 'perechea a murit'. E subclasa de OSError, deci trebuie prinsa
+            # INAINTE de ramura de mai jos -- altfel o simpla sondare fara asteptare
+            # declara canalul mort.
             return None
         except (ConnectionResetError, OSError) as e:
             self._marcheaza_mort("recv: %s" % type(e).__name__)
