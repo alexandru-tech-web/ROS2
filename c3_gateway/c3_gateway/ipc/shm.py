@@ -18,11 +18,17 @@ MOARTEA PERECHII -- aici NU e gratuita, spre deosebire de uds.py
 Memoria partajata nu are notiunea de 'celalalt capat s-a inchis': un proces care moare lasa
 inelul exact cum era. Detectia se face pe doua cai, ambele explicite:
   1. PID-ul perechii nu mai exista (os.kill(pid, 0)) -- prinde procesul mort, imediat;
-  2. batalia de inima s-a oprit de mai mult de TIMEOUT_BATAIE secunde -- prinde procesul
-     viu dar blocat.
+  2. bataia de inima s-a oprit de mai mult de TIMEOUT_BATAIE secunde, confirmata pe un
+     interval intreg (vezi _verifica_pereche) -- prinde si procesul viu dar blocat.
 Bataia se actualizeaza la ORICE operatie pe canal. Un proces care nu face nimic minute in
-sir trebuie sa cheme bate() explicit, altfel arata mort; e un compromis constient, iar
-cifra de detectie masurata in bench_ipc.py e cu mecanismul asta, nu cu unul ideal.
+sir trebuie sa cheme bate() explicit, altfel arata mort; e un compromis constient.
+
+ATENTIE la calea 1, masurat: daca perechea e un proces-COPIL al nostru si moare, ea ramane
+ZOMBIE pana e culeasa (wait/join). Un zombie inca exista in tabela de procese, deci
+os.kill(pid, 0) REUSESTE si calea rapida NU se declanseaza. In bench_ipc.py, agentul ucis
+cu SIGKILL a fost detectat in 1.008 s, adica pe calea 2 (0.5 s prag + 0.5 s confirmare),
+nu in cateva milisecunde cum ar sugera calea 1. Cine vrea detectie rapida pe copii proprii
+trebuie sa-i culeaga (SIGCHLD/waitpid) -- altfel cifra reala e cea de la calea 2.
 """
 import ctypes
 import ctypes.util
