@@ -1,0 +1,38 @@
+# delay_profiles.yaml
+# Profiluri de latenta pentru teste
+
+delay_profiles:
+  constant_low:
+    base_delay: 0.02    # 20 ms
+    amplitude: 0.0
+    frequency: 0.0
+    noise_std: 0.001
+    profile: "constant"
+
+  constant_medium:
+    base_delay: 0.08    # 80 ms
+    amplitude: 0.0
+    frequency: 0.0
+    noise_std: 0.002
+    profile: "constant"
+
+  constant_high:
+    base_delay: 0.12    # 120 ms
+    amplitude: 0.0
+    frequency: 0.0
+    noise_std: 0.003
+    profile: "constant"
+
+  variable_sine:
+    base_delay: 0.06    # 60 ms medie
+    amplitude: 0.03     # +/- 30 ms
+    frequency: 0.5     # 0.5 Hz
+    noise_std: 0.005
+    profile: "sine"
+
+  variable_burst:
+    base_delay: 0.04    # 40 ms
+    amplitude: 0.08      # burst la 120 ms
+    frequency: 0.2     # burst la fiecare ~5s
+    noise_std: 0.003
+    profile: "burst"

@@ -1,0 +1,113 @@
+<?xml version="1.0"?>
+<!--
+  cartpole.urdf -- cart-pole pentru Gazebo Harmonic.
+
+  Consistent cu CartPoleModel din phsc_mechanical_analogies:
+    M = 1.0 kg (carucior), m = 0.1 kg (pendul), L = 0.5 m, b = 0.1 N*s/m.
+
+  Conventie de unghi: hinge se roteste in jurul axei Y; theta = 0 inseamna
+  pendul VERTICAL IN SUS, iar theta pozitiv inclina varful spre +x. Aceeasi
+  conventie ca in model (x_pendul = p + L*sin(theta)).
+
+  NOTA fata de varianta propusa in runda 2: acolo tag-urile <inertia> aveau
+  doar ixx/iyy/izz. Parserul URDF cere toate sase (ixx ixy ixz iyy iyz izz)
+  si respinge fisierul altfel. In plus, fara <gazebo> si fara sistemele de
+  actionare/publicare, modelul se incarca dar nu comunica nimic cu ROS.
+-->
+<robot name="cartpole">
+
+  <link name="world"/>
+
+  <link name="rail">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0.0001"/>
+      <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6"/>
+    </inertial>
+    <visual>
+      <geometry><box size="4.0 0.02 0.02"/></geometry>
+      <material name="grey"><color rgba="0.5 0.5 0.5 1"/></material>
+    </visual>
+  </link>
+
+  <joint name="rail_fix" type="fixed">
+    <parent link="world"/>
+    <child link="rail"/>
+    <origin xyz="0 0 0.05" rpy="0 0 0"/>
+  </joint>
+
+  <link name="cart">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="1.0"/>
+      <inertia ixx="0.0021" ixy="0" ixz="0" iyy="0.0042" iyz="0" izz="0.0042"/>
+    </inertial>
+    <visual>
+      <geometry><box size="0.2 0.1 0.1"/></geometry>
+      <material name="blue"><color rgba="0.1 0.3 0.9 1"/></material>
+    </visual>
+    <collision>
+      <geometry><box size="0.2 0.1 0.1"/></geometry>
+    </collision>
+  </link>
+
+  <!-- Amortizarea b=0.1 din model este pusa aici, ca damping de cuplaj. -->
+  <joint name="slider" type="prismatic">
+    <parent link="rail"/>
+    <child link="cart"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit lower="-2.0" upper="2.0" effort="100.0" velocity="10.0"/>
+    <dynamics damping="0.1" friction="0.0"/>
+  </joint>
+
+  <!--
+    Pendul: masa punctiforma m=0.1 la L=0.5 de pivot, aproximata printr-o tija
+    subtire cu centrul de masa la L (nu la L/2), ca sa corespunda modelului.
+  -->
+  <link name="pole">
+    <inertial>
+      <origin xyz="0 0 0.5" rpy="0 0 0"/>
+      <mass value="0.1"/>
+      <inertia ixx="1e-5" ixy="0" ixz="0" iyy="1e-5" iyz="0" izz="1e-5"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0.25" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.012" length="0.5"/></geometry>
+      <material name="red"><color rgba="0.9 0.1 0.1 1"/></material>
+    </visual>
+    <visual>
+      <origin xyz="0 0 0.5" rpy="0 0 0"/>
+      <geometry><sphere radius="0.03"/></geometry>
+      <material name="red"><color rgba="0.9 0.1 0.1 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.25" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.012" length="0.5"/></geometry>
+    </collision>
+  </link>
+
+  <joint name="hinge" type="continuous">
+    <parent link="cart"/>
+    <child link="pole"/>
+    <origin xyz="0 0 0.05" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <dynamics damping="0.0" friction="0.0"/>
+  </joint>
+
+  <!-- Sisteme Gazebo: actionare pe slider + publicare stare articulatii. -->
+  <gazebo>
+    <plugin filename="gz-sim-joint-state-publisher-system"
+            name="gz::sim::systems::JointStatePublisher">
+      <topic>joint_states</topic>
+      <joint_name>slider</joint_name>
+      <joint_name>hinge</joint_name>
+    </plugin>
+
+    <plugin filename="gz-sim-apply-joint-force-system"
+            name="gz::sim::systems::ApplyJointForce">
+      <joint_name>slider</joint_name>
+    </plugin>
+  </gazebo>
+
+</robot>
