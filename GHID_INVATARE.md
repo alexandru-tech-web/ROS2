@@ -195,5 +195,6 @@ ros2 pkg executables link_adaptive
 
 - **skill `sar-swarm-ros2`** -- contextul proiectului pentru sesiuni viitoare cu
   asistentul (convetii, cifre, gotchas).
-- **`ROADMAP_DEZVOLTARE.md`** -- starea pachetelor, pistele de dezvoltare si
-  imbunatatirile legate de articole.
+- **`CLAUDE.md`** -- starea curenta a proiectului: contributiile C1-C4, harta
+  repo-ului si focusul de lucru. (A inlocuit `ROADMAP_DEZVOLTARE.md`, care era
+  o fotografie din 12.06 cu termene demult trecute.)

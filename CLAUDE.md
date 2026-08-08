@@ -80,7 +80,10 @@ rezultate. Daca un push esueaza, prima suspiciune: date brute / fisiere >100 MB.
 - rehab_exo_description/, servo_control/, joint_emulator/ -- exoschelet + motor (C4).
 - teleop_rover/   -- robot mobil (comparatie drona vs robot mobil).
 - curs_ros2/, curs_ros2_interfaces/, PROIECT_ECOSISTEM_EDUCATIONAL.md -- educational.
-- gen_articol/    -- generare schelete de articol.
+- phsc_mechanical_analogies/, phsc_teleop_mpc/, phsc_gazebo_plugins/,
+  phsc_bringup/ -- PHSC (compensare de latenta, LQR+Smith). Track PE PAUZA:
+  vezi phsc_mechanical_analogies/docs/FINAL_REPORT.md pentru conditiile de
+  reactivare. Ramura phsc-v1-simulation, tag v1.1-docs.
 - check_repo.sh, smoke_all.sh -- verificare repo / smoke tests.
 
 ## 8. Focus curent (actualizeaza pe masura ce avanseaza)
