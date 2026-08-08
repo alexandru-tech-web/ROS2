@@ -1,0 +1,44 @@
+==============================================================================
+MONTE CARLO -- N=50 incercari perechi per valoare de tau
+planta 1000 Hz, controller 100 Hz, 5 s, prag cadere 90 grade
+planta cu parametri trasi, controller pe model NOMINAL (nepotrivire reala)
+theta0 U(0.05,0.15), M/m/L/b normali +/-10%, jitter 2 ms pe latenta
+==============================================================================
+  tau=   20 ms | none:  100% [0.93,1.00] | naive:  100% [0.93,1.00] | smith:  100% [0.93,1.00] |
+  tau=   30 ms | none:  100% [0.93,1.00] | naive:  100% [0.93,1.00] | smith:  100% [0.93,1.00] |
+  tau=   40 ms | none:  100% [0.93,1.00] | naive:  100% [0.93,1.00] | smith:  100% [0.93,1.00] |
+  tau=   50 ms | none:  100% [0.93,1.00] | naive:   76% [0.63,0.86] | smith:  100% [0.93,1.00] |
+  tau=   60 ms | none:   84% [0.71,0.92] | naive:   28% [0.17,0.42] | smith:  100% [0.93,1.00] |
+  tau=   70 ms | none:   46% [0.33,0.60] | naive:    2% [0.00,0.10] | smith:  100% [0.93,1.00] |
+  tau=   80 ms | none:    0% [0.00,0.07] | naive:    0% [0.00,0.07] | smith:  100% [0.93,1.00] |
+  tau=  100 ms | none:    0% [0.00,0.07] | naive:    0% [0.00,0.07] | smith:  100% [0.93,1.00] |
+  tau=  150 ms | none:    0% [0.00,0.07] | naive:    0% [0.00,0.07] | smith:   96% [0.87,0.99] |
+  tau=  200 ms | none:    0% [0.00,0.07] | naive:    0% [0.00,0.07] | smith:   94% [0.84,0.98] |
+  tau=  250 ms | none:    0% [0.00,0.07] | naive:    0% [0.00,0.07] | smith:   72% [0.58,0.83] |
+  tau=  300 ms | none:    0% [0.00,0.07] | naive:    0% [0.00,0.07] | smith:    0% [0.00,0.07] |
+------------------------------------------------------------------------------
+durata: 1119 s
+
+==============================================================================
+PRAGURI
+==============================================================================
+  none  : P>=95% pana la        50 ms | P>=50% pana la        60 ms | incrucisare P=50%: 69 ms
+  naive : P>=95% pana la        40 ms | P>=50% pana la        50 ms | incrucisare P=50%: 55 ms
+  smith : P>=95% pana la       150 ms | P>=50% pana la       250 ms | incrucisare P=50%: 265 ms
+==============================================================================
+
+Ablatia, pe perechi (aceleasi trageri): naiv vs fara compensare
+  tau=   20 ms: none  100% vs naiv  100%  -> egal
+  tau=   30 ms: none  100% vs naiv  100%  -> egal
+  tau=   40 ms: none  100% vs naiv  100%  -> egal
+  tau=   50 ms: none  100% vs naiv   76%  -> naiv MAI RAU
+  tau=   60 ms: none   84% vs naiv   28%  -> naiv MAI RAU
+  tau=   70 ms: none   46% vs naiv    2%  -> naiv MAI RAU
+  tau=   80 ms: none    0% vs naiv    0%  -> egal
+  tau=  100 ms: none    0% vs naiv    0%  -> egal
+  tau=  150 ms: none    0% vs naiv    0%  -> egal
+  tau=  200 ms: none    0% vs naiv    0%  -> egal
+  tau=  250 ms: none    0% vs naiv    0%  -> egal
+  tau=  300 ms: none    0% vs naiv    0%  -> egal
+
+Salvat: monte_carlo_stability.png

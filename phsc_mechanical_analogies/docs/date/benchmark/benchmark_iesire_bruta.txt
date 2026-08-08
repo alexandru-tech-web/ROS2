@@ -1,0 +1,26 @@
+==============================================================
+A. MPC NELINIAR (SLSQP), asa cum e configurat in mpc_tuning.yaml
+==============================================================
+  N=20: mediana=  971.7 ms  min= 831.2  max= 1042.7  ->   1.0 Hz  [LENT]
+  N=15: mediana=  485.0 ms  min= 468.7  max=  560.2  ->   2.1 Hz  [LENT]
+  N=10: mediana=  163.0 ms  min= 139.1  max=  168.8  ->   6.1 Hz  [LENT]
+  N= 7: mediana=   68.9 ms  min=  66.8  max=   73.5  ->  14.5 Hz  [LENT]
+  N= 5: mediana=   27.4 ms  min=  26.4  max=   29.9  ->  36.5 Hz  [OK]
+
+==============================================================
+B. ALTERNATIVE REAL-TIME (aceeasi masina, acelasi x0)
+==============================================================
+  LQR (K precalculat):        mediana=    1.76 us -> 567 kHz
+  LQR + predictie RK4 (20 pasi): mediana=  743.70 us -> 1345 Hz
+  LQR + predictie RK4 (4 pasi):  mediana=  151.92 us -> 6582 Hz
+
+==============================================================
+C. CONCLUZIE
+==============================================================
+  MPC neliniar N=20 : 1024 ms  -> 1.0 Hz
+  Necesar pentru 20 Hz: < 50 ms
+  Verdict: NESUSTENABIL in timp real
+  Raport fata de bugetul de 50 ms: 20x peste
+  Pol instabil in bucla deschisa: 4.64 rad/s (constanta de timp 215 ms)
+  Regula practica (>=10 esantioane / constanta de timp): necesar >= 7 Hz
+==============================================================

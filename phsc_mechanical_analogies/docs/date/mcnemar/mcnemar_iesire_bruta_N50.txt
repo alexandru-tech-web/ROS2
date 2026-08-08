@@ -1,0 +1,14 @@
+============================================================================
+McNEMAR EXACT -- 'naiv' vs 'fara compensare', N=50 incercari perechi
+============================================================================
+    tau |  ambele  doar none  doar naiv  niciunul |  p (o coada)
+----------------------------------------------------------------------------
+    50m |      38         12          0         0 |     2.44e-04 
+    60m |      14         28          0         8 |     3.73e-09 
+    70m |       1         22          0        27 |     2.38e-07 
+----------------------------------------------------------------------------
+b = doar 'none' stabil (naivul a stricat)
+c = doar 'naiv' stabil (naivul a ajutat)
+Ipoteza alternativa testata: b > c, adica predictia naiva strica
+mai des decat ajuta. p mic => afirmatia se sustine statistic.
+============================================================================

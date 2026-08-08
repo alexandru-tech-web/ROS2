@@ -1,0 +1,6 @@
+orizont_N,mediana_ms,min_ms,max_ms,rata_hz,buget_20hz_ms,incape_in_buget
+20,971.7,831.2,1042.7,1.0,50.0,False
+15,485.0,468.7,560.2,2.1,50.0,False
+10,163.0,139.1,168.8,6.1,50.0,False
+7,68.9,66.8,73.5,14.5,50.0,False
+5,27.4,26.4,29.9,36.5,50.0,True

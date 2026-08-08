@@ -31,16 +31,8 @@ import time
 
 import numpy as np
 
-# Merge in ambele situatii: cu pachetul instalat (dupa colcon build +
-# source install/setup.bash) sau rulat direct din acest director, langa
-# copii ale modulelor. Fara asta, scriptul copiat in pachet nu ar mai rula
-# din locul lui nou -- adica exact opusul unui artefact de reproductibilitate.
-try:
-    from phsc_mechanical_analogies.cartpole_model import CartPoleModel
-except ImportError:                                   # rulare standalone
-    sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parent.parent
-                           / 'phsc_mechanical_analogies'))
-    from cartpole_model import CartPoleModel
+import _context  # noqa: F401  -- pachetul importabil si din sursa
+from phsc_mechanical_analogies.cartpole_model import CartPoleModel
 
 DT_SIM = 0.001      # integrare planta
 DT_CTRL = 0.01      # controller 100 Hz
