@@ -88,7 +88,6 @@ Fiecare nume trimite la README-ul pachetului.
 | [`servo_control`](servo_control/README.md) | ament | demonstratorul istoric: motor Gazebo cu comanda tastatura | -- |
 | [`curs_ros2`](curs_ros2/README.md) | ament | exercitii de curs ROS 2 (14 module) | test/ (lint + logica) |
 | [`curs_ros2_interfaces`](curs_ros2_interfaces/README.md) | ament | interfete custom (msg/srv/action) pentru curs | -- |
-| [`gen_articol`](gen_articol/README.md) | script | generator de schelete de articole stiintifice (LaTeX) | -- |
 
 ## 4. Metodologia experimentala
 
