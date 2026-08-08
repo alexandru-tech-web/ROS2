@@ -45,3 +45,11 @@ link_adaptive/*.png
 c1_benchmark/selector_dataset.csv
 c1_benchmark/selector_regret.*
 c1_benchmark/selector_dstar.*
+
+# DATE BRUTE DE CAMPANIE -- CLAUDE.md sec.5: nu intra in git.
+# Se arhiveaza in ~/c1_archive/<data>/; in repo intra DOAR sumarele
+# (campaign_summary.csv) si figurile.
+# Nota: cele 277 de rtt_log.csv existente sunt deja in istorie si pe GitHub
+# (commit "UPDATE"); regula de mai jos previne intrarea altora noi.
+**/rtt_log.csv
+**/c1_data/**/rep*/
