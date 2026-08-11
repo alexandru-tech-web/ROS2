@@ -54,6 +54,7 @@ matplotlib.use("Agg")
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 from matplotlib import font_manager
+from matplotlib import patheffects as pe
 from matplotlib.lines import Line2D
 from matplotlib.markers import MarkerStyle
 
@@ -73,6 +74,12 @@ RECV0 = "#7A0000"
 # gri NEUTRU pentru cheile care explica FORMA, nu apartenenta la un RMW (v2.1). Nu e negru:
 # negrul ar sugera o a treia serie desenata, griul se citeste ca 'oricare dintre culori'.
 GRI = "#555555"
+# Mediana e NEAGRA, nu colorata pe RMW. Motivul e masurat pe figura randata: in celulele
+# dense (cdds la ~100%) o liniuta de aceeasi culoare cu norul de puncte dispare complet in
+# el, iar cheia de legenda promitea oricum un gri care nu exista nicaieri in panou. Negru +
+# halo alb o desprinde de orice fundal de puncte, in orice culoare de serie.
+MED_COLOR = "black"
+MED_HALO = 2.2         # cat de lat e conturul alb de sub liniuta, in puncte
 DPI_PNG = 600          # PNG = fallback de rezolutie mare; canonicul e PDF-ul vectorial
 RMWS = ("cyclonedds", "zenoh")
 HOME = os.path.expanduser("~")
@@ -156,7 +163,7 @@ def _jitter(n, amp=JITTER):
 
 
 def strip_cell(ax, x_center, values, color, marker="o", hollow=False, size=13,
-               linewidth=0.9, alpha=0.8, jitter=JITTER, med_lw=1.9):
+               linewidth=0.9, alpha=0.8, jitter=JITTER, med_lw=2.6):
     """TOATE rularile unei celule, ca puncte cu jitter, plus mediana ca liniuta lata.
     Fara medie si fara deviatie standard: la distributii bimodale ele mint.
     Intoarce SCATTER-ul desenat (v2.1: ca sa poata fi dat direct legendei drept handle,
@@ -171,10 +178,29 @@ def strip_cell(ax, x_center, values, color, marker="o", hollow=False, size=13,
     # liniuta medianei se leaga de latimea norului de puncte, nu e o constanta: la
     # figurile cu sloturi apropiate (F2, 0.18 intre sloturi) o liniuta fixa mai lata
     # decat slotul intra peste vecin si cele doua mediane par una singura
-    w = jitter * 1.15
-    ax.plot([x_center - w, x_center + w], [med, med], lw=med_lw, color=color,
-            solid_capstyle="butt", zorder=6)
+    w = jitter * 1.35              # mai lata decat norul, ca sa iasa din el
+    ax.plot([x_center - w, x_center + w], [med, med], lw=med_lw, color=MED_COLOR,
+            solid_capstyle="butt", zorder=8,
+            path_effects=[pe.withStroke(linewidth=med_lw + MED_HALO, foreground="white")])
     return sc
+
+
+def supravietuitori(dv):
+    """Rularile cu livrare NENULA. Cele cu zero se raporteaza EXCLUSIV ca adnotarea k/N:
+    daca ar aparea si ca puncte, aceeasi rulare esuata ar fi numarata de doua ori in
+    aceeasi figura. Mai important, mediana desenata s-ar calcula peste zerouri, iar
+    disciplina din restul C2 (si din tabelele HIL) cere mediane pe supravietuitori.
+    MASURAT pe datele canonice: filtrul muta mediana pe 3 celule -- ge_30_3/zenoh 17.44
+    -> 25.28, ge_30_8/zenoh 0.51 -> 8.49, ge_15_8/zenoh 64KB 3.49 -> 6.12."""
+    return [v for v in dv if v > 0.0]
+
+
+def _handle_median(lw=2.6):
+    """Cheia de legenda pentru mediana: IDENTICA cu liniuta desenata (aceeasi culoare,
+    aceeasi grosime, acelasi halo)."""
+    return Line2D([0], [0], color=MED_COLOR, lw=lw, label="median",
+                  path_effects=[pe.withStroke(linewidth=lw + MED_HALO,
+                                              foreground="white")])
 
 
 def n0_band(ax, x, k, N):
@@ -251,7 +277,7 @@ def _build_delivery_vs_B(root4):
             for x, c in zip(xpos, conds):
                 dv, r0, _ = delivery(root4, rmw, c)
                 xc = x + (i - 0.5) * 2 * dx
-                strip_cell(ax, xc, dv, COLOR[rmw])
+                strip_cell(ax, xc, supravietuitori(dv), COLOR[rmw])
                 if r0:
                     n0_band(ax, xc, r0, len(dv))
         ax.set_title("mean loss L=%d%%" % L)
@@ -262,13 +288,13 @@ def _build_delivery_vs_B(root4):
         ax.set_ylim(-3, 105)
     axes[0].set_ylabel("delivery ratio [%]")
     manere = [_handle(r) for r in RMWS]
-    # liniuta medianei: gri neutru (in panou e colorata pe RMW), NU neagra
-    manere.append(Line2D([0], [0], color=GRI, lw=1.9, label="median"))
+    manere.append(_handle_median())
     leg = fig.legend(handles=manere, loc="outside upper center", ncol=3, frameon=False,
                      columnspacing=1.0, handletextpad=0.4)
     # 'k/N' e TEXT sub axa, nu un marker: se explica printr-o nota in exact culoarea in
     # care e desenat, nu printr-o cheie de legenda care ar promite un simbol inexistent
-    fig.text(0.5, -0.03, "k/N under the axis = runs with zero delivery (out of N)",
+    fig.text(0.5, -0.03, "k/N under the axis = runs with zero delivery, out of N; "
+                         "these runs are excluded from the points and from the median",
              ha="center", va="top", fontsize=MIN_PT, color=RECV0)
     return fig, list(axes), leg
 
@@ -293,8 +319,8 @@ def _build_64k_inversion(root4, root64):
             root = root64 if pay == 65536 else root4
             dv, r0, _ = delivery(root, rmw, c, pay)
             xc = x + off
-            strip_cell(ax, xc, dv, COLOR[rmw], marker=mk, size=13,
-                       jitter=JITTER_1COL, med_lw=2.0)
+            strip_cell(ax, xc, supravietuitori(dv), COLOR[rmw], marker=mk, size=13,
+                       jitter=JITTER_1COL, med_lw=2.6)
             if r0:
                 n0_band(ax, xc, r0, len(dv))
     ax.set_ylim(-3, 105)
@@ -305,9 +331,15 @@ def _build_64k_inversion(root4, root64):
     # cheile de sarcina utila: gri PLINE, fiindca in panou markerele sunt PLINE
     manere = [_handle(r, scurt=True) for r in RMWS] + [
         _handle_forma("o", "4 KB", hollow=False),
-        _handle_forma("D", "64 KB", hollow=False)]
-    leg = fig.legend(handles=manere, loc="outside upper center", ncol=4, frameon=False,
+        _handle_forma("D", "64 KB", hollow=False),
+        _handle_median()]
+    leg = fig.legend(handles=manere, loc="outside upper center", ncol=5, frameon=False,
                      columnspacing=1.0, handletextpad=0.4)
+    # Aceeasi nota ca la F1, dar pe DOUA randuri: figura e de o coloana, iar varianta
+    # de un rand depaseste latimea panoului (verificat pe PNG-ul randat).
+    fig.text(0.5, -0.05, "k/N below the axis = runs with zero delivery, out of N\n"
+                         "(excluded from the points and from the median)",
+             ha="center", va="top", fontsize=MIN_PT, color=RECV0)
     return fig, [ax], leg
 
 
@@ -339,12 +371,12 @@ def _build_combo_context(root4, rootcombo, rootc1, marker_c1="s"):
             xc = x + (i - 0.5) * 2 * dx
             # referinta C1: goala DE-ADEVARATELEA -- contur mai gros, +30% marime si fara
             # transparenta, altfel un cluster stramt de cercuri goale se citeste ca plin
-            sc = strip_cell(ax, xc, dv, COLOR[rmw],
+            sc = strip_cell(ax, xc, supravietuitori(dv), COLOR[rmw],
                             marker=(marker_c1 if hollow else "o"), hollow=hollow,
                             size=(13 * 1.3 if hollow else 13),
                             linewidth=(1.4 if hollow else 0.9),
                             alpha=(1.0 if hollow else 0.8),
-                            jitter=JITTER_1COL, med_lw=2.0)
+                            jitter=JITTER_1COL, med_lw=2.6)
             if hollow and sc is not None:
                 sc_c1 = sc                      # HANDLE-ul real, nu o copie
             if r0:
@@ -358,9 +390,15 @@ def _build_combo_context(root4, rootcombo, rootc1, marker_c1="s"):
     ax.set_xticklabels(["%s\n%s" % (s[0], s[1]) for s in sets], fontsize=MIN_PT)
     manere = [_handle(r, scurt=True) for r in RMWS]
     if sc_c1 is not None:
-        sc_c1.set_label("C1 ref")
-        manere.append(sc_c1)                    # chiar artefactul desenat
-    leg = fig.legend(handles=manere, loc="outside upper center", ncol=3, frameon=False,
+        # NU se mai da in legenda scatterul desenat: el e capturat din ULTIMA iteratie
+        # (zenoh), deci ar arata o singura culoare, in timp ce in panou referinta C1
+        # exista in AMBELE culori. O cheie de o singura culoare pentru un artefact care
+        # apare in doua e o promisiune falsa. Cheia devine una de FORMA -- gri neutru,
+        # gol ca in panou -- si spune in text ca e vorba de patrate.
+        manere.append(_handle_forma(marker_c1, "C1 SIL ref (squares, both colors)",
+                                    hollow=True, ms=5.2, mew=1.4))
+    manere.append(_handle_median())
+    leg = fig.legend(handles=manere, loc="outside upper center", ncol=4, frameon=False,
                      columnspacing=1.0, handletextpad=0.4)
     return fig, [ax], leg
 
@@ -373,8 +411,15 @@ def fig_combo_context(root4, rootcombo, rootc1, out=None, marker_c1="s"):
 # --------------------------------------------------------------------------- F4
 def _build_longest_burst(root4):
     """F4: cea mai lunga rafala de esec. Lollipop pe symlog: tija de la 0, marker plin =
-    maximul peste repetitii, romb GOL = p95. Zerourile raman la 0 si se vad ca atare
-    (un zero e REZULTAT, nu date lipsa). Axa secundara: aceleasi valori in secunde."""
+    maximul peste repetitii. Zerourile raman la 0 si se vad ca atare (un zero e REZULTAT,
+    nu date lipsa). Axa secundara: aceleasi valori in secunde.
+
+    v3.2: p95 A FOST SCOS din figura. La N=10, p95 peste 10 valori cade prin constructie
+    pe penultima sau pe ultima valoare ordonata. VERIFICAT pe datele canonice: p95 e egal
+    cu maximul pe 18 din 18 celule (9 conditii x 2 RMW), nu 'aproape peste tot' -- adica
+    doua chei de legenda si doua markere suprapuse pentru exact zero informatie in plus.
+    Egalitatea se spune in caption, unde e o propozitie, nu un artefact grafic care cere
+    cititorului sa caute o diferenta inexistenta."""
     conds = ["bern_5", "ge_5_3", "ge_5_8", "bern_15", "ge_15_3", "ge_15_8",
              "bern_30", "ge_30_3", "ge_30_8"]
     fig, ax = plt.subplots(figsize=SIZES["fig_c2_longest_burst"])
@@ -385,12 +430,7 @@ def _build_longest_burst(root4):
             xc = x + (i - 0.5) * 2 * dx
             ax.vlines(xc, 0, b["longest_max"], color=COLOR[rmw], lw=1.1, alpha=0.85,
                       zorder=3)
-            # p95 = romb GOL, mai mare; max = cerc plin, DEASUPRA. La N=10 p95 coincide
-            # des cu maximul: asa cercul ramane vizibil INAUNTRUL rombului, in loc sa fie
-            # acoperit de el (altfel 'max' dispare din figura exact unde conteaza).
-            ax.plot([xc], [b["longest_p95"]], marker="D", ms=7.0, mfc="none",
-                    mec=COLOR[rmw], mew=1.0, zorder=5)
-            ax.plot([xc], [b["longest_max"]], marker="o", ms=3.8, color=COLOR[rmw],
+            ax.plot([xc], [b["longest_max"]], marker="o", ms=4.6, color=COLOR[rmw],
                     zorder=7)
             # zeroul NU se mai adnoteaza: markerul asezat la 0 pe symlog il arata deja,
             # iar textul rosu introducea un al doilea limbaj vizual (rosul = esec total)
@@ -402,12 +442,15 @@ def _build_longest_burst(root4):
     ax.set_xticklabels(conds, rotation=45, ha="right")
     ax.set_xlim(-0.5, len(conds) - 0.5)
     axa_secundara_secunde(ax)
-    # cheile de statistica: gri neutru, cu FORMA, FILL-ul si MARIMEA din panou
-    manere = [_handle(r) for r in RMWS] + [
-        _handle_forma("o", "max over N runs", hollow=False, ms=3.8),
-        _handle_forma("D", "p95 over N runs", hollow=True, ms=7.0)]
-    leg = fig.legend(handles=manere, loc="outside upper center", ncol=4, frameon=False,
+    # O singura statistica desenata (maximul), deci nicio cheie de FORMA: cheile gri de
+    # dinainte explicau markere care fie nu mai exista (p95), fie sunt singurele din
+    # figura (max). Raman doar cele doua serii, in culorile din panou.
+    manere = [_handle(r, ms=4.6) for r in RMWS]
+    leg = fig.legend(handles=manere, loc="outside upper center", ncol=2, frameon=False,
                      columnspacing=1.0, handletextpad=0.4)
+    fig.text(0.5, -0.10, "markers = longest failure burst, max over N=10 runs; p95 is "
+                         "omitted because it equals the max on all 18 cells at N=10",
+             ha="center", va="top", fontsize=MIN_PT, color=GRI)
     return fig, [ax], leg
 
 
@@ -442,7 +485,7 @@ def _clasa_culoare(c):
         return "niciuna"
     rgba = mcolors.to_rgba(c)
     for nume, ref in (("cdds", COLOR_CDDS), ("zenoh", COLOR_ZENOH), ("gri", GRI),
-                      ("recv0", RECV0)):
+                      ("recv0", RECV0), ("mediana", MED_COLOR)):
         if all(abs(a - b) < 0.02 for a, b in zip(rgba[:3], mcolors.to_rgba(ref)[:3])):
             return nume
     return "alta(%s)" % mcolors.to_hex(rgba)
@@ -466,6 +509,21 @@ def _proprietati(artefact):
     mfc = artefact.get_markerfacecolor()
     plin = mfc not in ("none", "None", None)
     return (_amprenta_forma(_cale_marker(m)), plin, _clasa_culoare(artefact.get_markeredgecolor()))
+
+
+def _linii_simple(axes):
+    """Clasele de culoare ale liniilor FARA marker desenate in panou (liniutele de
+    mediana). Existau si inainte, dar nimeni nu se uita la ele: cheile de legenda fara
+    marker erau validate pe o lista alba de culori permise, nu pe ce e chiar desenat.
+    O lista alba nu poate prinde o cheie care promite o culoare pe care panoul nu o are --
+    exact defectul reparat la v3.2, unde legenda arata gri si panoul desena colorat."""
+    out = set()
+    for ax in axes:
+        for ln in ax.lines:
+            m = ln.get_marker() if hasattr(ln, "get_marker") else None
+            if m in (None, "", " ", "None"):
+                out.add(_clasa_culoare(ln.get_color()))
+    return out
 
 
 def _artefacte_desenate(axes):
@@ -511,16 +569,19 @@ def verifica_legenda(axes, leg):
     desenat cu ACEEASI forma si ACELASI fill-state; culoarea are voie sa fie a
     artefactului sau griul neutru. Intoarce lista de probleme (goala = totul e onest)."""
     desenate = _artefacte_desenate(axes)
+    linii = _linii_simple(axes)
     manere = getattr(leg, "legend_handles", None) or getattr(leg, "legendHandles", [])
     etichete = [t.get_text() for t in leg.get_texts()]
     probleme = []
     for h, et in zip(manere, etichete):
         p = _proprietati(h)
         if p is None:                       # cheie fara marker (ex. liniuta medianei)
-            culoare = getattr(h, "get_color", lambda: None)()
-            if _clasa_culoare(culoare).startswith("alta"):
-                probleme.append("'%s': culoare %s inexistenta in panou"
-                                % (et, _clasa_culoare(culoare)))
+            clasa = _clasa_culoare(getattr(h, "get_color", lambda: None)())
+            # verificare pe ce e CHIAR desenat, nu pe o lista alba de culori acceptabile
+            if clasa != "gri" and clasa not in linii:
+                probleme.append("'%s': culoarea %s nu apare pe nicio linie din panou "
+                                "(desenate: %s)"
+                                % (et, clasa, ", ".join(sorted(linii)) or "niciuna"))
             continue
         forma, plin, clasa = p
         potriviri = [d for d in desenate if d[0] == forma and d[1] == plin]
@@ -704,7 +765,30 @@ def _selftest():
         assert verifica_legenda([ax], lg) == [], verifica_legenda([ax], lg)
         plt.close(f)
         assert _amprenta_forma(_cale_marker("D")) != _amprenta_forma(_cale_marker("s"))
-        assert _clasa_culoare(GRI) == "gri" and _clasa_culoare("black").startswith("alta")
+        assert _clasa_culoare(GRI) == "gri"
+        assert _clasa_culoare(MED_COLOR) == "mediana"
+        assert _clasa_culoare("#00ff00").startswith("alta")
+
+        # CHEILE FARA MARKER se valideaza pe ce e chiar desenat, nu pe o lista alba.
+        # Fara controlul negativ de mai jos, regula ar fi doar o parere: un panou GOL ar
+        # accepta orice cheie de mediana, adica exact defectul reparat la v3.2 (legenda
+        # arata gri, panoul desena colorat).
+        f2, ax2 = plt.subplots()
+        lg2 = ax2.legend(handles=[_handle_median()], labels=["median"])
+        pb = verifica_legenda([ax2], lg2)
+        assert pb and "nu apare pe nicio linie" in pb[0], pb
+        # ...si trece de indata ce liniuta chiar exista in panou
+        strip_cell(ax2, 0, [10.0, 20.0, 30.0], COLOR_CDDS)
+        lg2 = ax2.legend(handles=[_handle_median()], labels=["median"])
+        assert verifica_legenda([ax2], lg2) == [], verifica_legenda([ax2], lg2)
+        plt.close(f2)
+
+        # SUPRAVIETUITORI: zerourile ies din puncte SI din mediana. Fixture-ul e ales ca
+        # cele doua mediane sa difere, altfel testul ar trece si daca filtrul dispare.
+        assert supravietuitori([0.0, 10.0, 20.0, 0.0]) == [10.0, 20.0]
+        assert st.median([0.0, 10.0, 20.0, 0.0]) == 5.0
+        assert st.median(supravietuitori([0.0, 10.0, 20.0, 0.0])) == 15.0
+        assert supravietuitori([0.0, 0.0]) == []
 
         # in figura REALA: eticheta 9/10 exista si e sub axele panoului ei
         fig, axes = plt.subplots(1, 3, sharey=True)
