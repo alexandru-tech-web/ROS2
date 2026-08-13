@@ -386,6 +386,37 @@ def _strat_legatura(linktype, cadru):
 PRAG_DUBLARE_FRACT = 0.02     # peste 2% cadre identice = captura dubla, nu coincidenta
 PRAG_DUBLARE_MIN = 5          # sub atatea repetitii nu se acuza nimic (esantion mic)
 
+# Cei 17 mutanti ai reviziei din 2026-08-13, re-rulati ca suita numita de regresie.
+# Cinci nu mai au tinta patchabila la nivel de modul: decizia lor sta INLINE in bucla
+# lui analizeaza_flux. Sunt listati nominal, cu motivul, ca sa nu para ca au disparut.
+# RUNBOOK ETAPA 3 -- trei reguli care fac numaratorul REVERSIBIL cat timp majorele sunt
+# deschise. Rationamentul: singura lui functie critica pentru ACHIZITIE e garda
+# anti-offload (acum blocanta); tot restul se poate recalcula ulterior, DACA se pastreaza
+# materia prima.
+#   1. Capturile brute (.pcap) se arhiveaza si se sigileaza IMPREUNA cu campania. Orice
+#      cifra se poate recalcula cu instrumentul reparat, fara sa se repete bancul.
+#   2. --filtru-port / --exclude-port sunt REFUZATE in modul de numarare cat timp
+#      majora #4 e deschisa (filtrul se aplica pe datagram, iar porturile se citesc doar
+#      din fragmentul cu offset 0; sub pierdere dispare tacut exact traficul afectat de
+#      pierdere, si cifra ramasa arata sanatoasa). Un refuz explicit azi e mai ieftin
+#      decat fixul, si infinit mai ieftin decat o cifra falsa in articol.
+#   3. Ponderea traficului de discovery se raporteaza ca cifra SEPARATA, ca majora #3
+#      (discovery care polueaza cifra-titlu) sa fie MASURATA, nu presupusa.
+FILTRE_PORT_PERMISE = False       # comuta pe True doar dupa ce majora #4 e reparata
+
+INEXPRIMABILI_B = [
+    "segmentele fara date numarate ca unitati de fir -- inline in ramura TCP; "
+    "ACOPERIT deja de asertiile existente (revizia il raporta ca 'prins')",
+    "sarcina UDP fara scaderea celor 8 octeti -- inline; ACOPERIT deja "
+    "(revizia il raporta ca 'prins')",
+    "fragmentele duplicate se numara ca date noi -- inline in _Grup.adauga, "
+    "NEACOPERIT: bateria nu are fixture cu fragmente duplicate sub pragul B2",
+    "bugetul de memorie nu se mai epuizeaza -- inline; NEACOPERIT: ar cere o captura "
+    "de zeci de MiB in selftest",
+    "plafonul de esantioane RTPS off-by-one -- inline; NEACOPERIT: ar cere peste "
+    "20000 de esantioane distincte in fixture",
+]
+
 
 def verdict_dublare(vazute, cadre_ip, prag=PRAG_DUBLARE_FRACT, minim=PRAG_DUBLARE_MIN):
     """(ok, motive[]) -- captura contine acelasi cadru de mai multe ori?
@@ -790,6 +821,43 @@ def _histograma(d):
     return dict((str(k), v) for k, v in sorted(d.items()))
 
 
+def _pondere_discovery(clase):
+    """Cat din traficul numarat e discovery, ca CIFRA separata (runbook Etapa 3, pct 3).
+    Majora #3 spune ca discovery-ul poate polua cifra-titlu de multiplicitate; cat timp
+    nu e reparata, ponderea lui trebuie MASURATA, nu presupusa neglijabila."""
+    if not clase:
+        return None
+    tot_dg = sum((c or {}).get("datagrame", 0) for c in clase.values())
+    tot_oc = sum((c or {}).get("octeti_payload", 0) for c in clase.values())
+    d = clase.get("discovery") or {}
+    return {
+        "datagrame": d.get("datagrame", 0),
+        "octeti_payload": d.get("octeti_payload", 0),
+        "pct_datagrame": (round(100.0 * d.get("datagrame", 0) / tot_dg, 2)
+                          if tot_dg else None),
+        "pct_octeti": (round(100.0 * d.get("octeti_payload", 0) / tot_oc, 2)
+                       if tot_oc else None),
+        "nota": ("majora #3 deschisa: DATA_FRAG de la writeri builtin intra in "
+                 "histograma de multiplicitate; cifra de aici arata cat de mult ar "
+                 "putea polua"),
+    }
+
+
+def octeti_l2_net(total, excluse, ne_ip):
+    """Octetii CARE SE NUMARA: totalul minus cei exclusi de filtre si minus cei non-IP.
+    Extras ca functie tocmai ca sa poata fi tinta unui mutant: pana la v2.0 scaderea era
+    inline si o regresie care raporta totalul brut trecea neobservata."""
+    return total - excluse - ne_ip
+
+
+def suprasarcina_l2(octeti_l2, n_esantioane, esantion_octeti):
+    """Suprasarcina procentuala fata de sarcina utila nominala. None cand nu se poate."""
+    util = (n_esantioane or 0) * float(esantion_octeti or 0)
+    if not util:
+        return None
+    return round(100.0 * (octeti_l2 - util) / util, 3)
+
+
 def _mod(d):
     """Valoarea cea mai frecventa dintr-o histograma. LA EGALITATE se alege cea MAI
     MARE, deliberat.
@@ -1165,16 +1233,15 @@ def analizeaza_flux(f, opt):
         datagrame_udp=rez_udp["datagrame"],
         segmente_tcp=rez_tcp["segmente_cu_date"],
         batchuri_zenoh=(zenoh["batchuri_total"] if zenoh else None),
-        octeti_l2=octeti_total - octeti_excluse - octeti_ne_ip,
+        octeti_l2=octeti_l2_net(octeti_total, octeti_excluse, octeti_ne_ip),
         octeti_payload=rez_udp["octeti_payload"] + rez_tcp["octeti_payload"])
     mult = None
     if n:
         mult = {}
         for k, v in unitati.items():
             mult[k + "_per_esantion"] = (None if v is None else round(v / float(n), 4))
-        util = n * float(opt.esantion_octeti)
-        mult["suprasarcina_l2_procent"] = round(
-            100.0 * (unitati["octeti_l2"] - util) / util, 3) if util else None
+        mult["suprasarcina_l2_procent"] = suprasarcina_l2(
+            unitati["octeti_l2"], n, opt.esantion_octeti)
 
     # B1+B2: integritatea capturii. Astea NU sunt avertismente: daca lungimile de pe fir
     # nu sunt interpretabile, sau daca fiecare cadru apare de doua ori, orice cifra de
@@ -1247,7 +1314,8 @@ def analizeaza_flux(f, opt):
                    excluse_de_filtre=cadre_excluse, numarate=cadre_numarate),
         octeti=dict(total_l2=octeti_total, ne_ip=octeti_ne_ip,
                     excluse_de_filtre=octeti_excluse,
-                    numarate_l2=octeti_total - octeti_excluse - octeti_ne_ip,
+                    numarate_l2=octeti_l2_net(octeti_total, octeti_excluse,
+                                              octeti_ne_ip),
                     nota="fara preambul (8 B) si FCS (4 B) per cadru, ca tcpdump"),
         udp=rez_udp, tcp=rez_tcp, alte_protocoale=rez_alt,
         clase=clase, rtps=rtps, zenoh=zenoh,
@@ -1259,6 +1327,7 @@ def analizeaza_flux(f, opt):
             nota=("estimare aritmetica pornind de la lungimile reale "
                   "(RFC 791 pentru UDP, MSS pentru TCP), NU o observatie; "
                   "utila cand captura e pe lo sau cu GSO/GRO active")),
+        pondere_discovery=_pondere_discovery(clase),
         unitati_de_fir=unitati,
         numar_esantioane=n,
         multiplicitate=mult,
@@ -1413,6 +1482,10 @@ def formateaza_tabel(r):
                  "%.3f %%" % m["suprasarcina_l2_procent"]))
     A("=" * lat)
 
+    pd = r.get("pondere_discovery")
+    if pd and pd.get("pct_datagrame") is not None:
+        A(_linie("discovery (pondere)", "%s dg = %s%% | %s%% din octeti"
+                 % (pd["datagrame"], pd["pct_datagrame"], pd["pct_octeti"])))
     if r.get("erori_captura"):
         A("")
         A("!" * lat)
@@ -2078,6 +2151,49 @@ def _selftest():
         # _mod: la egalitate se alege varianta CONSERVATOARE (cea mai mare)
         assert _mod({"5": 2, "6": 2}) == "6", _mod({"5": 2, "6": 2})
         assert _mod({"5": 3, "6": 2}) == "5"
+        # --- cai pe care bateria initiala nu le atingea deloc (descoperite de mutanti)
+        # v1-02: datagram cu GAUR A la mijloc -> incomplet, nu 'complet'
+        f0 = _fab_eth(_fab_ipv4("10.0.0.1", "10.0.0.2", PROTO_UDP, 900, 0, True,
+                                _fab_udp(7411, 7411, b"a" * 1472)))
+        f2 = _fab_eth(_fab_ipv4("10.0.0.1", "10.0.0.2", PROTO_UDP, 900, 2960, False,
+                                b"c" * 100))
+        inc = analizeaza_octeti(_fab_pcap([f0, f2]), Optiuni(numar_esantioane=1))
+        assert inc["udp"]["incomplete"] == 1, inc["udp"]
+        # v1-03: VLAN QinQ (doua etichete) -> IP-ul trebuie gasit
+        interior = _fab_ipv4("10.0.0.1", "10.0.0.2", PROTO_UDP, 901, 0, False,
+                             _fab_udp(7411, 7411, b"q" * 100))
+        qinq = (b"\xff" * 6 + b"\xee" * 6 + struct.pack(">HHHH", 0x88a8, 0x0064,
+                                                         0x8100, 0x000a)
+                + struct.pack(">H", 0x0800) + interior)
+        q = analizeaza_octeti(_fab_pcap([qinq]), Optiuni(numar_esantioane=1))
+        assert q["udp"]["datagrame"] == 1 and q["cadre"]["ne_ip"] == 0, q["udp"]
+        # v1-04: DLT_NULL (BSD loopback): 4 octeti familie de adrese, apoi IP
+        nul = struct.pack("<I", 2) + interior
+        nn = analizeaza_octeti(_fab_pcap([nul], linktype=0), Optiuni(numar_esantioane=1))
+        assert nn["udp"]["datagrame"] == 1 and nn["cadre"]["ne_ip"] == 0, nn["udp"]
+        # v1-05: IPv6 cu antet de extensie Fragment -> sarcina EXACTA
+        l4_6 = _fab_udp(7447, 40000, b"y" * 1992)
+        c6 = []
+        for off6, mf6 in ((0, True), (1232, False)):
+            buc = l4_6[off6:off6 + 1232]
+            fh = struct.pack(">BBHI", PROTO_UDP, 0,
+                             ((off6 // 8) << 3) | (1 if mf6 else 0), 4242)
+            c6.append(_fab_eth(struct.pack(">IHBB", 6 << 28, 8 + len(buc), 44, 64)
+                               + b"\x00" * 15 + b"\x01" + b"\x00" * 15 + b"\x02"
+                               + fh + buc, ethertype=0x86dd))
+        r6 = analizeaza_octeti(_fab_pcap(c6), Optiuni())
+        assert r6["udp"]["octeti_payload"] == 1992, r6["udp"]
+        # v1-06: formula de porturi tine cont de DOMENIU
+        assert clasa_port_rtps(7400, [0]) and clasa_port_rtps(7400, [0])[1] == 0
+        assert clasa_port_rtps(7400, [7]) is None, clasa_port_rtps(7400, [7])
+        assert clasa_port_rtps(7750, [7]) and clasa_port_rtps(7750, [7])[1] == 7
+        # v1-07: masca de entitate builtin e 0xC0, nu 0x80
+        assert _clasa_rtps({"writer_ek": 0xC2}) == "discovery"
+        assert _clasa_rtps({"writer_ek": 0x02}) == "date"
+        assert _clasa_rtps({"writer_ek": 0x82}) == "date", "0x82 NU e builtin"
+        # v1-09: --esantion-octeti chiar intra in suprasarcina
+        assert suprasarcina_l2(67682, 1, 65536) != suprasarcina_l2(67682, 1, 4096)
+        assert suprasarcina_l2(67682, 1, 0) is None
         # non-IP nu intra in octetii numarati
         arp = _fab_eth(b"\x00" * 28, ethertype=0x0806)
         z = analizeaza_octeti(_fab_pcap(cadre_cyc + [arp]), Optiuni(numar_esantioane=1))
@@ -2112,7 +2228,82 @@ def _selftest():
             return max(sorted(h.items(), key=lambda kv: int(kv[0])),
                        key=lambda kv: kv[1])[0]
 
-        return [
+        # ---- CEI 17 ORIGINALI din revizia adversariala din 2026-08-13, re-rulati ca
+        # SUITA NUMITA DE REGRESIE pe codul refactorizat. La revizie, 14 din 17
+        # supravietuiau. Cei care nu mai au tinta dupa refactorizare sunt marcati
+        # INEXPRIMABIL, cu motivul, si numarati separat -- nu ascunsi.
+        gr, sl, p6, cpr, mc = (g["_Grup"], g["_strat_legatura"], g["_parse_ipv6"],
+                               g["clasa_port_rtps"], g["_clasa_rtps"])
+        oln, sl2 = g["octeti_l2_net"], g["suprasarcina_l2"]
+
+        class GrupIncompletTrece(gr):
+            @property
+            def complet(self):
+                return True
+
+        class GrupIgnoraGoluri(gr):
+            @property
+            def complet(self):
+                return self.total is not None      # nu mai verifica octetii lipsa
+
+        def strat_fara_qinq(linktype, cadru):
+            if linktype == 1 and len(cadru) >= 18:
+                et = (cadru[12] << 8) | cadru[13]
+                if et in (0x8100, 0x88a8):
+                    return (((cadru[16] << 8) | cadru[17]), 18)   # o singura eticheta
+            return sl(linktype, cadru)
+
+        def strat_fara_null(linktype, cadru):
+            if linktype == 0:
+                return (0, 0)                      # DLT_NULL nerecunoscut
+            return sl(linktype, cadru)
+
+        def ipv6_off_by_one(b, off):
+            r = p6(b, off)
+            if r:
+                r = dict(r, off_l4=r["off_l4"] + 1)
+            return r
+
+        def port_fara_domeniu(port, domenii=None):
+            return cpr(port, [0])                  # --domeniu ignorat
+
+        def rtps_masca_gresita(r):
+            if r and r.get("writer_ek") is not None:
+                return "date" if (r["writer_ek"] & 0x80) != 0x80 else "discovery"
+            return mc(r)
+
+        def octeti_bruti(total, excluse, ne_ip):
+            return total                           # non-IP NU se mai scad
+
+        def suprasarcina_fixa(octeti_l2, n, eo):
+            return sl2(octeti_l2, n, 65536)        # --esantion-octeti ignorat
+
+        dc = g["deschide_captura"]
+
+        def ts_us_ca_ns(f):
+            meta, pachete = dc(f)
+            return (meta, [(ts * 1000, ol, cl, o, lt)
+                           for (ts, ol, cl, o, lt) in pachete])
+
+        originali = [
+            ("v1-01 datagram incomplet = mereu complet", "_Grup", GrupIncompletTrece),
+            ("v1-02 'complet' ignora octetii lipsa", "_Grup", GrupIgnoraGoluri),
+            ("v1-03 VLAN QinQ: o singura eticheta", "_strat_legatura", strat_fara_qinq),
+            ("v1-04 linktype NULL nerecunoscut", "_strat_legatura", strat_fara_null),
+            ("v1-05 IPv6: antete de extensie off-by-one", "_parse_ipv6", ipv6_off_by_one),
+            ("v1-06 --domeniu ignorat in formula de porturi", "clasa_port_rtps",
+             port_fara_domeniu),
+            ("v1-07 entitate builtin: masca 0xC0 -> 0x80", "_clasa_rtps",
+             rtps_masca_gresita),
+            ("v1-08 octetii non-IP nu se mai scad", "octeti_l2_net", octeti_bruti),
+            ("v1-09 --esantion-octeti ignorat in suprasarcina", "suprasarcina_l2",
+             suprasarcina_fixa),
+            ("v1-10 _mod alege varianta OPTIMISTA la egalitate", "_mod", mod_cel_mai_mic),
+            ("v1-11 MAX_CADRU scos (fara garda de plauzibilitate)", "MAX_CADRU", 1 << 40),
+            ("v1-12 marci de timp us tratate ca ns", "deschide_captura", ts_us_ca_ns),
+        ]
+
+        return originali + [
             ("NOU B2: garda de dublare DEZACTIVATA", "verdict_dublare", dubl_dezactivata),
             ("NOU B2: pragul de dublare mutat la infinit", "verdict_dublare",
              dubl_prag_infinit),
@@ -2124,30 +2315,45 @@ def _selftest():
              integr_dezactivata),
             ("NOU B1: artefactele redevin avertismente", "verdict_integritate",
              integr_doar_avertisment),
-            ("v1: _mod alege varianta OPTIMISTA la egalitate", "_mod", mod_cel_mai_mic),
         ]
 
     g_mod = globals()
     supr_b = []
+    cum_b = {}
     mut_b = _mutanti_b()
     for nume, tinta, inloc in mut_b:
         orig = g_mod[tinta]
         g_mod[tinta] = inloc
         try:
             _asertii_b()
-        except (AssertionError, Exception):
-            omorat = True
+        except AssertionError:
+            cum = "asertie"
+        except Exception as e:
+            # o exceptie e tot o detectie, DAR mai slaba: nu dovedeste ca bateria a
+            # observat cifra gresita, ci doar ca mutantul a rupt codul. Se raporteaza
+            # separat, ca sa nu para acoperire mai buna decat e.
+            cum = "exceptie(%s)" % type(e).__name__
         else:
-            omorat = False
+            cum = None
         finally:
             g_mod[tinta] = orig
-        if not omorat:
+        if cum is None:
             supr_b.append(nume)
-    print("-- suita de mutanti B --")
-    print("   mutanti injectati=%d  omorati=%d  supravietuitori=%d"
-          % (len(mut_b), len(mut_b) - len(supr_b), len(supr_b)))
+        else:
+            cum_b[nume] = cum
+    print("-- suita de mutanti B (regresie numita) --")
+    prin_asertie = sum(1 for v in cum_b.values() if v == "asertie")
+    print("   injectati=%d  omorati=%d (prin asertie %d, prin exceptie %d)  "
+          "supravietuitori=%d" % (len(mut_b), len(mut_b) - len(supr_b), prin_asertie,
+                                  len(cum_b) - prin_asertie, len(supr_b)))
+    for nume, _t, _i in mut_b:
+        print("     %-52s %s" % (nume, cum_b.get(nume, "SUPRAVIETUITOR")))
     for x in supr_b:
         print("   SUPRAVIETUITOR: %s" % x)
+    print("   INEXPRIMABILI din cei 17 originali (inline in analizeaza_flux, ar cere")
+    print("   extractie; primii doi au deja acoperire prin asertiile existente):")
+    for x in INEXPRIMABILI_B:
+        print("     %s" % x)
     assert not supr_b, supr_b
     v += len(mut_b)
 
@@ -2235,6 +2441,18 @@ def main(argv=None):
     ap.add_argument("--selftest", action="store_true",
                     help="ruleaza autotestul (fara retea, fara sudo) si iese")
     a = ap.parse_args(argv)
+    if not FILTRE_PORT_PERMISE and not a.selftest and (a.filtru_port or a.exclude_port):
+        print("count_wire_units: --filtru-port / --exclude-port sunt REFUZATE in modul "
+              "de numarare.\n"
+              "  Motiv (majora #4, deschisa): filtrul se aplica pe DATAGRAM, iar "
+              "porturile se citesc doar din fragmentul cu offset 0. Un datagram caruia "
+              "ii lipseste primul fragment dispare complet din numaratoare, in tacere -- "
+              "iar sub pierdere exact acela e traficul afectat de pierdere. Cifra ramasa "
+              "ar arata sanatoasa si ar fi falsa.\n"
+              "  Foloseste in schimb captura filtrata la sursa (expresia BPF a lui "
+              "tcpdump), unde filtrarea se face pe cadru, nu pe datagram reasamblat.",
+              file=sys.stderr)
+        return 2
 
     if a.selftest:
         _selftest()
