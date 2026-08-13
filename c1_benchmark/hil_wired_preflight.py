@@ -81,7 +81,20 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from bench_core import CONDITIONS, netem_cmd
 
-VERSIUNE = "1.0"
+VERSIUNE = "2.0"
+
+# PRAGURI DE SANATATE, RELATIVE LA CE GARANTEAZA P1 (gigabit negociat).
+# Pana la v2.0 pragul era 105 Mbit/s, derivat din bugetul campaniei (52.4 agregat x2).
+# Derivarea era corecta dar pragul era INUTIL: 105 inseamna 11.2% dintr-o legatura
+# gigabit sanatoasa (~941 Mbit/s TCP), deci o legatura negociata gigabit dar degradata
+# la 150 trecea senin. Odata ce P1 garanteaza 1000Mb/s Full, poarta de banda trebuie sa
+# ceara ce da o legatura gigabit SANATOASA, nu ce ii ajunge campaniei.
+PRAG_MBPS = 850.0            # ~90% din ~941 Mbit/s, TCP idle pe gigabit
+PRAG_RETRANS_FRACT = 0.01    # retransmisii <= 1% din segmentele emise
+PRAG_GAP_RECV = 0.95         # recv >= 95% din sent: prapastia dintre ele e un simptom
+PRAG_DELTA_BYTES = 0.95      # >= 95% din volum contabilizat pe interfata CABLATA
+MSS_IMPLICIT = 1448          # pentru a converti octeti in segmente (retransmisii)
+BUGET_CAMPANIE_MBPS = 52.4288  # 65536 B x 50 Hz x 2 sensuri -- ramane SANITY, nu poarta
 
 # Numele EXACTE sub care 'ethtool -k' raporteaza cele patru offload-uri cerute.
 # Cheia scurta e cea din 'ethtool -K <iface> gso off tso off gro off lro off'.
@@ -247,7 +260,8 @@ def parse_iperf3_json(text):
     care conteaza pentru poarta e sum_received -- ce a ajuns efectiv la celalalt
     capat; sum_sent e ce a bagat emitatorul in socket si poate fi mai mare."""
     out = {"ok": False, "mbps_sent": None, "mbps_recv": None, "secunde": None,
-           "retransmisii": None, "eroare": None, "raw_head": (text or "").strip()[:200]}
+           "retransmisii": None, "octeti_sent": None, "intervale_mbps": [],
+           "eroare": None, "raw_head": (text or "").strip()[:200]}
     t = (text or "").strip()
     if not t:
         out["eroare"] = "iesire GOALA de la iperf3 (binar lipsa? ssh cazut? rulare ucisa?)"
@@ -276,8 +290,229 @@ def parse_iperf3_json(text):
     sec = r.get("seconds", s.get("seconds"))
     out["secunde"] = round(float(sec), 2) if sec is not None else None
     out["retransmisii"] = s.get("retransmits")
+    out["octeti_sent"] = s.get("bytes")
+    # INTERVALELE, nu doar media. Pana la v2.0 erau aruncate, si de aceea o legatura
+    # care dadea 941 Mbit/s timp de 5 s si apoi ZERO 25 de secunde trecea poarta: media
+    # peste 30 s iesea 157. Media nu poate distinge o legatura buna de una care se
+    # prabuseste; intervalele pot, si iperf3 le raporteaza deja.
+    for it in (obj.get("intervals") or []):
+        b = (it.get("sum") or {}).get("bits_per_second")
+        if b is not None:
+            out["intervale_mbps"].append(round(float(b) / 1e6, 3))
     out["ok"] = True
     return out
+
+
+# ---------------------------------------------------------------------------
+# NUCLEUL PUR DE VERDICT (v2.0)
+#
+# Fiecare poarta isi are decizia intr-o functie PURA verdict_*(masuratori) ->
+# (ok, motive[]). Fara I/O, fara CLI, fara Executor. Motivul e masurat, nu estetic:
+# la revizia adversariala din 2026-08-13, 13 din 14 regresii injectate in logica
+# portilor 4 si 5 au trecut neobservate de selftest, fiindca decizia statea INLINE in
+# poarta iar selftestul o re-implementa cu literali proprii. Acele asertii testau
+# fixture-ul, nu codul. Cu decizia intr-o functie pura, mutantii lovesc exact codul
+# care decide, si nu mai exista unde sa se ascunda.
+# ---------------------------------------------------------------------------
+
+
+def verdict_mtu(mtu, cerut=1500):
+    """MTU-ul trebuie sa fie exact cel al campaniei. Un MTU mai mare pe un capat
+    schimba fragmentarea, adica insasi marimea pe care o masoara C2 la 64 KB."""
+    if mtu is None:
+        return (False, ["MTU necitit (interfata inexistenta? ip link a esuat?)"])
+    if int(mtu) != int(cerut):
+        return (False, ["MTU=%s, se cere EXACT %s" % (mtu, cerut)])
+    return (True, [])
+
+
+def verdict_rutare(ruta, iface_cerut):
+    """Stratul UNU al legarii la cablu: ruta spre peer trebuie sa iasa pe interfata
+    cablata. Fara asta, tot preflightul poate certifica Wi-Fi in timp ce netem se
+    aplica pe cablu -- iar cifrele de campanie ar fi de pe alta legatura decat cea
+    despre care scrie articolul."""
+    if not ruta or not ruta.get("iface"):
+        return (False, ["'ip route get' nu a raportat nicio interfata (%s)"
+                        % (ruta or {}).get("raw", "")])
+    if ruta["iface"] != iface_cerut:
+        return (False, ["traficul spre peer se ruteaza pe '%s', NU pe interfata "
+                        "cablata '%s' (src=%s, via=%s)"
+                        % (ruta["iface"], iface_cerut, ruta.get("src"),
+                           ruta.get("via"))])
+    return (True, [])
+
+
+def verdict_delta_bytes(delta_total, volum_asteptat, prag=PRAG_DELTA_BYTES):
+    """Stratul DOI: adevarul de teren. Tabela de rutare DECLARA; octetii DOVEDESC.
+    Se cere ca cel putin `prag` din volumul transferat de iperf3 sa apara in
+    contoarele interfetei cablate. O ruta corecta cu octeti care nu apar acolo
+    inseamna ca masuratoarea a mers pe alta cale."""
+    if delta_total is None:
+        return (False, ["contoarele interfetei nu au putut fi citite "
+                        "(/sys/class/net/<if>/statistics)"])
+    if not volum_asteptat:
+        return (False, ["volum de referinta necunoscut: nu se poate verifica nimic"])
+    fract = float(delta_total) / float(volum_asteptat)
+    if fract < prag:
+        return (False, ["doar %.1f%% din volumul transferat (%d din %d octeti) apare "
+                        "in contoarele interfetei cablate; se cere >= %.0f%%. Traficul "
+                        "a mers pe alta interfata."
+                        % (100.0 * fract, delta_total, volum_asteptat, 100.0 * prag)])
+    return (True, [])
+
+
+def verdict_mediu_curat(qdiscuri):
+    """Un qdisc netem preexistent NU e un avertisment, e un FAIL. Pana la v2.0 era
+    doar tiparit, iar cum P5 lasa intentionat netem instalat, FIECARE re-rulare a
+    preflightului masura banda prin qdisc-ul rularii precedente -- si trecea."""
+    motive = []
+    for host in sorted(qdiscuri or {}):
+        q = qdiscuri[host] or {}
+        if q.get("kind") == "netem":
+            motive.append("%s are DEJA netem instalat ('%s'): banda nu poate fi "
+                          "masurata prin el. Sterge-l ('sudo tc qdisc del dev <if> "
+                          "root') si reia." % (host, q.get("linie")))
+    return (not motive, motive)
+
+
+def verdict_eee(eee):
+    """EEE trebuie DOVEDIT oprit. 'enabled - inactive' nu e oprit: se poate activa in
+    timpul unei masuratori si adauga latenta de trezire. NEsuportat = trecut, si se
+    noteaza; NECUNOSCUT = fail, fiindca nu se poate dovedi nimic."""
+    if eee is None:
+        return (False, ["EEE necitit"])
+    if eee.get("suportat") is False:
+        return (True, [])
+    if eee.get("suportat") is None:
+        return (False, ["EEE in stare NECUNOSCUTA (rc=%s, '%s'): nu se poate dovedi "
+                        "ca e oprit" % (eee.get("rc"), eee.get("raw_head"))])
+    if not eee_este_oprit(eee.get("status")):
+        return (False, ["EEE status='%s' -- se cere 'disabled'" % eee.get("status")])
+    return (True, [])
+
+
+def _fract_retransmisii(r, mss=MSS_IMPLICIT):
+    """Retransmisii ca fractie din segmentele emise. None cand nu se poate calcula."""
+    rt, oct_s = r.get("retransmisii"), r.get("octeti_sent")
+    if rt is None or not oct_s or mss <= 0:
+        return None
+    segmente = float(oct_s) / float(mss)
+    return (float(rt) / segmente) if segmente > 0 else None
+
+
+def verdict_banda(sensuri, prag_mbps=PRAG_MBPS, durata_ceruta=None,
+                  prag_retrans=PRAG_RETRANS_FRACT, prag_gap=PRAG_GAP_RECV,
+                  mss=MSS_IMPLICIT):
+    """Verdictul P4. Patru criterii, toate obligatorii, pe FIECARE sens:
+
+      1. FIECARE interval de 1 s >= prag. Media NU mai e criteriu: o legatura care da
+         941 Mbit/s cinci secunde si apoi zero douazeci si cinci are media 157 si
+         trecea. Absenta intervalelor din JSON e FAIL, nu 'sarim peste'.
+      2. durata raportata >= 90% din cea ceruta (o rulare scurtata nu dovedeste nimic).
+      3. retransmisii <= prag_retrans din segmentele emise. Cifra exista de la inceput
+         in JSON, era parsata, tiparita si salvata -- si nu intra in niciun verdict.
+      4. recv >= prag_gap * sent. O prapastie intre ce s-a bagat in socket si ce a
+         ajuns e un simptom, chiar daca recv trece pragul absolut.
+    """
+    motive = []
+    if not sensuri:
+        return (False, ["nicio masuratoare de banda"])
+    for eticheta in sorted(sensuri):
+        r = sensuri[eticheta] or {}
+        if not r.get("ok"):
+            motive.append("%s: iperf3 nu a produs o masuratoare (%s)"
+                          % (eticheta, r.get("eroare")))
+            continue
+        iv = r.get("intervale_mbps") or []
+        if not iv:
+            motive.append("%s: iperf3 nu a raportat intervale; fara ele nu se poate "
+                          "deosebi o legatura sustinuta de una care se prabuseste"
+                          % eticheta)
+        else:
+            sub = [(i, v) for i, v in enumerate(iv) if v < prag_mbps]
+            if sub:
+                motive.append("%s: %d din %d intervale de 1 s sub prag (%.1f Mbit/s); "
+                              "cel mai slab: %.3f Mbit/s la secunda %d"
+                              % (eticheta, len(sub), len(iv), prag_mbps,
+                                 min(v for _, v in sub),
+                                 min(sub, key=lambda x: x[1])[0]))
+        if durata_ceruta and r.get("secunde") is not None:
+            if r["secunde"] < 0.9 * durata_ceruta:
+                motive.append("%s: rularea a durat %.2f s din %g s cerute"
+                              % (eticheta, r["secunde"], durata_ceruta))
+        elif durata_ceruta and r.get("secunde") is None:
+            motive.append("%s: iperf3 nu a raportat durata" % eticheta)
+        fr = _fract_retransmisii(r, mss)
+        if fr is None:
+            motive.append("%s: retransmisiile nu pot fi evaluate (retransmits=%s, "
+                          "bytes=%s)" % (eticheta, r.get("retransmisii"),
+                                         r.get("octeti_sent")))
+        elif fr > prag_retrans:
+            motive.append("%s: %.2f%% retransmisii (%s segmente retransmise), peste "
+                          "pragul de %.2f%%"
+                          % (eticheta, 100.0 * fr, r.get("retransmisii"),
+                             100.0 * prag_retrans))
+        ms, mr = r.get("mbps_sent"), r.get("mbps_recv")
+        if ms and mr is not None and mr < prag_gap * ms:
+            motive.append("%s: receptionat %.3f din %.3f Mbit/s emis (%.1f%%), sub "
+                          "%.0f%% -- octetii se pierd pe drum"
+                          % (eticheta, mr, ms, 100.0 * mr / ms, 100.0 * prag_gap))
+    return (not motive, motive)
+
+
+def verdict_tc_limit(q, limita_ceruta):
+    """Verdictul P5, scos din poarta ca sa poata fi lovit de mutanti."""
+    if not q or q.get("kind") is None:
+        return (False, ["'tc qdisc show' nu a raportat niciun qdisc radacina"])
+    if q.get("limit") is None:
+        return (False, ["qdisc-ul radacina ('%s') nu raporteaza 'limit'"
+                        % q.get("linie")])
+    if int(q["limit"]) != int(limita_ceruta):
+        return (False, ["limit=%s, s-a cerut %s (netem a ignorat valoarea?)"
+                        % (q["limit"], limita_ceruta)])
+    return (True, [])
+
+
+def parse_ip_route_get(text):
+    """Parseaza 'ip route get <ip>' -> {iface, src, via}.
+
+    Stratul UNU al legarii la cablu: tabela de rutare DECLARA pe unde ar trebui sa
+    plece traficul. Nu e o dovada (rutarea se poate schimba, si oricum nu spune ce s-a
+    intamplat CU ADEVARAT), dar e verificarea ieftina care prinde greseala tipica:
+    --peer-ip pe adresa de Wi-Fi in loc de cea de pe cablu."""
+    out = {"iface": None, "src": None, "via": None, "raw": (text or "").strip()[:200]}
+    m = re.search(r"\bdev\s+(\S+)", text or "")
+    if m:
+        out["iface"] = m.group(1)
+    m = re.search(r"\bsrc\s+(\S+)", text or "")
+    if m:
+        out["src"] = m.group(1)
+    m = re.search(r"\bvia\s+(\S+)", text or "")
+    if m:
+        out["via"] = m.group(1)
+    return out
+
+
+def parse_statistics(text):
+    """Parseaza iesirea 'cat /sys/class/net/<if>/statistics/{rx_bytes,tx_bytes}'
+    (doua numere, cate unul pe linie) -> {rx, tx, total}."""
+    nums = []
+    for ln in (text or "").splitlines():
+        s = ln.strip()
+        if s.isdigit():
+            nums.append(int(s))
+    if len(nums) < 2:
+        return {"rx": None, "tx": None, "total": None}
+    return {"rx": nums[0], "tx": nums[1], "total": nums[0] + nums[1]}
+
+
+def parse_mtu(text):
+    """MTU din 'ip link show dev <if>' sau dintr-un /sys/class/net/<if>/mtu."""
+    t = (text or "").strip()
+    if t.isdigit():
+        return int(t)
+    m = re.search(r"\bmtu\s+(\d+)", t)
+    return int(m.group(1)) if m else None
 
 
 def parse_tc_qdisc(text):
@@ -469,9 +704,16 @@ def poarta2_offload(ex, a):
 
 
 def poarta3_eee(ex, a):
-    """P3: EEE oprit daca e suportat. NU aborteaza niciodata -- doar noteaza."""
+    """P3 (v2.0): EEE trebuie DOVEDIT oprit -- e o POARTA, nu o nota.
+
+    Pana la v2.0 P3 nu aborta niciodata: constata ca EEE a ramas pornit si continua.
+    Dar EEE se poate activa in mijlocul unei masuratori si adauga latenta de trezire
+    exact in celulele cu trafic intermitent, adica exact regimul degradat pe care il
+    studiaza C2. O poarta care observa problema si o lasa sa treaca nu e o poarta.
+    NEsuportat ramane trecut (si notat): nu se poate opri ce nu exista."""
     masurat = {}
     note = []
+    picate = []
     for host, iface in capete(a):
         rc0, out0, err0 = ex.sh("ethtool --show-eee %s" % shlex.quote(iface), host=host)
         if ex.dry:
@@ -493,151 +735,228 @@ def poarta3_eee(ex, a):
             dupa = parse_eee(out1 + "\n" + err1, rc1)
             m["rc_set"] = rc_s
             m["status_dupa"] = dupa["status"]
-            if not eee_este_oprit(dupa["status"]):
-                m["avertisment"] = ("EEE NU e oprit pe %s (%s): status='%s' (rc_set=%s). "
-                                    "P3 nu aborteaza, dar EEE poate adauga latenta de "
-                                    "trezire in celulele cu trafic intermitent."
-                                    % (iface, host, dupa["status"], rc_s))
-                note.append(m["avertisment"])
+            ok_e, mot_e = verdict_eee(dupa)
+            if not ok_e:
+                m["motiv"] = "%s (%s): %s (rc_set=%s)" % (iface, host,
+                                                          "; ".join(mot_e), rc_s)
+                picate.append(m["motiv"])
         masurat[host] = m
         print("   [%s %s] EEE suportat=%s status='%s' -> '%s'"
               % (host, iface, m["suportat"], m["status_inainte"], m["status_dupa"]))
     if ex.dry:
         return (True, "P3 DRY: comenzile de mai sus nu au fost executate", {"dry": True})
-    mesaj = "P3: EEE tratat pe ambele capete"
+    if picate:
+        return (False, "P3 a picat: EEE nu a putut fi oprit.\n  " + "\n  ".join(picate)
+                + "\n  REPARA: incearca manual 'sudo ethtool --set-eee <if> eee off' "
+                  "si verifica cu 'ethtool --show-eee <if>'. Daca driverul refuza, "
+                  "opreste EEE din BIOS/UEFI sau foloseste alt NIC: o legatura care isi "
+                  "adoarme faza fizica NU poate sustine o masuratoare de latenta.",
+                masurat)
+    mesaj = "P3: EEE oprit (sau nesuportat) pe ambele capete"
     if note:
         mesaj += " (NOTAT: " + " | ".join(note) + ")"
     return (True, mesaj, masurat)
 
 
+def _citeste_contoare(ex, host, iface):
+    """rx_bytes + tx_bytes de pe interfata, de pe capatul cerut."""
+    rc, out, err = ex.sh("cat /sys/class/net/%s/statistics/rx_bytes "
+                         "/sys/class/net/%s/statistics/tx_bytes"
+                         % (shlex.quote(iface), shlex.quote(iface)), host=host)
+    if ex.dry:
+        return None
+    return parse_statistics(out)
+
+
 def poarta4_iperf(ex, a):
-    """P4: >= --prag-mbps SUSTINUT in AMBELE sensuri.
+    """P4: banda SUSTINUTA pe legatura CABLATA, dovedita pe interfata cablata.
 
-    'Bidirectional' e realizat ca DOUA rulari de cate --iperf-dur secunde, una pe
-    fiecare sens (a doua cu -R), nu ca o singura rulare '--bidir'. Motiv onest:
-    schema JSON a lui --bidir nu a putut fi verificata pe un iperf3 real aici
-    (binarul nu e instalat pe masina de dezvoltare), in timp ce end.sum_sent /
-    end.sum_received sunt stabile de la iperf3 3.0. LIMITA care decurge: nu se
-    testeaza SIMULTANEITATEA celor doua sensuri (full duplex sub sarcina in ambele
-    directii in acelasi timp), ci fiecare sens la saturatie, pe rand.
+    v2.0 -- trei schimbari, toate din revizia adversariala:
 
-    Se verifica si DURATA raportata de iperf3: o rulare care s-a terminat mai
-    devreme nu dovedeste nimic 'sustinut', chiar daca cifra medie e mare."""
+    LEGAREA LA CABLU, in doua straturi. Pana acum P4 masura spre --peer-ip fara sa
+    verifice niciodata pe unde pleaca traficul, in timp ce P1/P2/P3/P5 lucrau pe
+    --iface-*. Preflightul putea certifica Wi-Fi in timp ce netem se aplica pe cablu.
+    Stratul unu: 'ip route get <peer>' trebuie sa iasa pe interfata cablata, pe ambele
+    capete. Stratul doi, adevarul de teren: contoarele rx/tx ale interfetei, citite
+    inainte si dupa, trebuie sa contina >= 95% din volumul transferat. Tabela de
+    rutare declara; octetii dovedesc.
+
+    MEDIU CURAT: un netem preexistent nu mai e avertisment, e FAIL.
+
+    VERDICTUL e in verdict_banda(), pur: fiecare interval de 1 s peste prag (media nu
+    mai e criteriu), durata, retransmisii sub 1%, prapastia sent/recv.
+    """
     masurat = {"prag_mbps": a.prag_mbps, "durata_ceruta_s": a.iperf_dur,
-               "peer_ip": a.peer_ip, "peer_ip_dedus": a.peer_ip_dedus}
+               "peer_ip": a.peer_ip, "peer_ip_dedus": a.peer_ip_dedus,
+               "prag_retrans_fract": PRAG_RETRANS_FRACT,
+               "prag_gap_recv": PRAG_GAP_RECV,
+               "prag_delta_bytes": PRAG_DELTA_BYTES}
     port = a.iperf_port
-    # pattern cu clasa de caractere pe ultima cifra: pkill sa nu isi omoare shell-ul
     pat = "iperf3 -s -p %s[%s]" % (str(port)[:-1], str(port)[-1])
 
-    # qdisc-ul de pe ambele capete, inainte de saturatie: e PROVENIENTA (masuram pe
-    # legatura curata sau prin netem?), nu o poarta.
+    # --- strat 1: rutarea, pe ambele capete
+    tinte = {"local": a.peer_ip, "remote": a.local_ip}
+    for host, iface in capete(a):
+        tinta = tinte.get(host)
+        if not tinta:
+            # FAIL LOUD: fara adresa celuilalt capat nu se poate verifica pe unde iese
+            # traficul de pe M2. Un 'sarim peste' aici ar lasa jumatate din legarea la
+            # cablu neverificata, exact defectul reparat in v2.0.
+            return (False, "P4 nu poate verifica rutarea de pe capatul %s: lipseste "
+                           "adresa celuilalt capat.\n  REPARA: da --local-ip cu adresa "
+                           "lui M1 DE PE CABLU (si --peer-ip cu a lui M2)." % host,
+                    masurat)
+        rc, out, err = ex.sh("ip route get %s" % shlex.quote(tinta), host=host)
+        if ex.dry:
+            continue
+        ruta = parse_ip_route_get(out + "\n" + err)
+        masurat.setdefault("rutare", {})[host] = ruta
+        ok, mot = verdict_rutare(ruta, iface)
+        if not ok:
+            return (False, "P4 a picat inainte de masuratoare, pe capatul %s: %s\n"
+                           "  REPARA: da --peer-ip adresa lui M2 DE PE CABLU (nu cea "
+                           "de pe Wi-Fi), si verifica ca interfata cablata are adresa "
+                           "pe acelasi segment." % (host, "; ".join(mot)), masurat)
+
+    # --- mediu curat: netem preexistent = FAIL
+    qd = {}
     for host, iface in capete(a):
         rc, out, err = ex.sh("tc qdisc show dev %s" % shlex.quote(iface), host=host)
         if ex.dry:
             continue
-        q = parse_tc_qdisc(out + "\n" + err)
-        masurat.setdefault("qdisc_inainte", {})[host] = q
-        if q.get("kind") == "netem":
-            print("   [AVERTISMENT] %s (%s) are DEJA netem: '%s' -- cifra P4 e "
-                  "masurata PRIN el" % (host, iface, q.get("linie")))
+        qd[host] = parse_tc_qdisc(out + "\n" + err)
+    masurat["qdisc_inainte"] = qd
+    ok, mot = verdict_mediu_curat(qd)
+    if not ok:
+        return (False, "P4 a picat: mediul nu e curat.\n  " + "\n  ".join(mot)
+                       + "\n  NOTA: de la v2.0 preflightul NU mai instaleaza netem "
+                         "(vezi P5), tocmai ca sa nu-si masoare propria urma.", masurat)
+
+    # --- contoare INAINTE
+    c0 = {}
+    for host, iface in capete(a):
+        c0[host] = _citeste_contoare(ex, host, iface)
 
     ex.sh("pkill -f %s ; sleep 0.3 ; setsid nohup iperf3 -s -p %d "
           "> /tmp/iperf3_srv_preflight.log 2>&1 </dev/null &"
           % (shlex.quote(pat), port), host="remote")
 
-    sensuri = [("local_spre_remote", ""), ("remote_spre_local", " -R")]
-    rezultate = {}
-    picat = None
-    for eticheta, flag in sensuri:
-        rc, out, err = ex.sh("iperf3 -c %s -p %d -t %g -J%s"
+    sensuri = {}
+    for eticheta, flag in (("local_spre_remote", ""), ("remote_spre_local", " -R")):
+        rc, out, err = ex.sh("iperf3 -c %s -p %d -t %g -i 1 -J%s"
                              % (shlex.quote(a.peer_ip), port, a.iperf_dur, flag),
                              host="local", timeout=a.iperf_dur + 60.0)
         if ex.dry:
             continue
         r = parse_iperf3_json(out if out.strip() else err)
         r["rc"] = rc
-        rezultate[eticheta] = r
-        if not r["ok"]:
+        sensuri[eticheta] = r
+        if r["ok"]:
+            print("   [%s] recv=%.3f Mbit/s (sent=%.3f) in %.2f s, retransmisii=%s, "
+                  "%d intervale" % (eticheta, r["mbps_recv"], r["mbps_sent"],
+                                    r["secunde"] or 0.0, r["retransmisii"],
+                                    len(r["intervale_mbps"])))
+        else:
             print("   [%s] ESEC: %s" % (eticheta, r["eroare"]))
-            picat = (eticheta, "iperf3 nu a produs o masuratoare: %s" % r["eroare"])
-            break
-        print("   [%s] recv=%.3f Mbit/s (sent=%.3f) in %.2f s, retransmisii=%s"
-              % (eticheta, r["mbps_recv"], r["mbps_sent"], r["secunde"] or 0.0,
-                 r["retransmisii"]))
-        if r["secunde"] is not None and r["secunde"] < 0.9 * a.iperf_dur:
-            picat = (eticheta, "rularea a durat %.2f s din %g s cerute -- cifra NU e "
-                               "'sustinut'" % (r["secunde"], a.iperf_dur))
-            break
-        if r["mbps_recv"] < a.prag_mbps:
-            picat = (eticheta, "%.3f Mbit/s receptionat < prag %.1f Mbit/s"
-                               % (r["mbps_recv"], a.prag_mbps))
-            break
 
     ex.sh("pkill -f %s" % shlex.quote(pat), host="remote")
-    masurat["sensuri"] = rezultate
+    masurat["sensuri"] = sensuri
+
     if ex.dry:
         return (True, "P4 DRY: comenzile de mai sus nu au fost executate", {"dry": True})
-    if picat is not None:
-        eticheta, motiv = picat
-        return (False,
-                "P4 a picat pe sensul %s: %s\n"
-                "  REPARA: (1) verifica ca iperf3 exista pe AMBELE capete "
-                "(command -v iperf3) si ca serverul a pornit pe %s portul %d; "
-                "(2) daca cifra e in jur de 94 Mbit/s, legatura e de fapt 100Mb/s -- "
-                "reia P1 cu alt cablu/port; (3) daca sunt multe retransmisii, verifica "
-                "duplexul (Half la un capat da coliziuni si prabusire); (4) opreste "
-                "orice alt trafic pe cablu si orice qdisc netem ramas "
-                "('sudo tc qdisc del dev <iface> root'). Bugetul cerut de protocolul "
-                "C2 la 64 KiB x 50 Hz e 26.2 Mbit/s pe sens (52.4 agregat); pragul de "
-                "%.1f Mbit/s pe sens e marja x2 fata de agregat."
-                % (eticheta, motiv, a.peer_ip, port, a.prag_mbps), masurat)
-    return (True, "P4: %.3f / %.3f Mbit/s (>= %.1f) pe cele doua sensuri"
-            % (rezultate["local_spre_remote"]["mbps_recv"],
-               rezultate["remote_spre_local"]["mbps_recv"], a.prag_mbps), masurat)
 
-
-def poarta5_tc_limit(ex, a):
-    """P5: tc qdisc replace cu limit --tc-limit, DOVEDIT cu tc qdisc show."""
-    cond = conditie_dupa_nume(a.cond_limit)
-    masurat = {"conditie": a.cond_limit, "limit_cerut": a.tc_limit,
-               "limita_nu_persista": limita_nu_persista(cond)}
+    # --- contoare DUPA + delta
+    volum = 0
+    for r in sensuri.values():
+        if r.get("octeti_sent"):
+            volum += int(r["octeti_sent"])
     for host, iface in capete(a):
-        cmd = netem_cmd_cu_limita(iface, cond, a.tc_limit)
-        masurat.setdefault("comenzi", {})[host] = cmd
-        ex.sh("sudo -n %s" % cmd, host=host)
-        rc, out, err = ex.sh("tc qdisc show dev %s" % shlex.quote(iface), host=host)
+        c1 = _citeste_contoare(ex, host, iface)
+        d = None
+        if c0.get(host) and c1 and c0[host].get("total") is not None \
+                and c1.get("total") is not None:
+            d = c1["total"] - c0[host]["total"]
+        masurat.setdefault("delta_bytes", {})[host] = {
+            "inainte": (c0.get(host) or {}).get("total"),
+            "dupa": (c1 or {}).get("total"), "delta": d,
+            "volum_iperf3": volum}
+        ok, mot = verdict_delta_bytes(d, volum)
+        if not ok:
+            return (False, "P4 a picat pe capatul %s: %s\n"
+                           "  Ruta spre peer arata corect, dar octetii NU au trecut "
+                           "prin interfata cablata. Cel mai des: exista o a doua cale "
+                           "spre acelasi peer (Wi-Fi in aceeasi retea), sau adresa "
+                           "sursa aleasa de nucleu e a altei interfete."
+                           % (host, "; ".join(mot)), masurat)
+
+    ok, motive = verdict_banda(sensuri, a.prag_mbps, a.iperf_dur)
+    if not ok:
+        return (False, "P4 a picat:\n  " + "\n  ".join(motive)
+                + "\n  REPARA: (1) iperf3 pe AMBELE capete; (2) pragul de %.0f Mbit/s "
+                  "e ~90%% din ce da o legatura gigabit sanatoasa (~941 Mbit/s TCP) -- "
+                  "o cifra mult sub el pe o legatura negociata 1000Mb/s Full inseamna "
+                  "cablu prost, port prost sau trafic concurent; (3) retransmisii peste "
+                  "1%% arata duplex nepotrivit sau cablu la limita; (4) intervale care "
+                  "cad la zero arata o legatura care se prabuseste periodic -- media ar "
+                  "fi ascuns-o. Bugetul campaniei (%.1f Mbit/s agregat) e mult sub prag "
+                  "si NU e criteriul aici." % (a.prag_mbps, BUGET_CAMPANIE_MBPS),
+                masurat)
+    return (True, "P4: banda sustinuta pe ambele sensuri, toate intervalele >= %.0f "
+                  "Mbit/s, retransmisii sub %.0f%%, octeti dovediti pe interfata "
+                  "cablata" % (a.prag_mbps, 100.0 * PRAG_RETRANS_FRACT), masurat)
+
+
+def poarta5_mediu_curat(ex, a):
+    """P5 (v2.0): preflightul certifica bancul CURAT si iese CURAT.
+
+    Pana la v2.0, P5 INSTALA netem cu limit 100000 si il lasa acolo. Doua consecinte,
+    amandoua confirmate la revizie: (1) fiecare re-rulare a preflightului masura P4
+    prin qdisc-ul rularii precedente; (2) responsabilitatea era in locul gresit --
+    preflightul e o POARTA, iar instalarea conditiei apartine orchestratorului de
+    campanie, unde e oricum validata independent de sonda UDP (Etapa 3).
+
+    Ce ramane aici e verificarea care conteaza pentru banc: MTU-ul si absenta oricarui
+    qdisc care ar falsifica masuratoarea. Limita de 100000 de pachete se aplica de
+    orchestrator, cu netem_cmd_cu_limita(), si tot el o dovedeste cu 'tc qdisc show'.
+    """
+    masurat = {"mtu_cerut": a.mtu, "tc_limit_recomandat": a.tc_limit,
+               "nota": ("preflightul NU instaleaza netem; limita se aplica de "
+                        "orchestratorul de campanie")}
+    motive = []
+    for host, iface in capete(a):
+        rc, out, err = ex.sh("cat /sys/class/net/%s/mtu" % shlex.quote(iface),
+                             host=host)
         if ex.dry:
             continue
+        mtu = parse_mtu(out)
+        masurat.setdefault("mtu", {})[host] = mtu
+        ok, mot = verdict_mtu(mtu, a.mtu)
+        if not ok:
+            motive += ["%s (%s): %s" % (host, iface, m) for m in mot]
+        rc, out, err = ex.sh("tc qdisc show dev %s" % shlex.quote(iface), host=host)
         q = parse_tc_qdisc(out + "\n" + err)
-        q["rc"] = rc
-        masurat.setdefault("qdisc_dupa", {})[host] = q
-        print("   [%s %s] qdisc='%s' kind=%s limit=%s"
-              % (host, iface, q["linie"], q["kind"], q["limit"]))
-        if q["kind"] != "netem" or q["limit"] != a.tc_limit:
-            return (False,
-                    "P5 a picat pe capatul %s (%s): tc raporteaza kind=%s limit=%s, "
-                    "se cerea kind=netem limit=%d.\n  Linia vazuta: %s\n"
-                    "  REPARA: ruleaza acolo, manual, '%s' si apoi 'tc qdisc show dev "
-                    "%s'. Daca limita ramane 1000, nucleul a IGNORAT parametrul "
-                    "(pozitia lui conteaza: 'limit' trebuie sa vina imediat dupa "
-                    "'netem'); daca nu apare niciun netem, comanda a esuat -- cel mai "
-                    "des din lipsa de sudo fara parola (sudo -n) pe acel capat."
-                    % (host, iface, q["kind"], q["limit"], a.tc_limit, q["linie"],
-                       cmd, iface), masurat)
+        masurat.setdefault("qdisc", {})[host] = q
+        print("   [%s %s] mtu=%s qdisc='%s'" % (host, iface, mtu, q["linie"]))
     if ex.dry:
-        return (True, "P5 DRY: comenzile de mai sus nu au fost executate",
-                {"dry": True, "comenzi": masurat.get("comenzi"),
-                 "limita_nu_persista": masurat["limita_nu_persista"]})
-    mesaj = "P5: limit %d aplicat si DOVEDIT pe ambele capete" % a.tc_limit
-    return (True, mesaj, masurat)
+        return (True, "P5 DRY: comenzile de mai sus nu au fost executate", {"dry": True})
+    ok, mot = verdict_mediu_curat(masurat.get("qdisc", {}))
+    motive += mot
+    if motive:
+        return (False, "P5 a picat:\n  " + "\n  ".join(motive)
+                + "\n  REPARA: MTU-ul trebuie sa fie exact %d pe ambele capete "
+                  "('sudo ip link set dev <if> mtu %d'); orice qdisc netem ramas se "
+                  "sterge cu 'sudo tc qdisc del dev <if> root'." % (a.mtu, a.mtu),
+                masurat)
+    return (True, "P5: MTU %d pe ambele capete, niciun qdisc netem -- banc curat"
+            % a.mtu, masurat)
 
 
 PORTI = [
     ("P1", "viteza si duplex", poarta1_link),
     ("P2", "offload-uri oprite", poarta2_offload),
     ("P3", "EEE", poarta3_eee),
-    ("P4", "iperf3 TCP", poarta4_iperf),
-    ("P5", "tc qdisc limit", poarta5_tc_limit),
+    ("P4", "banda sustinuta pe cablu", poarta4_iperf),
+    ("P5", "mediu curat (MTU + fara netem)", poarta5_mediu_curat),
 ]
 
 
@@ -836,6 +1155,456 @@ def _ver(cond, mesaj):
         raise AssertionError(mesaj)
 
 
+# ---------------------------------------------------------------------------
+# FIXTURE PENTRU NUCLEUL PUR (rezultate DUPA parsare, ca sa se poata testa decizia
+# separat de parsare). Cifrele sunt alese ca sa fie realiste pe gigabit: 30 s la
+# ~941 Mbit/s inseamna 3.53 GB, adica ~2.44 milioane de segmente la MSS 1448; 1% din
+# ele e ~24400, deci 1000 de retransmisii trec si 400000 pica.
+# ---------------------------------------------------------------------------
+_OCT_30S = int(941e6 / 8 * 30)
+
+
+def _sens(intervale, secunde=30.0, retrans=1000, sent=941.0, recv=940.0,
+          octeti=None, ok=True, eroare=None):
+    return {"ok": ok, "mbps_sent": sent, "mbps_recv": recv, "secunde": secunde,
+            "retransmisii": retrans, "octeti_sent": (_OCT_30S if octeti is None
+                                                     else octeti),
+            "intervale_mbps": list(intervale), "eroare": eroare, "raw_head": ""}
+
+
+SENS_BUN = _sens([941.0] * 30)
+# 941 timp de 5 s, apoi ZERO 25 de secunde: media iese 156.8, deci trecea pragul
+SENS_PRABUSIT = _sens([941.0] * 5 + [0.0] * 25)
+SENS_RETRANS = _sens([941.0] * 30, retrans=400000)
+SENS_GAP = _sens([941.0] * 30, sent=941.0, recv=300.0)
+SENS_SCURT = _sens([941.0] * 5, secunde=5.0)
+SENS_FARA_INTERVALE = _sens([])
+SENS_LENT = _sens([150.0] * 30, sent=150.0, recv=150.0)
+
+RUTA_CABLU = {"iface": "enp2s0", "src": "10.0.0.1", "via": None, "raw": ""}
+RUTA_WIFI = {"iface": "wlp4s0", "src": "192.168.1.14", "via": "192.168.1.1", "raw": ""}
+QD_CURAT = {"kind": "noqueue", "limit": None, "linie": "qdisc noqueue 0: root"}
+QD_NETEM = {"kind": "netem", "limit": 1000,
+            "linie": "qdisc netem 8001: root limit 1000 delay 200ms"}
+EEE_OFF = {"suportat": True, "status": "disabled", "rc": 0, "raw_head": ""}
+EEE_ON = {"suportat": True, "status": "enabled - inactive", "rc": 0, "raw_head": ""}
+EEE_NESUP = {"suportat": False, "status": None, "rc": 1, "raw_head": ""}
+EEE_NECUNOSCUT = {"suportat": None, "status": None, "rc": 0, "raw_head": ""}
+
+
+def _nucleu_asertii():
+    """TOATE deciziile nucleului pur, intr-un singur loc. Mutantii de mai jos lovesc
+    exact functiile chemate de aici; daca o asertie lipseste, mutantul corespunzator
+    supravietuieste si suita o spune pe nume. Ridica AssertionError la prima abatere."""
+    # --- P1 link
+    assert verdict_link(parse_ethtool_link(FIX_ETHTOOL_1000_FULL))[0] is True
+    assert verdict_link(parse_ethtool_link(FIX_ETHTOOL_100_FULL))[0] is False
+    assert verdict_link(parse_ethtool_link(FIX_ETHTOOL_1000_HALF))[0] is False
+    assert verdict_link(parse_ethtool_link(FIX_ETHTOOL_ENP2S0_JOS))[0] is False
+    # EXACT 1000, nu '>= 1000': un 2.5GbE nu e bancul descris in metodologie
+    assert verdict_link({"speed_raw": "2500Mb/s", "speed_mbps": 2500,
+                         "duplex": "Full", "link_detected": True})[0] is False
+    assert verdict_link({"speed_raw": "1000Mb/s", "speed_mbps": 1000,
+                         "duplex": "Full", "link_detected": True},
+                        cerut_mbps=100)[0] is False
+
+    # --- P2 offloads
+    assert verdict_offloads(parse_ethtool_features(FIX_ETHTOOL_K_TOATE_OFF))[0] is True
+    assert verdict_offloads(parse_ethtool_features(FIX_ETHTOOL_K_ON_FIXED))[0] is False
+    assert verdict_offloads(parse_ethtool_features(FIX_ETHTOOL_K_FARA_LRO))[0] is False
+
+    # --- P3 EEE
+    assert verdict_eee(EEE_OFF)[0] is True
+    assert verdict_eee(EEE_NESUP)[0] is True
+    assert verdict_eee(EEE_ON)[0] is False
+    assert verdict_eee(EEE_NECUNOSCUT)[0] is False
+
+    # --- MTU
+    assert verdict_mtu(1500)[0] is True
+    assert verdict_mtu(9000)[0] is False
+    assert verdict_mtu(None)[0] is False
+
+    # --- legare la cablu, stratul 1
+    assert verdict_rutare(RUTA_CABLU, "enp2s0")[0] is True
+    assert verdict_rutare(RUTA_WIFI, "enp2s0")[0] is False
+    assert verdict_rutare({}, "enp2s0")[0] is False
+
+    # --- legare la cablu, stratul 2
+    assert verdict_delta_bytes(1000, 1000)[0] is True
+    assert verdict_delta_bytes(960, 1000)[0] is True          # 96% >= 95%
+    assert verdict_delta_bytes(500, 1000)[0] is False         # jumatate pe alta cale
+    assert verdict_delta_bytes(0, 1000)[0] is False
+    assert verdict_delta_bytes(None, 1000)[0] is False
+
+    # --- mediu curat
+    assert verdict_mediu_curat({"local": QD_CURAT, "remote": QD_CURAT})[0] is True
+    assert verdict_mediu_curat({"local": QD_CURAT, "remote": QD_NETEM})[0] is False
+
+    # --- P4 banda: fiecare criteriu separat, ca sa nu se acopere unul pe altul
+    assert verdict_banda({"a": SENS_BUN}, 850.0, 30.0)[0] is True
+    ok, mot = verdict_banda({"a": SENS_PRABUSIT}, 850.0, 30.0)
+    assert ok is False and any("intervale" in m for m in mot), mot
+    ok, mot = verdict_banda({"a": SENS_RETRANS}, 850.0, 30.0)
+    assert ok is False and any("retransmisii" in m for m in mot), mot
+    ok, mot = verdict_banda({"a": SENS_GAP}, 850.0, 30.0)
+    assert ok is False and any("receptionat" in m for m in mot), mot
+    ok, mot = verdict_banda({"a": SENS_SCURT}, 850.0, 30.0)
+    assert ok is False and any("durat" in m for m in mot), mot
+    ok, mot = verdict_banda({"a": SENS_FARA_INTERVALE}, 850.0, 30.0)
+    assert ok is False and any("intervale" in m for m in mot), mot
+    assert verdict_banda({"a": SENS_LENT}, 850.0, 30.0)[0] is False
+    assert verdict_banda({}, 850.0, 30.0)[0] is False
+    # media NU e criteriu: media lui SENS_PRABUSIT e peste vechiul prag de 105
+    assert sum(SENS_PRABUSIT["intervale_mbps"]) / 30.0 > 105.0
+    # un sens bun si unul rau => FAIL (nu se face media intre sensuri)
+    assert verdict_banda({"a": SENS_BUN, "b": SENS_LENT}, 850.0, 30.0)[0] is False
+
+    # --- P5 limita (functia ramane, chiar daca preflightul nu mai instaleaza netem:
+    #     orchestratorul de campanie o foloseste ca sa dovedeasca limita aplicata)
+    assert verdict_tc_limit({"kind": "netem", "limit": 100000, "linie": ""},
+                            100000)[0] is True
+    assert verdict_tc_limit({"kind": "netem", "limit": 1000, "linie": ""},
+                            100000)[0] is False
+    assert verdict_tc_limit({"kind": None, "limit": None, "linie": ""},
+                            100000)[0] is False
+    assert verdict_tc_limit({"kind": "netem", "limit": None, "linie": ""},
+                            100000)[0] is False
+
+
+# ---------------------------------------------------------------------------
+# SUITA DE MUTANTI (A5). Fiecare intrare strica DELIBERAT o regula din nucleul pur;
+# _nucleu_asertii() trebuie sa o prinda. Un singur supravietuitor = instrumentul
+# ramane carantinat. Cele 14 de la revizia din 2026-08-13 sunt marcate 'v1'.
+# ---------------------------------------------------------------------------
+def _mutanti():
+    g = globals()
+
+    def m(nume, tinta, inlocuitor):
+        return (nume, tinta, inlocuitor)
+
+    vb, vl, vo, vt, vr, vd, vm, ve, vmtu = (
+        g["verdict_banda"], g["verdict_link"], g["verdict_offloads"],
+        g["verdict_tc_limit"], g["verdict_rutare"], g["verdict_delta_bytes"],
+        g["verdict_mediu_curat"], g["verdict_eee"], g["verdict_mtu"])
+
+    def banda_fara_prag(sensuri, prag=850.0, dur=None, *a, **k):
+        return vb(sensuri, 0.0, dur, *a, **k)
+
+    def banda_prag_inversat(sensuri, prag=850.0, dur=None, *a, **k):
+        mot = [x for x in vb(sensuri, prag, dur, *a, **k)[1] if "intervale" not in x]
+        return (not mot, mot)
+
+    def banda_pe_medie(sensuri, prag=850.0, dur=None, *a, **k):
+        # media in loc de fiecare interval -- exact regula inlocuita in v2.0
+        mot = []
+        for et in sorted(sensuri):
+            r = sensuri[et]
+            iv = r.get("intervale_mbps") or []
+            if iv and sum(iv) / len(iv) < prag:
+                mot.append("%s: medie sub prag" % et)
+        return (not mot, mot)
+
+    def banda_pe_sent(sensuri, prag=850.0, dur=None, *a, **k):
+        mot = [x for x in vb(sensuri, prag, dur, *a, **k)[1] if "receptionat" not in x]
+        return (not mot, mot)
+
+    def banda_fara_durata(sensuri, prag=850.0, dur=None, *a, **k):
+        return vb(sensuri, prag, None, *a, **k)
+
+    def banda_fara_retrans(sensuri, prag=850.0, dur=None, *a, **k):
+        return vb(sensuri, prag, dur, 1e9, *a[1:], **k) if a else \
+            vb(sensuri, prag, dur, 1e9)
+
+    def banda_prag_mic(sensuri, prag=850.0, dur=None, *a, **k):
+        return vb(sensuri, 105.0, dur, *a, **k)
+
+    def link_mereu_ok(d, cerut_mbps=1000):
+        return (True, "ok")
+
+    def link_prag_100(d, cerut_mbps=1000):
+        return vl(d, 100)
+
+    def link_mai_mare_egal(d, cerut_mbps=1000):
+        if d.get("speed_mbps") is not None and d["speed_mbps"] >= cerut_mbps \
+                and d.get("duplex") == "Full" and d.get("link_detected") is not False:
+            return (True, "ok")
+        return vl(d, cerut_mbps)
+
+    def offload_mereu_ok(feats):
+        return (True, "ok", {})
+
+    def offload_fixed_e_off(feats):
+        f2 = dict(feats)
+        for k2, v2 in list(f2.items()):
+            if isinstance(v2, dict) and v2.get("fixed"):
+                f2[k2] = dict(v2, stare="off")
+        return vo(f2)
+
+    def tc_doar_kind(q, limita):
+        if not q or q.get("kind") != "netem":
+            return (False, ["fara netem"])
+        return (True, [])
+
+    def tc_limita_1000(q, limita):
+        return vt(q, 1000)
+
+    def rutare_mereu_ok(ruta, iface):
+        return (True, [])
+
+    def rutare_ignora_iface(ruta, iface):
+        return (True, []) if (ruta or {}).get("iface") else (False, ["fara iface"])
+
+    def delta_mereu_ok(d, volum, prag=PRAG_DELTA_BYTES):
+        return (True, [])
+
+    def delta_prag_zero(d, volum, prag=PRAG_DELTA_BYTES):
+        return vd(d, volum, 0.0)
+
+    def mediu_doar_avertisment(qd):
+        return (True, [])
+
+    def eee_inactive_e_off(eee):
+        if eee and eee.get("status", "").startswith("enabled"):
+            return (True, [])
+        return ve(eee)
+
+    def eee_necunoscut_trece(eee):
+        if eee and eee.get("suportat") is None:
+            return (True, [])
+        return ve(eee)
+
+    def mtu_orice(mtu, cerut=1500):
+        return (True, [])
+
+    return [
+        # --- clasa PRAG (v1 + noi)
+        m("v1 P4: pragul de banda ELIMINAT", "verdict_banda", banda_fara_prag),
+        m("v1 P4: comparatia de prag inversata", "verdict_banda", banda_prag_inversat),
+        m("v1 P4: prag implicit 850 -> 105", "verdict_banda", banda_prag_mic),
+        m("NOU P4: media in loc de fiecare interval", "verdict_banda", banda_pe_medie),
+        m("v1 P4: verdict pe sent, nu pe recv", "verdict_banda", banda_pe_sent),
+        m("v1 P4: verificarea de durata eliminata", "verdict_banda", banda_fara_durata),
+        m("NOU P4: retransmisiile nu mai conteaza", "verdict_banda", banda_fara_retrans),
+        # --- clasa LEGARE LA MEDIU (noua)
+        m("NOU P4: rutarea nu se mai verifica", "verdict_rutare", rutare_mereu_ok),
+        m("NOU P4: rutarea accepta orice interfata", "verdict_rutare",
+          rutare_ignora_iface),
+        m("NOU P4: delta de bytes nu se mai verifica", "verdict_delta_bytes",
+          delta_mereu_ok),
+        m("NOU P4: pragul delta de bytes = 0", "verdict_delta_bytes", delta_prag_zero),
+        m("NOU P4/P5: netem preexistent redevine avertisment", "verdict_mediu_curat",
+          mediu_doar_avertisment),
+        # --- clasa P1/P2/P3/P5 (v1)
+        m("v1 P1: verdictul ignorat, poarta trece mereu", "verdict_link", link_mereu_ok),
+        m("v1 P1: viteza ceruta 1000 -> 100", "verdict_link", link_prag_100),
+        m("v1 P1: EXACT 1000 devine >= 1000", "verdict_link", link_mai_mare_egal),
+        m("v1 P2: verdictul ignorat, poarta trece mereu", "verdict_offloads",
+          offload_mereu_ok),
+        m("v1 P2: 'on [fixed]' acceptat ca off", "verdict_offloads", offload_fixed_e_off),
+        m("v1 P5: limita nu se mai compara (doar kind)", "verdict_tc_limit", tc_doar_kind),
+        m("v1 P5: limita ceruta 100000 -> 1000", "verdict_tc_limit", tc_limita_1000),
+        m("NOU P3: 'enabled - inactive' acceptat ca off", "verdict_eee", eee_inactive_e_off),
+        m("NOU P3: EEE necunoscut trece", "verdict_eee", eee_necunoscut_trece),
+        m("NOU P5: MTU-ul nu mai conteaza", "verdict_mtu", mtu_orice),
+    ]
+
+
+class _Args(object):
+    """Argumente minimale pentru a rula portile in selftest, fara CLI."""
+
+    def __init__(self, **kw):
+        self.iface_local = "enp2s0"
+        self.iface_remote = "enp3s0"
+        self.remote = "user@m2"
+        self.peer_ip = "10.0.0.2"
+        self.local_ip = "10.0.0.1"
+        self.prag_mbps = PRAG_MBPS
+        self.iperf_dur = 30.0
+        self.iperf_port = 5201
+        self.mtu = 1500
+        self.tc_limit = 100000
+        self.cond_limit = "ideal"
+        self.cerut_mbps = 1000
+        self.peer_ip_dedus = False
+        self.dry = False
+        self.__dict__.update(kw)
+
+
+class _ExecutorFals(Executor):
+    """Executor care raspunde dintr-o tabela de fixture, dupa un fragment din comanda.
+    NU atinge reteaua, NU porneste procese: cheia e ca portile sa poata fi rulate
+    INTREGI in selftest, nu doar functiile lor de verdict."""
+
+    def __init__(self, raspunsuri):
+        Executor.__init__(self, dry=False, remote="user@m2")
+        self.raspunsuri = raspunsuri
+        self.vazute = []
+
+    def sh(self, cmd, host="local", timeout=None):
+        self.vazute.append((host, cmd))
+        for fragment, val in self.raspunsuri:
+            if fragment in cmd:
+                if callable(val):
+                    return val(host, cmd)
+                return val
+        return (0, "", "")
+
+
+def _iperf_json(mbps, retrans, secunde=30.0, intervale=None):
+    """Construieste o iesire iperf3 -J realista, cu intervale."""
+    octeti = int(mbps * 1e6 / 8 * secunde)
+    iv = intervale if intervale is not None else [mbps] * int(secunde)
+    return json.dumps({
+        "intervals": [{"sum": {"bits_per_second": v * 1e6}} for v in iv],
+        "end": {"sum_sent": {"bits_per_second": mbps * 1e6, "seconds": secunde,
+                             "retransmits": retrans, "bytes": octeti},
+                "sum_received": {"bits_per_second": mbps * 1e6, "seconds": secunde}}})
+
+
+def _ruta_buna(host, cmd):
+    """Ruta care iese pe interfata CABLATA a capatului interogat."""
+    iface = "enp2s0" if host == "local" else "enp3s0"
+    tinta = "10.0.0.2" if host == "local" else "10.0.0.1"
+    sursa = "10.0.0.1" if host == "local" else "10.0.0.2"
+    return (0, "%s dev %s src %s\n" % (tinta, iface, sursa), "")
+
+
+def _stat_care_creste(mbps=941.0, secunde=30.0):
+    """Contoare care cresc exact cu volumul transferat de iperf3 (doua sensuri).
+    Prima citire per capat e 'inainte', a doua 'dupa'. Parametrizat pe rata, ca fiecare
+    scenariu sa pice pe motivul pe care il DEMONSTREAZA, nu pe contabilitate."""
+    volum = int(mbps * 1e6 / 8 * secunde) * 2
+    stare = {}
+
+    def f(host, cmd):
+        n = stare.get(host, 0)
+        stare[host] = n + 1
+        v = 0 if n == 0 else volum
+        return (0, "%d\n%d\n" % (v, 0), "")
+    return f
+
+
+def _demonstratie_banc_rupt():
+    """ACCEPTAREA A5: bancul rupt din revizia din 2026-08-13 trebuie sa PICE, cu
+    motivele enumerate. Pana la v2.0 exact acest banc dadea 'PREFLIGHT OK (5/5)',
+    cod 0: netem instalat pe ambele capete, 150 Mbit/s din ~941, 400000 de
+    retransmisii, EEE pornit si --peer-ip pe alt subnet decat interfata cablata.
+
+    Se ruleaza PORTILE INTREGI, nu doar verdictele, ca sa se dovedeasca si cablajul
+    dintre masuratoare si decizie."""
+    rezultate = {}
+
+    # --- P3: EEE pornit
+    ex = _ExecutorFals([("--show-eee", (0, "EEE settings for enp2s0:\n"
+                                          "\tEEE status: enabled - inactive\n", ""))])
+    ok, mesaj, _ = poarta3_eee(ex, _Args())
+    rezultate["P3 EEE pornit"] = (ok, mesaj)
+
+    # --- P4: peer pe alt subnet (ruta iese pe Wi-Fi)
+    ex = _ExecutorFals([("ip route get",
+                         (0, "192.168.1.50 via 192.168.1.1 dev wlp4s0 src 192.168.1.14\n",
+                          ""))])
+    ok, mesaj, _ = poarta4_iperf(ex, _Args(peer_ip="192.168.1.50"))
+    rezultate["P4 peer pe alt subnet"] = (ok, mesaj)
+
+    # --- P4: netem preexistent pe ambele capete
+    ex = _ExecutorFals([
+        ("ip route get", _ruta_buna),
+        ("tc qdisc show", (0, "qdisc netem 8001: root refcnt 2 limit 1000 "
+                              "delay 200ms  50ms loss 15%\n", ""))])
+    ok, mesaj, _ = poarta4_iperf(ex, _Args())
+    rezultate["P4 netem preexistent"] = (ok, mesaj)
+
+    # --- P4: legatura curata dar 150 Mbit/s si 400000 retransmisii
+    ex = _ExecutorFals([
+        ("ip route get", _ruta_buna),
+        ("tc qdisc show", (0, "qdisc noqueue 0: root refcnt 2\n", "")),
+        ("statistics", _stat_care_creste(150.0)),
+        ("iperf3 -c", (0, _iperf_json(150.0, 400000), ""))])
+    ok, mesaj, _ = poarta4_iperf(ex, _Args())
+    rezultate["P4 150 Mbit/s + 400k retransmisii"] = (ok, mesaj)
+
+    # --- P4: legatura care se PRABUSESTE (941 cinci secunde, apoi zero) -- media
+    # peste 30 s iese 156.8 si trecea vechiul prag de 105
+    ex = _ExecutorFals([
+        ("ip route get", _ruta_buna),
+        ("tc qdisc show", (0, "qdisc noqueue 0: root refcnt 2\n", "")),
+        ("statistics", _stat_care_creste(156.8)),
+        ("iperf3 -c", (0, _iperf_json(156.8, 1000, intervale=[941.0] * 5 + [0.0] * 25),
+                       ""))])
+    ok, mesaj, _ = poarta4_iperf(ex, _Args())
+    rezultate["P4 legatura care se prabuseste"] = (ok, mesaj)
+
+    # --- P4: banda buna, dar octetii NU trec prin interfata cablata
+    contor = {"n": 0}
+
+    def _stat(host, cmd):
+        contor["n"] += 1
+        # contoarele nu cresc: traficul a mers pe alta interfata
+        return (0, "1000\n1000\n", "")
+
+    ex = _ExecutorFals([
+        ("ip route get", _ruta_buna),
+        ("tc qdisc show", (0, "qdisc noqueue 0: root refcnt 2\n", "")),
+        ("statistics", _stat),
+        ("iperf3 -c", (0, _iperf_json(941.0, 1000), ""))])
+    ok, mesaj, _ = poarta4_iperf(ex, _Args())
+    rezultate["P4 octeti pe alta interfata"] = (ok, mesaj)
+
+    # --- P4: TOTUL bun -> trebuie sa TREACA (altfel poarta ar fi doar pesimista)
+    ex = _ExecutorFals([
+        ("ip route get", _ruta_buna),
+        ("tc qdisc show", (0, "qdisc noqueue 0: root refcnt 2\n", "")),
+        ("statistics", _stat_care_creste(941.0)),
+        ("iperf3 -c", (0, _iperf_json(941.0, 1000), ""))])
+    ok_bun, mesaj_bun, _ = poarta4_iperf(ex, _Args())
+    rezultate["P4 banc SANATOS (control pozitiv)"] = (ok_bun, mesaj_bun)
+
+    # --- P5: netem ramas
+    ex = _ExecutorFals([
+        ("/mtu", (0, "1500\n", "")),
+        ("tc qdisc show", (0, "qdisc netem 8001: root limit 1000 delay 200ms\n", ""))])
+    ok, mesaj, _ = poarta5_mediu_curat(ex, _Args())
+    rezultate["P5 netem ramas"] = (ok, mesaj)
+
+    # --- P5: MTU gresit
+    ex = _ExecutorFals([
+        ("/mtu", (0, "9000\n", "")),
+        ("tc qdisc show", (0, "qdisc noqueue 0: root\n", ""))])
+    ok, mesaj, _ = poarta5_mediu_curat(ex, _Args())
+    rezultate["P5 MTU 9000"] = (ok, mesaj)
+
+    return rezultate
+
+
+def _ruleaza_mutanti(verbose=False):
+    """Aplica fiecare mutant si cere ca _nucleu_asertii() sa il OMOARE.
+    Intoarce (injectati, omorati, supravietuitori[])."""
+    g = globals()
+    supravietuitori = []
+    mut = _mutanti()
+    for nume, tinta, inlocuitor in mut:
+        original = g[tinta]
+        g[tinta] = inlocuitor
+        try:
+            _nucleu_asertii()
+        except AssertionError:
+            omorat = True
+        except Exception as e:
+            omorat = True                       # o exceptie e tot o prindere
+            if verbose:
+                print("    (mutant '%s' a dat %s)" % (nume, type(e).__name__))
+        else:
+            omorat = False
+        finally:
+            g[tinta] = original
+        if not omorat:
+            supravietuitori.append(nume)
+        elif verbose:
+            print("    omorat: %s" % nume)
+    return (len(mut), len(mut) - len(supravietuitori), supravietuitori)
+
+
 def _selftest():
     """Verifica parserele pe iesiri REALE (vezi fixture-le de mai sus) si logica de
     verdict, inclusiv cazurile urate. NU atinge reteaua, NU ruleaza sudo, NU scrie
@@ -989,7 +1758,48 @@ def _selftest():
     _ver(ex.comenzi[1]["argv_afisat"].startswith("ssh -o BatchMode=yes"),
          ex.comenzi[1])
 
-    print("SELFTEST hil_wired_preflight OK (%d verificari)." % _VERIF[0])
+    # --- NUCLEUL PUR si SUITA DE MUTANTI (v2.0) ---
+    print("-- nucleul pur de verdict --")
+    _nucleu_asertii()
+    _VERIF[0] += 1
+    print("   toate deciziile nucleului pur: OK")
+    print("-- suita de mutanti (A5) --")
+    inj, om, supr = _ruleaza_mutanti()
+    print("   mutanti injectati=%d  omorati=%d  supravietuitori=%d" % (inj, om, len(supr)))
+    for x in supr:
+        print("   SUPRAVIETUITOR: %s" % x)
+    _ver(not supr, "toti mutantii trebuie omoriti; supravietuitori: %s" % supr)
+    _ver(inj >= 22, "suita de mutanti trebuie sa acopere cel putin 22 de regresii")
+    print("-- demonstratia A5: bancul rupt din revizie --")
+    dem = _demonstratie_banc_rupt()
+    for nume in sorted(dem):
+        ok, mesaj = dem[nume]
+        prima = mesaj.splitlines()[0] if mesaj else ""
+        print("   %-42s %s  %s" % (nume, "TRECE" if ok else "PICA ", prima[:74]))
+    # fiecare scenariu rupt trebuie sa PICE, iar controlul pozitiv sa TREACA.
+    # Fara controlul pozitiv, o poarta care intoarce mereu False ar trece testul.
+    for nume, (ok, mesaj) in dem.items():
+        if "control pozitiv" in nume:
+            _ver(ok, "bancul SANATOS trebuie sa treaca P4 (control pozitiv): %s" % mesaj)
+        else:
+            _ver(not ok, "scenariul rupt '%s' trebuie sa PICE" % nume)
+    _ver(any("rutare" in m or "ruteaza" in m for _, m in dem.values()),
+         "motivul de rutare trebuie sa apara explicit")
+    _ver(any("netem" in m for _, m in dem.values()),
+         "motivul de netem preexistent trebuie sa apara explicit")
+    _ver(any("retransmisii" in m for _, m in dem.values()),
+         "motivul de retransmisii trebuie sa apara explicit")
+    _ver(any("contoarele" in m or "interfetei cablate" in m for _, m in dem.values()),
+         "motivul de delta-bytes trebuie sa apara explicit")
+    _ver(any("MTU" in m for _, m in dem.values()),
+         "motivul de MTU trebuie sa apara explicit")
+    _ver(any("intervale de 1 s sub prag" in m for _, m in dem.values()),
+         "prabusirea trebuie raportata pe INTERVALE, nu pe medie")
+    _ver(any("EEE" in m for _, m in dem.values()),
+         "motivul de EEE trebuie sa apara explicit")
+
+    print("SELFTEST hil_wired_preflight OK (%d verificari, %d mutanti omoriti %d/%d)."
+          % (_VERIF[0], om, om, inj))
 
 
 # ---------------------------------------------------------------------------
@@ -997,20 +1807,34 @@ def _selftest():
 # ---------------------------------------------------------------------------
 
 def main(argv):
+    # --selftest se trateaza INAINTE de argparse: de la v2.0 --iface-remote e
+    # obligatoriu, iar selftestul nu are nevoie de niciun argument de banc ca sa ruleze.
+    if "--selftest" in argv:
+        _selftest()
+        return 0
     ap = argparse.ArgumentParser(
         prog="hil_wired_preflight.py",
         description="Preflight in 5 porti pentru bancul HIL cablat (abort la prima picata).")
     ap.add_argument("--iface-local", default="enp2s0",
                     help="NIC-ul cablat de pe masina asta (implicit: enp2s0)")
-    ap.add_argument("--iface-remote", default="eth0",
-                    help="NIC-ul cablat de pe M2 (implicit: eth0)")
+    # OBLIGATORIU, fara default. Pana la v2.0 avea implicit 'eth0', ceea ce contrazicea
+    # direct docstringul care promitea ca se da explicit -- si pe Linux modern eth0 de
+    # obicei nici nu exista, deci portile picau cu un mesaj despre interfata gresita in
+    # loc sa spuna ca lipseste argumentul.
+    ap.add_argument("--iface-remote", required=True,
+                    help="NIC-ul cablat de pe M2 (OBLIGATORIU, fara implicit)")
     ap.add_argument("--remote", default=None,
                     help="tinta ssh a lui M2, ex. ubuntu@10.0.0.2 (OBLIGATORIU)")
     ap.add_argument("--peer-ip", default=None,
                     help="adresa lui M2 PE CABLU, pentru iperf3 (implicit: gazda din "
                          "--remote; da-o explicit daca ssh merge pe alta cale)")
-    ap.add_argument("--prag-mbps", type=float, default=105.0,
-                    help="pragul P4 pe fiecare sens (implicit 105.0)")
+    ap.add_argument("--prag-mbps", type=float, default=PRAG_MBPS,
+                    help="pragul P4 pe FIECARE interval de 1 s (implicit %.0f = ~90%% "
+                         "din ce da o legatura gigabit sanatoasa)" % PRAG_MBPS)
+    ap.add_argument("--mtu", type=int, default=1500,
+                    help="MTU cerut pe ambele capete (implicit 1500)")
+    ap.add_argument("--local-ip", default=None,
+                    help="adresa lui M1 PE CABLU, pentru verificarea rutarii de pe M2")
     ap.add_argument("--iperf-dur", type=float, default=30.0,
                     help="durata unei rulari iperf3, secunde (implicit 30)")
     ap.add_argument("--iperf-port", type=int, default=5201, help="portul iperf3")
@@ -1137,6 +1961,10 @@ def main(argv):
         print("== DRY: 5/5 porti PARCURSE, ZERO masurate. Raport: %s ==" % cale)
         print("   Verdictul din raport e 'DRY', nu 'OK' -- nu il confunda cu un "
               "preflight trecut.")
+        # Cod de iesire NENUL, dinadins: pana la v2.0 --dry iesea cu 0, deci
+        # 'preflight.py --dry && run_campaign.py' pornea campania fara ca vreo poarta
+        # sa fi masurat ceva. Textul avertiza; codul de iesire nu. Acum si el o face.
+        cod = 3
     elif cod == 0:
         print("== PREFLIGHT OK (5/5 porti). Raport: %s ==" % cale)
     else:
