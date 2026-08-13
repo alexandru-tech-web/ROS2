@@ -78,6 +78,27 @@ PRAG_N0_FRACT = 0.5      # n0/N peste asta: celula prea moarta ca sa sustina o m
 PRAG_VII_MIN = 3         # supravietuitori minimi intr-o celula folosita la contrast
 PRAG_SARCINA = 1.25      # raport max al sarcinii oferite (sent med) intre cele doua RMW
 PRAG_BIMODAL = 100.0     # max(p50)/min(p50) peste asta: celula marcata BIMODAL
+
+# Cei 27 de mutanti ai reviziei din 2026-08-13, re-rulati ca suita numita de regresie.
+# Saisprezece au tinta patchabila la nivel de modul si sunt in _mutanti_c(). Restul nu
+# mai au tinta dupa ancorarea verdictului pe perechea definitorie: erau mutanti pe
+# stare_inversiune(), functia care decidea 'exista doi castigatori diferiti in ORICE
+# pereche de conditii' -- functie care nu mai exista. Sunt listati nominal aici, cu
+# motivul, ca sa nu para ca au disparut in ceata.
+INEXPRIMABILI_C = [
+    "len(utile) < 2 -> < 1 -- stare_inversiune() a disparut; verdictul nu mai numara "
+    "conditii utilizabile, ci cere AMBELE celule ale perechii definitorii",
+    "castigatori diferiti in orice pereche -> PREZENTA -- aceeasi cauza: regula era "
+    "chiar defectul critic C1 al reviziei, nu o regula de aparat",
+    "blocajele copiate doar pe ramura NEDECIS -- verdictul le pune acum pe orice ramura "
+    "de (c), iar fixture-ul (ii) cere explicit urma in raport",
+    "frontiere in virgula mobila pe delta (5.0 exact) -- raman cunoscute si ACCEPTATE: "
+    "rezultatul pe prag depinde de numitor (7 vs 4 din 60 da 4.9999...), dar o celula "
+    "care sta exact pe prag nu poate sustine oricum un verdict stiintific",
+    "verifica_tinta ocolita prin symlink (~/PHD/DATE) -- NEREPARAT, documentat: garda "
+    "foloseste abspath, nu realpath; arhivele sunt aparate de permisiuni (dr-xr-xr-x), "
+    "nu de garda",
+]
 MODURI_RTT = ("p50med", "pooled")
 
 VERDICT_TEXT = {
@@ -314,61 +335,108 @@ def contrast(cel_cdds, cel_zenoh, cond):
     return c
 
 
-def stare_inversiune(contraste):
-    """PREZENTA / ABSENTA / NEDECIS pe un singur banc (SIL sau HIL).
-    PREZENTA = cel putin doua conditii utilizabile cu castigatori DIFERITI."""
-    utile = [c for c in contraste if c["utilizabil"]]
-    st = {"utilizabile": [c["cond"] for c in utile],
-          "castigatori": {c["cond"]: c["castigator"] for c in utile},
-          "blocaje": [(c["cond"], mm) for c in contraste if not c["utilizabil"]
-                      for mm in c["motive"]]}
-    if len(utile) < 2:
-        st["stare"] = "NEDECIS"
-        st["motiv"] = ("doar %d conditie/conditii utilizabile (minim 2 ca sa existe un "
-                       "contrast intre conditii)" % len(utile))
+PERECHE_DEFINITORIE = ("bern_15", "ge_15_8")
+# Perechea care DEFINESTE intrebarea la 64 KB: aceeasi pierdere medie (15%), doua regimuri
+# de corelare (memoryless vs rafale de 8). Inversiunea inseamna ca la 15% castigatorul se
+# schimba intre cele doua regimuri. Orice alta pereche de conditii poate avea castigatori
+# diferiti din motive care nu au nicio legatura cu intrebarea (ideal favorizeaza unul,
+# pierderea mare pe celalalt) -- de aceea verdictul se calculeaza EXCLUSIV pe asta.
+
+
+def semnatura_inversiune(contraste, pereche=PERECHE_DEFINITORIE):
+    """Semnatura inversiunii pe UN banc, din contrastele lui. FUNCTIE PURA.
+
+    ACEEASI functie se aplica si datelor SIL, si celor cablate: semnatura SIL de
+    referinta se CALCULEAZA, nu se scrie ca literali intr-o comparatie. Doua motive.
+    Unul de igiena: literali in functia de decizie ar fi fixture-ul-care-reimplementeaza-
+    decizia in alt costum, exact defectul reparat la preflight. Unul de garda: daca se
+    schimba vreodata o conventie in tabele, pica AMBELE parti zgomotos, nu una tacut.
+
+    Intoarce:
+      decidabila  -- ambele celule ale perechii sunt utilizabile
+      castigatori -- {conditie: 'cdds'|'zenoh'} pe pereche
+      forma       -- 'INVERSIUNE' (castigatori diferiti), 'UNIFORMA' (acelasi), None
+      blocaje     -- de ce nu e decidabila, pe conditie
+    """
+    dupa_cond = {c["cond"]: c for c in contraste}
+    st = {"pereche": list(pereche), "decidabila": False, "castigatori": {},
+          "forma": None, "blocaje": [], "lipsa": []}
+    for cond in pereche:
+        c = dupa_cond.get(cond)
+        if c is None:
+            st["lipsa"].append(cond)
+            st["blocaje"].append((cond, "conditia lipseste din arhiva"))
+            continue
+        if not c["utilizabil"]:
+            st["blocaje"] += [(cond, m) for m in c["motive"]]
+            continue
+        st["castigatori"][cond] = c["castigator"]
+    if len(st["castigatori"]) < len(pereche):
         return st
-    if len(set(c["castigator"] for c in utile)) > 1:
-        st["stare"] = "PREZENTA"
-        st["motiv"] = "castigatori diferiti intre conditii: " + ", ".join(
-            "%s->%s" % (c["cond"], c["castigator"]) for c in utile)
-    else:
-        st["stare"] = "ABSENTA"
-        st["motiv"] = "acelasi castigator (%s) in toate cele %d conditii utilizabile" % (
-            utile[0]["castigator"], len(utile))
+    st["decidabila"] = True
+    st["forma"] = ("INVERSIUNE" if len(set(st["castigatori"].values())) > 1
+                   else "UNIFORMA")
     return st
 
 
-def verdict(st_sil, st_hil, hil_prezent):
-    """Cele trei rezultate, numite dinainte. Orice garda cazuta -> 'c', cu motiv."""
+def _descrie(sem):
+    return ", ".join("%s->%s" % (k, sem["castigatori"][k])
+                     for k in sem["pereche"] if k in sem["castigatori"]) or "(niciuna)"
+
+
+def verdict(sem_sil, sem_hil, hil_prezent):
+    """Cele trei rezultate, numite dinainte, decise EXCLUSIV pe perechea definitorie.
+
+    (a) PERSISTA = semnatura de pe fir e IDENTICA cu cea de pe SIL (acelasi castigator
+        la fiecare conditie a perechii);
+    (b) DISPARE  = ambele celule decidabile pe fir, dar semnatura e rupta (acelasi
+        castigator la ambele) SAU oglindita (victima s-a schimbat);
+    (c) NEDECIS  = orice garda cazuta pe oricare celula a perechii, pe oricare banc.
+
+    Oglindirea intra la (b), nu la (a): daca la bern_15 castiga acum celalalt si la
+    ge_15_8 la fel, 'cine e victima' s-a schimbat pe ambele conditii -- adica exact
+    fenomenul despre care e intrebarea, nu o confirmare a lui.
+    """
     v = {"cod": "c", "text": VERDICT_TEXT["c"], "motive": [],
-         "sil": st_sil["stare"] if st_sil else None,
-         "hil": st_hil["stare"] if st_hil else None}
-    if not hil_prezent or st_hil is None:
-        v["motive"].append("partea HIL lipseste: rulat fara --hil, campania cablata la "
-                           "64 KB nu e (inca) in analiza")
-        if st_sil is not None:
-            v["motive"].append("referinta SIL: inversiune %s (%s)"
-                               % (st_sil["stare"], st_sil["motiv"]))
+         "sil": (sem_sil or {}).get("forma"), "hil": (sem_hil or {}).get("forma"),
+         "garda": None}
+    if sem_sil is None or not sem_sil["decidabila"]:
+        v["garda"] = "pereche SIL nedecidabila"
+        v["motive"].append("perechea definitorie (%s) nu e decidabila pe SIL"
+                           % ", ".join(PERECHE_DEFINITORIE))
+        v["motive"] += ["SIL %s: %s" % (c, m) for c, m in (sem_sil or {}).get("blocaje", [])]
         return v
-    if st_sil is None or st_sil["stare"] == "NEDECIS":
-        v["motive"].append("referinta SIL nu e decisa: %s"
-                           % (st_sil["motiv"] if st_sil else "arhiva SIL absenta"))
+    if sem_sil["forma"] != "INVERSIUNE":
+        v["garda"] = "pe SIL nu exista inversiune de testat"
+        v["motive"].append("pe SIL perechea da acelasi castigator (%s): nu exista "
+                           "inversiune de verificat pe fir" % _descrie(sem_sil))
         return v
-    if st_sil["stare"] == "ABSENTA":
-        v["motive"].append("pe SIL nu exista inversiune de testat: %s" % st_sil["motiv"])
+    if not hil_prezent or sem_hil is None:
+        v["garda"] = "partea cablata lipseste"
+        v["motive"].append("rulat fara --hil: campania cablata la 64 KB nu e in analiza")
+        v["motive"].append("referinta SIL (calculata, nu presupusa): %s" % _descrie(sem_sil))
         return v
-    if st_hil["stare"] == "NEDECIS":
-        v["motive"].append("pe HIL contrastele nu trec garzile: %s" % st_hil["motiv"])
-        v["motive"] += ["%s: %s" % (c, m) for c, m in st_hil["blocaje"]]
+    if not sem_hil["decidabila"]:
+        v["garda"] = "pereche cablata nedecidabila"
+        v["motive"].append("perechea definitorie nu e decidabila pe fir -- verdictul NU "
+                           "se poate emite, oricat de clare ar fi celelalte conditii")
+        v["motive"] += ["fir %s: %s" % (c, m) for c, m in sem_hil["blocaje"]]
+        v["motive"].append("referinta SIL: %s" % _descrie(sem_sil))
         return v
-    if st_hil["stare"] == "PREZENTA":
+    if sem_hil["castigatori"] == sem_sil["castigatori"]:
         v["cod"], v["text"] = "a", VERDICT_TEXT["a"]
-        v["motive"].append("SIL: %s" % st_sil["motiv"])
-        v["motive"].append("HIL: %s" % st_hil["motiv"])
+        v["garda"] = "semnatura identica pe ambele bancuri"
+        v["motive"].append("SIL: %s" % _descrie(sem_sil))
+        v["motive"].append("fir: %s (identica)" % _descrie(sem_hil))
         return v
     v["cod"], v["text"] = "b", VERDICT_TEXT["b"]
-    v["motive"].append("SIL: %s" % st_sil["motiv"])
-    v["motive"].append("HIL: %s" % st_hil["motiv"])
+    v["garda"] = ("semnatura rupta pe fir" if sem_hil["forma"] == "UNIFORMA"
+                  else "semnatura OGLINDITA pe fir")
+    v["motive"].append("SIL: %s" % _descrie(sem_sil))
+    v["motive"].append("fir: %s (%s)" % (_descrie(sem_hil),
+                                         "acelasi castigator la ambele conditii"
+                                         if sem_hil["forma"] == "UNIFORMA"
+                                         else "victima s-a schimbat -- oglindire"))
     return v
 
 
@@ -376,14 +444,14 @@ def analiza(cel_sil, cel_hil, conditii, mod_rtt):
     """Contrastele si starile pe ambele bancuri + verdictul final."""
     c_sil = [contrast(cel_sil.get(("cyclonedds", c)), cel_sil.get(("zenoh", c)), c)
              for c in conditii] if cel_sil is not None else []
-    st_sil = stare_inversiune(c_sil) if cel_sil is not None else None
+    st_sil = semnatura_inversiune(c_sil) if cel_sil is not None else None
     if cel_hil is None:
         return {"contraste_sil": c_sil, "contraste_hil": [], "stare_sil": st_sil,
                 "stare_hil": None, "verdict": verdict(st_sil, None, False),
                 "rtt_mod": mod_rtt}
     c_hil = [contrast(cel_hil.get(("cyclonedds", c)), cel_hil.get(("zenoh", c)), c)
              for c in conditii]
-    st_hil = stare_inversiune(c_hil)
+    st_hil = semnatura_inversiune(c_hil)
     return {"contraste_sil": c_sil, "contraste_hil": c_hil, "stare_sil": st_sil,
             "stare_hil": st_hil, "verdict": verdict(st_sil, st_hil, True),
             "rtt_mod": mod_rtt}
@@ -407,7 +475,7 @@ CAP_SIL = ["conditie", "payload", "rmw", "N", "n0=k/N", "livr% med (supr.)",
 CAP_AMBELE = ["conditie", "payload", "rmw",
               "SIL N", "SIL n0", "SIL livr% med", "SIL livr% efect", "SIL RTT ms",
               "HIL N", "HIL n0", "HIL livr% med", "HIL livr% efect", "HIL RTT ms",
-              "d livr% (HIL-SIL)", "d RTT ms (HIL-SIL)"]
+              "d livr% (HIL-SIL)", "d RTT ms (HIL-SIL)", "nota"]
 
 
 def _nota_celula(cel):
@@ -442,6 +510,19 @@ def randuri_tabel(cel_sil, cel_hil, conditii, payload):
     return out
 
 
+def _nota_ambele(s, h):
+    """Nota pe randul cu AMBELE bancuri. Pana la v2.0 ramura cu_hil nu chema deloc
+    _nota_celula, deci marcajele 'BIMODAL' si 'celula ABSENTA' dispareau exact in modul
+    in care va rula campania -- iar una din celulele care sustin inversiunea
+    (zenoh/ge_15_8) ESTE bimodala pe datele reale."""
+    buc = []
+    for cel, unde in ((s, "SIL"), (h, "fir")):
+        n = _nota_celula(cel)
+        if n:
+            buc.append("%s: %s" % (unde, n))
+    return "; ".join(buc)
+
+
 def md_tabel(randuri, cu_hil):
     cap = CAP_AMBELE if cu_hil else CAP_SIL
     out = ["| " + " | ".join(cap) + " |",
@@ -462,7 +543,7 @@ def md_tabel(randuri, cu_hil):
             _f(s["liv_efect"]), _f(s["rtt_med"]),
             "%d" % h["N"], "%d/%d" % (h["n0"], h["N"]), _f(h["liv_med"]),
             _f(h["liv_efect"]), _f(h["rtt_med"]),
-            _d(dl), _d(dr)]) + " |")
+            _d(dl), _d(dr), _nota_ambele(s, h)]) + " |")
     out.append("")
     return "\n".join(out)
 
@@ -541,16 +622,27 @@ def md_raport(meta, randuri, an, excluse, anomalii):
     o.append(md_contraste(an["contraste_sil"], "SIL (loopback)"))
     if cu_hil:
         o.append(md_contraste(an["contraste_hil"], "HIL (cablat)"))
-    for et, st in (("SIL", an["stare_sil"]), ("HIL", an["stare_hil"])):
-        if st is not None:
-            o.append("- inversiune pe %s: **%s** -- %s" % (et, st["stare"], st["motiv"]))
+    # Semnatura pe PERECHEA DEFINITORIE, pe fiecare banc. Restul conditiilor apar in
+    # tabelul de contraste ca CONTEXT, dar nu pot sustine verdictul.
+    o += ["", "### Semnatura pe perechea definitorie (%s)"
+          % ", ".join(PERECHE_DEFINITORIE), ""]
+    for et, st in (("SIL", an["stare_sil"]), ("fir", an["stare_hil"])):
+        if st is None:
+            continue
+        if st["decidabila"]:
+            o.append("- %s: **%s** -- %s" % (et, st["forma"], _descrie(st)))
+        else:
+            o.append("- %s: **NEDECIDABILA** -- %s"
+                     % (et, "; ".join("%s: %s" % (c, m) for c, m in st["blocaje"])
+                        or "conditii lipsa: %s" % ", ".join(st["lipsa"])))
     v = an["verdict"]
     o += ["", "## VERDICT", "",
           "Cele trei rezultate posibile, numite INAINTE de a vedea datele:", "",
           "- (a) %s" % VERDICT_TEXT["a"],
           "- (b) %s" % VERDICT_TEXT["b"],
           "- (c) %s" % VERDICT_TEXT["c"], "",
-          "**REZULTAT: (%s) %s**" % (v["cod"], v["text"]), ""]
+          "**REZULTAT: (%s) %s**" % (v["cod"], v["text"]),
+          "", "Garda care a decis: **%s**" % v.get("garda"), ""]
     for m in v["motive"]:
         o.append("- %s" % m)
     o += ["", "Scriptul NU alege (a) sau (b) cand o garda cade: orice garda cazuta duce",
@@ -693,88 +785,278 @@ def _selftest():
         ok(cm["N"] == 4 and cm["n0"] == 4 and cm["liv_med"] is None and cm["liv_efect"] is None,
            "celula complet moarta: %s" % cm)
 
-        # ------------------------------------------------------------- 4. VERDICT (a)
-        # SIL: bern_15 -> zenoh castiga; ge_15_8 -> cdds castiga (inversiune PREZENTA)
-        # HIL: acelasi tipar -> inversiunea PERSISTA
-        sa = os.path.join(baza, "a_sil")
-        ha = os.path.join(baza, "a_hil")
-        for r0 in (sa, ha):
-            _fab(r0, "cyclonedds", "bern_15", [liv(30.0)] * 10)
-            _fab(r0, "zenoh", "bern_15", [liv(90.0)] * 10)
-            _fab(r0, "cyclonedds", "ge_15_8", [liv(95.0)] * 10)
-            _fab(r0, "zenoh", "ge_15_8", [liv(10.0)] * 10)
-        an = _run(_celule(sa), _celule(ha))
-        ok(an["stare_sil"]["stare"] == "PREZENTA", "SIL(a): %s" % an["stare_sil"])
-        ok(an["stare_hil"]["stare"] == "PREZENTA", "HIL(a): %s" % an["stare_hil"])
-        ok(an["verdict"]["cod"] == "a", "verdict(a) gresit: %s" % an["verdict"])
-        ok(an["stare_sil"]["castigatori"] == {"bern_15": "zenoh", "ge_15_8": "cdds"},
-           "castigatori(a): %s" % an["stare_sil"]["castigatori"])
+        # ---------------------------------------- 4-6. FIXTURE ADVERSARIALE (i)-(iv)
+        def _banc(root, tabel):
+            for (rmw, cond), val in tabel.items():
+                _fab(root, rmw, cond, [liv(val)] * 10)
 
-        # ------------------------------------------------------------- 5. VERDICT (b)
-        # HIL: acelasi castigator (cdds) la ambele conditii -> inversiunea DISPARE
-        hb = os.path.join(baza, "b_hil")
-        _fab(hb, "cyclonedds", "bern_15", [liv(90.0)] * 10)
-        _fab(hb, "zenoh", "bern_15", [liv(30.0)] * 10)
-        _fab(hb, "cyclonedds", "ge_15_8", [liv(95.0)] * 10)
-        _fab(hb, "zenoh", "ge_15_8", [liv(10.0)] * 10)
-        an = _run(_celule(sa), _celule(hb))
-        ok(an["stare_hil"]["stare"] == "ABSENTA", "HIL(b): %s" % an["stare_hil"])
-        ok(an["verdict"]["cod"] == "b", "verdict(b) gresit: %s" % an["verdict"])
+        # Semnatura SIL de referinta: la bern_15 castiga zenoh, la ge_15_8 castiga cdds.
+        # NU e scrisa nicaieri ca literal in functia de verdict -- se CALCULEAZA din
+        # datele SIL cu ACEEASI functie prin care trec si datele de pe fir. Aici e doar
+        # fixture-ul care o produce.
+        SIL_REF = {("cyclonedds", "bern_15"): 30.0, ("zenoh", "bern_15"): 90.0,
+                   ("cyclonedds", "ge_15_8"): 95.0, ("zenoh", "ge_15_8"): 10.0}
+        scenarii = []
 
-        # ------------------------------------------------------------- 6. VERDICT (c)
-        # (c1) HIL prabusit sub podea la bern_15 + celula complet moarta la ge_15_8
-        hc = os.path.join(baza, "c_hil")
-        _fab(hc, "cyclonedds", "bern_15", [liv(0.5)] * 10)
-        _fab(hc, "zenoh", "bern_15", [liv(2.2)] * 10)
-        _fab(hc, "cyclonedds", "ge_15_8", [liv(6.2)] * 10)
-        _fab(hc, "zenoh", "ge_15_8", [(989, 0, 0.0)] * 10)
-        an = _run(_celule(sa), _celule(hc))
-        ok(an["stare_hil"]["stare"] == "NEDECIS", "HIL(c1): %s" % an["stare_hil"])
-        ok(an["verdict"]["cod"] == "c", "verdict(c1) gresit: %s" % an["verdict"])
-        mot = " ".join(an["verdict"]["motive"])
-        ok("podeaua" in mot, "motivul de podea lipseste: %s" % mot)
-        ok("complet moarta" in mot, "motivul de celula moarta lipseste: %s" % mot)
-        # (c2) HIL absent cu totul (modul in care ruleaza acum, fara --hil)
-        an = _run(_celule(sa), None)
-        ok(an["stare_hil"] is None and an["verdict"]["cod"] == "c", "verdict(c2)")
-        ok("partea HIL lipseste" in " ".join(an["verdict"]["motive"]), "motiv(c2)")
-        # (c3) diferenta sub prag -> contrast NEUTILIZABIL, nu 'castigator la mustata'
-        hc3 = os.path.join(baza, "c3_hil")
-        _fab(hc3, "cyclonedds", "bern_15", [liv(50.0)] * 10)
-        _fab(hc3, "zenoh", "bern_15", [liv(52.0)] * 10)   # delta 2 pp < 5 pp
-        _fab(hc3, "cyclonedds", "ge_15_8", [liv(95.0)] * 10)
-        _fab(hc3, "zenoh", "ge_15_8", [liv(10.0)] * 10)
-        an = _run(_celule(sa), _celule(hc3))
-        ok(an["verdict"]["cod"] == "c", "verdict(c3) gresit: %s" % an["verdict"])
-        ok("sub prag" in " ".join(m for _, m in an["stare_hil"]["blocaje"]), "motiv(c3)")
-        # tabelul de contraste ramane un tabel valid: 7 coloane => 8 bare pe fiecare rand
-        linii = [l for l in md_contraste(an["contraste_hil"], "T").split("\n")
-                 if l.startswith("|")]
-        ok(linii and all(l.count("|") == 8 for l in linii),
-           "un '|' din motive a rupt tabelul: %s" % linii)
-        # (c4) sarcina oferita inegala intre RMW-uri (contra-presiune RELIABLE la 64 KB)
-        hc4 = os.path.join(baza, "c4_hil")
-        _fab(hc4, "cyclonedds", "bern_15", [liv(30.0, sent=400)] * 10)
-        _fab(hc4, "zenoh", "bern_15", [liv(90.0, sent=989)] * 10)
-        _fab(hc4, "cyclonedds", "ge_15_8", [liv(95.0)] * 10)
-        _fab(hc4, "zenoh", "ge_15_8", [liv(10.0)] * 10)
-        an = _run(_celule(sa), _celule(hc4))
-        ok(an["verdict"]["cod"] == "c", "verdict(c4) gresit: %s" % an["verdict"])
-        ok("sarcina oferita inegala" in " ".join(m for _, m in an["stare_hil"]["blocaje"]),
-           "motiv(c4)")
-        # (c5) fara inversiune nici pe SIL -> nu exista ce testa pe fir
-        s5 = os.path.join(baza, "c5_sil")
-        _fab(s5, "cyclonedds", "bern_15", [liv(90.0)] * 10)
-        _fab(s5, "zenoh", "bern_15", [liv(30.0)] * 10)
-        _fab(s5, "cyclonedds", "ge_15_8", [liv(95.0)] * 10)
-        _fab(s5, "zenoh", "ge_15_8", [liv(10.0)] * 10)
-        an = _run(_celule(s5), _celule(ha))
-        ok(an["stare_sil"]["stare"] == "ABSENTA", "SIL(c5): %s" % an["stare_sil"])
-        ok(an["verdict"]["cod"] == "c", "verdict(c5) gresit: %s" % an["verdict"])
-        ok("nu exista inversiune de testat" in " ".join(an["verdict"]["motive"]), "motiv(c5)")
-        # (c6) o singura conditie utilizabila -> NEDECIS (nu se poate vorbi de inversiune)
-        an = _run(_celule(sa), _celule(ha), conditii=("bern_15",))
-        ok(an["stare_sil"]["stare"] == "NEDECIS" and an["verdict"]["cod"] == "c", "(c6)")
+        s3, h3 = os.path.join(baza, "iii_sil"), os.path.join(baza, "iii_hil")
+        _banc(s3, SIL_REF); _banc(h3, SIL_REF)
+        scenarii.append(("(iii) persistenta reala", s3, h3, "a"))
+
+        s1, h1 = os.path.join(baza, "i_sil"), os.path.join(baza, "i_hil")
+        _banc(s1, SIL_REF)
+        _banc(h1, {("cyclonedds", "bern_15"): 90.0, ("zenoh", "bern_15"): 30.0,
+                   ("cyclonedds", "ge_15_8"): 95.0, ("zenoh", "ge_15_8"): 10.0})
+        scenarii.append(("(i) inversiunea dispare pe fir", s1, h1, "b"))
+
+        s1b, h1b = os.path.join(baza, "ib_sil"), os.path.join(baza, "ib_hil")
+        _banc(s1b, SIL_REF)
+        _banc(h1b, {("cyclonedds", "bern_15"): 90.0, ("zenoh", "bern_15"): 30.0,
+                    ("cyclonedds", "ge_15_8"): 10.0, ("zenoh", "ge_15_8"): 95.0})
+        scenarii.append(("(i-bis) semnatura OGLINDITA", s1b, h1b, "b"))
+
+        s2, h2 = os.path.join(baza, "ii_sil"), os.path.join(baza, "ii_hil")
+        _banc(s2, SIL_REF)
+        for rmw in ("cyclonedds", "zenoh"):
+            for cond in ("bern_15", "ge_15_8"):
+                _fab(h2, rmw, cond, [(989, 0, 0.0)] * 10)
+        _fab(h2, "cyclonedds", "bern_5", [liv(95.0)] * 10)
+        _fab(h2, "zenoh", "bern_5", [liv(20.0)] * 10)
+        scenarii.append(("(ii) perechea moarta pe fir", s2, h2, "c"))
+
+        s4, h4 = os.path.join(baza, "iv_sil"), os.path.join(baza, "iv_hil")
+        _banc(s4, SIL_REF)
+        _banc(h4, {("cyclonedds", "bern_15"): 90.0, ("zenoh", "bern_15"): 30.0,
+                   ("cyclonedds", "ge_15_8"): 95.0, ("zenoh", "ge_15_8"): 40.0})
+        _fab(h4, "cyclonedds", "bern_30", [liv(20.0)] * 10)
+        _fab(h4, "zenoh", "bern_30", [liv(80.0)] * 10)
+        _fab(h4, "cyclonedds", "ideal", [liv(99.0)] * 10)
+        _fab(h4, "zenoh", "ideal", [liv(60.0)] * 10)
+        scenarii.append(("(iv) castigatori diferiti pe conditii NEdefinitorii",
+                         s4, h4, "b"))
+
+        print("-- fixture adversariale C: scenariu -> verdict -> garda care a decis --")
+        for nume, rs, rh, asteptat in scenarii:
+            an = _run(_celule(rs), _celule(rh))
+            vv = an["verdict"]
+            print("   %-46s (%s)  %s" % (nume, vv["cod"], vv["garda"]))
+            ok(vv["cod"] == asteptat, "%s: astept (%s), am primit (%s) -- %s"
+               % (nume, asteptat, vv["cod"], vv["motive"]))
+            if asteptat == "c":
+                txt = " ".join(vv["motive"])
+                ok("bern_15" in txt or "ge_15_8" in txt,
+                   "(ii) raportul nu numeste conditia perechii care a blocat: %s" % txt)
+                ok("moarta" in txt or "n0" in txt,
+                   "(ii) fara urma despre de ce a blocat: %s" % txt)
+
+        # (iv): conditiile din afara perechii NU pot aparea ca dovada
+        an4 = _run(_celule(s4), _celule(h4))
+        dovezi = " ".join(an4["verdict"]["motive"])
+        ok(an4["verdict"]["cod"] != "a", "(iv) NU are voie sa fie (a)")
+        ok("bern_30" not in dovezi and "ideal" not in dovezi,
+           "conditii din afara perechii citate ca dovada: %s" % dovezi)
+
+        # (a) fara --hil ramane (c), si spune de ce
+        an_fh = _run(_celule(s3), None)
+        ok(an_fh["verdict"]["cod"] == "c" and "--hil" in " ".join(an_fh["verdict"]["motive"]),
+           "fara --hil: %s" % an_fh["verdict"])
+
+        # SIL fara inversiune -> nu exista ce testa -> (c)
+        s5, h5 = os.path.join(baza, "v_sil"), os.path.join(baza, "v_hil")
+        _banc(s5, {("cyclonedds", "bern_15"): 90.0, ("zenoh", "bern_15"): 30.0,
+                   ("cyclonedds", "ge_15_8"): 95.0, ("zenoh", "ge_15_8"): 10.0})
+        _banc(h5, SIL_REF)
+        an5 = _run(_celule(s5), _celule(h5))
+        ok(an5["verdict"]["cod"] == "c" and "nu exista inversiune" in
+           " ".join(an5["verdict"]["motive"]), "SIL uniform: %s" % an5["verdict"])
+
+        # ---------------------------------------- 6b. SUITA DE MUTANTI (27 + orbire)
+        # Fixture-urile se construiesc O SINGURA DATA, aici. Daca ar fi construite in
+        # interiorul bateriei, a doua invocare ar arunca FileExistsError si TOTI mutantii
+        # ar parea 'omoriti' -- de o eroare de fisier, nu de o detectie. Exact capcana
+        # pe care o face vizibila distinctia asertie/exceptie.
+        rn = os.path.join(baza, "mut_n0")
+        _fab(rn, "cyclonedds", "bern_15", [liv(80.0)] * 5 + [(989, 0, 0.0)] * 5)
+        _fab(rn, "zenoh", "bern_15", [liv(20.0)] * 10)
+        rn6 = os.path.join(baza, "mut_n06")
+        _fab(rn6, "cyclonedds", "bern_15", [liv(80.0)] * 4 + [(989, 0, 0.0)] * 6)
+        _fab(rn6, "zenoh", "bern_15", [liv(20.0)] * 10)
+        rv = os.path.join(baza, "mut_vii")
+        _fab(rv, "cyclonedds", "bern_15", [liv(80.0)] * 3)
+        _fab(rv, "zenoh", "bern_15", [liv(20.0)] * 3)
+        rv2 = os.path.join(baza, "mut_vii2")
+        _fab(rv2, "cyclonedds", "bern_15", [liv(80.0)] * 2)
+        _fab(rv2, "zenoh", "bern_15", [liv(20.0)] * 2)
+        rp = os.path.join(baza, "mut_podea")
+        _fab(rp, "cyclonedds", "bern_15", [liv(2.0)] * 10)
+        _fab(rp, "zenoh", "bern_15", [liv(1.0)] * 10)
+        rp1 = os.path.join(baza, "mut_podea1")
+        _fab(rp1, "cyclonedds", "bern_15", [liv(95.0)] * 10)
+        _fab(rp1, "zenoh", "bern_15", [liv(2.0)] * 10)
+        # podea intermediara: max = 30 pp, deci PESTE podeaua reala (5) dar SUB una
+        # mutata la 50 -- cazul care distinge cele doua valori de prag
+        rp2 = os.path.join(baza, "mut_podea2")
+        _fab(rp2, "cyclonedds", "bern_15", [liv(30.0)] * 10)
+        _fab(rp2, "zenoh", "bern_15", [liv(2.0)] * 10)
+        # contrast MIC: delta 3 pp, sub pragul de 5 -> trebuie RESPINS
+        rc = os.path.join(baza, "mut_contrast")
+        _fab(rc, "cyclonedds", "bern_15", [liv(53.0)] * 10)
+        _fab(rc, "zenoh", "bern_15", [liv(50.0)] * 10)
+        # sarcina INEGALA: cdds a apucat sa trimita mult mai putin decat zenoh
+        rs_ = os.path.join(baza, "mut_sarcina")
+        _fab(rs_, "cyclonedds", "bern_15", [(300, 270, 5.0)] * 10)
+        _fab(rs_, "zenoh", "bern_15", [(989, 300, 5.0)] * 10)
+
+        def _asertii_c():
+            """Bateria lovita de mutanti. Include EXPLICIT garzile n0 si vii, care pana
+            acum aveau acoperire ZERO -- puteau fi dezactivate complet fara ca nimic sa
+            pice. NU construieste fixture: doar citeste."""
+            # verdictele celor cinci scenarii
+            for nume_s, rs_, rh_, ast_ in scenarii:
+                got = _run(_celule(rs_), _celule(rh_))["verdict"]["cod"]
+                assert got == ast_, (nume_s, ast_, got)
+            # --- GARDA n0, cu frontiera EXACTA (n0/N > 0.5, strict)
+            cn = celula(rn, "cyclonedds", "bern_15", 65536)
+            assert cn["n0"] == 5 and cn["N"] == 10, cn
+            k5 = contrast(cn, celula(rn, "zenoh", "bern_15", 65536), "bern_15")
+            assert k5["utilizabil"] is True, ("n0 exact 5/10 (=prag) trebuie ACCEPTAT",
+                                              k5["motive"])
+            k6 = contrast(celula(rn6, "cyclonedds", "bern_15", 65536),
+                          celula(rn6, "zenoh", "bern_15", 65536), "bern_15")
+            assert k6["utilizabil"] is False and any("n0" in m for m in k6["motive"]), k6
+            # --- GARDA vii, cu frontiera EXACTA (vii < 3)
+            k3 = contrast(celula(rv, "cyclonedds", "bern_15", 65536),
+                          celula(rv, "zenoh", "bern_15", 65536), "bern_15")
+            assert k3["utilizabil"] is True, ("vii exact 3 (=prag) trebuie ACCEPTAT",
+                                              k3["motive"])
+            k2 = contrast(celula(rv2, "cyclonedds", "bern_15", 65536),
+                          celula(rv2, "zenoh", "bern_15", 65536), "bern_15")
+            assert k2["utilizabil"] is False and any("supravietuitori" in m
+                                                     for m in k2["motive"]), k2
+            # --- GARDA podea: AMBELE sub podea, nu doar una
+            kp = contrast(celula(rp, "cyclonedds", "bern_15", 65536),
+                          celula(rp, "zenoh", "bern_15", 65536), "bern_15")
+            assert kp["utilizabil"] is False and any("prabusire" in m
+                                                     for m in kp["motive"]), kp
+            # una singura sub podea NU e prabusire (altfel s-ar invalida chiar
+            # contrastul real ge_15_8, unde zenoh e jos si cdds sus)
+            kp1 = contrast(celula(rp1, "cyclonedds", "bern_15", 65536),
+                           celula(rp1, "zenoh", "bern_15", 65536), "bern_15")
+            assert kp1["utilizabil"] is True, ("o singura celula sub podea NU e "
+                                               "prabusire", kp1["motive"])
+            # --- PRAG_PODEA_PP: 30 vs 2 e PESTE podea (contrastul informeaza)
+            kp2 = contrast(celula(rp2, "cyclonedds", "bern_15", 65536),
+                           celula(rp2, "zenoh", "bern_15", 65536), "bern_15")
+            assert kp2["utilizabil"] is True, ("max=30 pp e peste podeaua de 5",
+                                               kp2["motive"])
+            # --- PRAG_CONTRAST_PP: delta de 3 pp NU sustine un castigator
+            kc = contrast(celula(rc, "cyclonedds", "bern_15", 65536),
+                          celula(rc, "zenoh", "bern_15", 65536), "bern_15")
+            assert kc["utilizabil"] is False and any("sub prag" in m
+                                                     for m in kc["motive"]), kc
+            assert abs(kc["delta_pp"] - 3.0) < 0.5, kc["delta_pp"]
+            # --- PRAG_SARCINA: procentele nu sunt comparabile la sarcina inegala
+            ks = contrast(celula(rs_, "cyclonedds", "bern_15", 65536),
+                          celula(rs_, "zenoh", "bern_15", 65536), "bern_15")
+            assert ks["utilizabil"] is False and any("sarcina" in m
+                                                     for m in ks["motive"]), ks
+            # --- N = n0 + vii, invariant care prinde dubla numarare
+            for c_ in (cn, celula(rn6, "cyclonedds", "bern_15", 65536)):
+                assert c_["N"] == c_["n0"] + c_["vii"], c_
+            # --- semnatura se calculeaza, nu se presupune
+            sem = semnatura_inversiune([contrast(_celule(s3).get(("cyclonedds", c)),
+                                                 _celule(s3).get(("zenoh", c)), c)
+                                        for c in ORDINE])
+            assert sem["castigatori"] == {"bern_15": "zenoh", "ge_15_8": "cdds"}, sem
+            assert sem["forma"] == "INVERSIUNE"
+
+        def _mutanti_c():
+            g = globals()
+            ctr, sem_f, ver = g["contrast"], g["semnatura_inversiune"], g["verdict"]
+
+            def _fara(cuvinte):
+                def f(a_, b_, cond):
+                    c_ = ctr(a_, b_, cond)
+                    m_ = [x for x in c_["motive"]
+                          if not any(w in x for w in cuvinte)]
+                    c_["motive"] = m_
+                    if not m_ and c_["delta_pp"] is not None:
+                        c_["utilizabil"] = True
+                        c_["castigator"] = "cdds" if c_["delta_pp"] > 0 else "zenoh"
+                    return c_
+                return f
+
+            def podea_min(a_, b_, cond):
+                c_ = ctr(a_, b_, cond)
+                if (c_["liv_cdds"] is not None and c_["liv_zenoh"] is not None
+                        and min(c_["liv_cdds"], c_["liv_zenoh"]) < PRAG_PODEA_PP
+                        and not any("prabusire" in x for x in c_["motive"])):
+                    c_["motive"].append("prabusire (mutant)")
+                    c_["utilizabil"] = False
+                return c_
+
+            def sem_toate(contraste, pereche=None):
+                return sem_f(contraste, tuple(c["cond"] for c in contraste))
+
+            def sem_alta_pereche(contraste, pereche=None):
+                return sem_f(contraste, ("bern_5", "ge_15_8"))
+
+            def ver_inversat(a_, b_, c_):
+                v_ = ver(a_, b_, c_)
+                if v_["cod"] == "a":
+                    v_["cod"], v_["text"] = "b", VERDICT_TEXT["b"]
+                elif v_["cod"] == "b":
+                    v_["cod"], v_["text"] = "a", VERDICT_TEXT["a"]
+                return v_
+
+            return [
+                ("v1 garda n0 DEZACTIVATA", "contrast", _fara(["n0"])),
+                ("v1 PRAG_N0_FRACT 0.5 -> 0.99", "PRAG_N0_FRACT", 0.99),
+                ("v1 PRAG_N0_FRACT 0.5 -> 0.0", "PRAG_N0_FRACT", 0.0),
+                ("v1 garda supravietuitori DEZACTIVATA", "contrast",
+                 _fara(["supravietuitori"])),
+                ("v1 PRAG_VII_MIN 3 -> 1", "PRAG_VII_MIN", 1),
+                ("v1 PRAG_VII_MIN 3 -> 5", "PRAG_VII_MIN", 5),
+                ("v1 garda podea DEZACTIVATA", "contrast", _fara(["prabusire"])),
+                ("v1 garda podea: max -> min", "contrast", podea_min),
+                ("v1 PRAG_PODEA_PP 5.0 -> 50.0", "PRAG_PODEA_PP", 50.0),
+                ("v1 PRAG_CONTRAST_PP 5.0 -> 0.0", "PRAG_CONTRAST_PP", 0.0),
+                ("v1 PRAG_CONTRAST_PP 5.0 -> 60.0", "PRAG_CONTRAST_PP", 60.0),
+                ("v1 garda de contrast DEZACTIVATA", "contrast", _fara(["sub prag"])),
+                ("v1 PRAG_SARCINA 1.25 -> 100.0", "PRAG_SARCINA", 100.0),
+                ("v1 verdictele (a) si (b) inversate", "verdict", ver_inversat),
+                ("NOU orbire la pereche: se folosesc TOATE conditiile",
+                 "semnatura_inversiune", sem_toate),
+                ("NOU orbire la pereche: alta pereche definitorie",
+                 "semnatura_inversiune", sem_alta_pereche),
+            ]
+
+        g_c = globals()
+        supr_c, cum_c = [], {}
+        mut_c = _mutanti_c()
+        for nume, tinta, inloc in mut_c:
+            orig = g_c[tinta]
+            g_c[tinta] = inloc
+            try:
+                _asertii_c()
+            except AssertionError:
+                cum_c[nume] = "asertie"
+            except Exception as e:
+                cum_c[nume] = "exceptie(%s)" % type(e).__name__
+            else:
+                supr_c.append(nume)
+            finally:
+                g_c[tinta] = orig
+        pa = sum(1 for x in cum_c.values() if x == "asertie")
+        print("-- suita de mutanti C (regresie numita) --")
+        print("   injectati=%d  omorati=%d (prin asertie %d, prin exceptie %d)  "
+              "supravietuitori=%d" % (len(mut_c), len(cum_c), pa, len(cum_c) - pa,
+                                      len(supr_c)))
+        for nume, _t, _i in mut_c:
+            print("     %-52s %s" % (nume, cum_c.get(nume, "SUPRAVIETUITOR")))
+        print("   INEXPRIMABILI din cei 27 (tinta a disparut odata cu stare_inversiune):")
+        for x in INEXPRIMABILI_C:
+            print("     %s" % x)
+        ok(not supr_c, "mutanti C supravietuitori: %s" % supr_c)
 
         # ------------------------------------- 7. celule fara pereche (ideal doar pe HIL)
         hi = os.path.join(baza, "ideal_hil")
@@ -782,7 +1064,7 @@ def _selftest():
         _fab(hi, "zenoh", "ideal", [liv(29.5)] * 10)
         _fab(hi, "cyclonedds", "bern_15", [liv(0.5)] * 10)
         _fab(hi, "zenoh", "bern_15", [liv(2.2)] * 10)
-        cs, ch = _celule(sa), _celule(hi)
+        cs, ch = _celule(s3), _celule(hi)
         conds = sorted(set(k[1] for k in cs) | set(k[1] for k in ch), key=_cheie_ordine)
         ok(conds == ["ideal", "bern_15", "ge_15_8"], "uniunea conditiilor: %s" % conds)
         rr = randuri_tabel(cs, ch, conds, 65536)
@@ -791,21 +1073,24 @@ def _selftest():
         ok(not ideal[2]["prezenta"] and ideal[3]["prezenta"],
            "'ideal' trebuie sa apara cu SIL absent, nu sa dispara")
         md = md_tabel(rr, cu_hil=True)
-        ok("| ideal | 65536 | cdds |" in md and "celula ABSENTA" not in md.split("\n")[0],
-           "randul ideal lipseste din markdown")
+        ok("| ideal | 65536 | cdds |" in md, "randul ideal lipseste din markdown")
+        # Revizia a semnalat ca marcajul de celula absenta nu apare NICIODATA in modul
+        # cu_hil (md_tabel nu chema _nota_celula pe acea ramura), deci vechea aserttie
+        # 'nu apare pe primul rand' era vida de doua ori. Acum se cere sa APARA.
+        ok("ABSENTA" in md, "celula absenta trebuie MARCATA in tabelul cu HIL, nu tacuta")
         ok(md.count("| ge_15_8 |") == 2, "ge_15_8 trebuie sa apara pe ambele RMW")
 
         # --------------------------------------------------- 8. delta SIL-vs-HIL in tabel
-        rr2 = randuri_tabel(_celule(sa), _celule(hb), ["bern_15", "ge_15_8"], 65536)
+        rr2 = randuri_tabel(_celule(s3), _celule(h1), ["bern_15", "ge_15_8"], 65536)
         md2 = md_tabel(rr2, cu_hil=True)
         # cdds/bern_15: SIL 30% -> HIL 90% => +60.0 pp
         linie = [l for l in md2.split("\n") if l.startswith("| bern_15 | 65536 | cdds |")][0]
         ok("+60.0" in linie, "delta livrare gresita: %s" % linie)
 
         # ------------------------------------------------- 9. detectia payload-ului
-        ok(detecteaza_payloaduri(sa) == [65536], "detectie payload: %s"
-           % detecteaza_payloaduri(sa))
-        cgol = celula(sa, "cyclonedds", "bern_15", 4096)
+        ok(detecteaza_payloaduri(s3) == [65536], "detectie payload: %s"
+           % detecteaza_payloaduri(s3))
+        cgol = celula(s3, "cyclonedds", "bern_15", 4096)
         ok(cgol["N"] == 0 and not cgol["prezenta"],
            "payload inexistent trebuie sa dea celula ABSENTA, nu exceptie")
 
@@ -843,10 +1128,10 @@ def _selftest():
         ok(verifica_tinta(baza) == os.path.abspath(baza), "tinta din tmp refuzata")
 
         # ------------------------------------------- 12. raportul se construieste intreg
-        meta = {"sil": sa, "hil": None, "payload": 65536, "rtt_mod": "p50med",
+        meta = {"sil": s3, "hil": None, "payload": 65536, "rtt_mod": "p50med",
                 "conditii": ["bern_15", "ge_15_8"], "avert_sil": [], "avert_hil": []}
-        an = _run(_celule(sa), None)
-        rr3 = randuri_tabel(_celule(sa), None, ["bern_15", "ge_15_8"], 65536)
+        an = _run(_celule(s3), None)
+        rr3 = randuri_tabel(_celule(s3), None, ["bern_15", "ge_15_8"], 65536)
         txt = md_raport(meta, rr3, an, {}, [])
         ok("PARTEA HIL LIPSESTE" in txt, "modul fara HIL nu e anuntat")
         ok("**REZULTAT: (c)" in txt, "verdictul lipseste din raport")
