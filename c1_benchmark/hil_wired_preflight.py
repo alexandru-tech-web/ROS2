@@ -81,7 +81,33 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from bench_core import CONDITIONS, netem_cmd
 
-VERSIUNE = "2.0"
+# ---------------------------------------------------------------------------
+# CUSATURI CUNOSCUTE PENTRU ZIUA DE BANC (checklist Etapa 2)
+#
+# 1. EEE PE RASPBERRY PI. Unele drivere nu expun deloc EEE ('ethtool --show-eee'
+#    intoarce 'Operation not supported'), altele raporteaza intr-un format pe care
+#    parserul de aici nu il recunoaste. Semantica portii e deliberat asimetrica:
+#    FAIL doar cand EEE e DEMONSTRABIL activ; nesuportat, necunoscut si
+#    'enabled - inactive' trec, fiecare cu nota in raport. O poarta care pica pe
+#    'nu stiu' ar opri bancul din motivul gresit, si ar opri chiar capatul M2.
+#    REZERVA declarata: 'enabled - inactive' inseamna EEE negociat dar link-ul nu e
+#    momentan in LPI; poate intra in LPI in mijlocul unei masuratori. Nota exista
+#    tocmai ca sa poata fi confruntata ulterior cu o anomalie de latenta.
+#
+# 2. PARSERUL DE iperf3 NU A VAZUT NICIODATA BINARUL REAL. Intervalele, retransmisiile
+#    si perechea sent/recv sunt validate pe iesiri JSON INREGISTRATE, fiindca iperf3 nu
+#    e instalat pe masina de dezvoltare. Prima rulare reala a preflightului, la Etapa 2,
+#    probeaza cusatura in cateva minute -- daca schema difera, P4 va spune 'JSON fara
+#    end.sum_sent/end.sum_received' sau 'iperf3 nu a raportat intervale', nu va da o
+#    cifra gresita. De verificat atunci: 'iperf3 --version' pe ambele capete.
+#
+# 3. BIDIRECTIONALITATEA e testata ca doua rulari secventiale (una pe sens), nu
+#    simultan ('--bidir'), fiindca schema JSON a lui --bidir nu a putut fi verificata
+#    aici. Se certifica sanatatea legaturii pe fiecare sens la saturatie, nu
+#    full-duplex sub sarcina simultana.
+# ---------------------------------------------------------------------------
+
+VERSIUNE = "2.1"
 
 # PRAGURI DE SANATATE, RELATIVE LA CE GARANTEAZA P1 (gigabit negociat).
 # Pana la v2.0 pragul era 105 Mbit/s, derivat din bugetul campaniei (52.4 agregat x2).
@@ -228,8 +254,17 @@ def parse_eee(text, rc=0):
     'EEE status: enabled - inactive' (sau 'disabled'). 'suportat=None' inseamna
     NECUNOSCUT (rc 0 dar fara linie de status) -- se noteaza, nu se ghiceste."""
     t = text or ""
-    out = {"suportat": None, "status": None, "rc": rc,
+    out = {"suportat": None, "status": None, "activ": None, "rc": rc,
            "raw_head": t.strip().splitlines()[0] if t.strip() else ""}
+    # Unele versiuni de ethtool raporteaza starea pe o linie separata 'Active: yes/no'
+    # in loc de (sau pe langa) 'EEE status: enabled - active'. Ambele formate se citesc;
+    # daca lipseste, campul ramane None = NECUNOSCUT, nu False.
+    for ln in t.splitlines():
+        z = ln.strip().lower()
+        if z.startswith("active:"):
+            v = z.split(":", 1)[1].strip()
+            out["activ"] = True if v.startswith("yes") else (
+                False if v.startswith("no") else None)
     if "not supported" in t.lower():
         out["suportat"] = False
         return out
@@ -375,20 +410,62 @@ def verdict_mediu_curat(qdiscuri):
     return (not motive, motive)
 
 
+def eee_este_activ(eee):
+    """True doar cand EEE e DEMONSTRABIL activ pe link. None-ul nu se converteste in
+    False nicaieri: 'nu stiu' si 'nu' sunt lucruri diferite."""
+    if not eee:
+        return None
+    if eee.get("activ") is not None:            # formatul cu 'Active: yes/no'
+        return eee["activ"]
+    st = (eee.get("status") or "").strip().lower()
+    if not st:
+        return None
+    if "inactive" in st:                        # 'enabled - inactive' NU e activ
+        return False
+    if "active" in st:
+        return True
+    if st.startswith("disabled"):
+        return False
+    return None
+
+
 def verdict_eee(eee):
-    """EEE trebuie DOVEDIT oprit. 'enabled - inactive' nu e oprit: se poate activa in
-    timpul unei masuratori si adauga latenta de trezire. NEsuportat = trecut, si se
-    noteaza; NECUNOSCUT = fail, fiindca nu se poate dovedi nimic."""
+    """Verdictul P3, cu semantica ceruta pentru ziua de banc.
+
+    FAIL doar cand EEE e DEMONSTRABIL ACTIV pe link. Motivul e practic: pe Raspberry
+    Pi unele drivere nu expun deloc EEE ('Operation not supported'), iar altele
+    raporteaza intr-un format pe care parserul nu il recunoaste. O poarta care pica pe
+    'nu stiu' ar opri bancul din motivul gresit -- si ar fi oprit chiar capatul M2.
+
+      nesuportat        -> TRECE, cu nota
+      necunoscut        -> TRECE, cu nota (nu se poate dovedi nimic, nici intr-un sens)
+      disabled          -> TRECE
+      enabled-inactive  -> TRECE, cu nota TARE (vezi rezerva de mai jos)
+      active / Active:yes -> FAIL
+
+    REZERVA DE METODA, declarata ca sa nu fie descoperita in date: 'enabled - inactive'
+    inseamna EEE negociat dar link-ul nu e momentan in LPI. Poate intra in LPI in
+    mijlocul unei masuratori si adauga latenta de trezire -- exact in celulele cu
+    trafic intermitent, adica regimul degradat pe care il studiaza C2. Nota apare in
+    raport tocmai ca sa poata fi confruntata ulterior cu o anomalie de latenta.
+    """
     if eee is None:
-        return (False, ["EEE necitit"])
+        return (True, [], ["EEE necitit -- nu s-a putut verifica"])
     if eee.get("suportat") is False:
-        return (True, [])
-    if eee.get("suportat") is None:
-        return (False, ["EEE in stare NECUNOSCUTA (rc=%s, '%s'): nu se poate dovedi "
-                        "ca e oprit" % (eee.get("rc"), eee.get("raw_head"))])
-    if not eee_este_oprit(eee.get("status")):
-        return (False, ["EEE status='%s' -- se cere 'disabled'" % eee.get("status")])
-    return (True, [])
+        return (True, [], ["EEE nesuportat de driver -- nimic de oprit"])
+    activ = eee_este_activ(eee)
+    if activ is True:
+        return (False, ["EEE este ACTIV pe link (status='%s', Active=%s)"
+                        % (eee.get("status"), eee.get("activ"))], [])
+    if activ is None:
+        return (True, [], ["EEE in stare NECUNOSCUTA (rc=%s, '%s') -- poarta trece, "
+                           "dar starea NU e dovedita"
+                           % (eee.get("rc"), eee.get("raw_head"))])
+    st = (eee.get("status") or "").strip().lower()
+    if st.startswith("disabled"):
+        return (True, [], [])
+    return (True, [], ["EEE e pornit dar inactiv (status='%s'): poate intra in LPI in "
+                       "timpul unei masuratori" % eee.get("status")])
 
 
 def _fract_retransmisii(r, mss=MSS_IMPLICIT):
@@ -735,7 +812,8 @@ def poarta3_eee(ex, a):
             dupa = parse_eee(out1 + "\n" + err1, rc1)
             m["rc_set"] = rc_s
             m["status_dupa"] = dupa["status"]
-            ok_e, mot_e = verdict_eee(dupa)
+            ok_e, mot_e, note_e = verdict_eee(dupa)
+            note += ["%s (%s): %s" % (iface, host, x) for x in note_e]
             if not ok_e:
                 m["motiv"] = "%s (%s): %s (rc_set=%s)" % (iface, host,
                                                           "; ".join(mot_e), rc_s)
@@ -1186,10 +1264,15 @@ RUTA_WIFI = {"iface": "wlp4s0", "src": "192.168.1.14", "via": "192.168.1.1", "ra
 QD_CURAT = {"kind": "noqueue", "limit": None, "linie": "qdisc noqueue 0: root"}
 QD_NETEM = {"kind": "netem", "limit": 1000,
             "linie": "qdisc netem 8001: root limit 1000 delay 200ms"}
-EEE_OFF = {"suportat": True, "status": "disabled", "rc": 0, "raw_head": ""}
-EEE_ON = {"suportat": True, "status": "enabled - inactive", "rc": 0, "raw_head": ""}
-EEE_NESUP = {"suportat": False, "status": None, "rc": 1, "raw_head": ""}
-EEE_NECUNOSCUT = {"suportat": None, "status": None, "rc": 0, "raw_head": ""}
+EEE_OFF = {"activ": None, "suportat": True, "status": "disabled", "rc": 0, "raw_head": ""}
+EEE_ON = {"activ": None, "suportat": True, "status": "enabled - inactive", "rc": 0, "raw_head": ""}
+EEE_NESUP = {"activ": None, "suportat": False, "status": None, "rc": 1, "raw_head": ""}
+EEE_NECUNOSCUT = {"suportat": None, "status": None, "activ": None, "rc": 0,
+                  "raw_head": "EEE settings for end0:"}
+EEE_ACTIV = {"suportat": True, "status": "enabled - active", "activ": None, "rc": 0,
+             "raw_head": ""}
+EEE_ACTIV_CAMP = {"suportat": True, "status": "enabled", "activ": True, "rc": 0,
+                  "raw_head": ""}
 
 
 def _nucleu_asertii():
@@ -1214,10 +1297,17 @@ def _nucleu_asertii():
     assert verdict_offloads(parse_ethtool_features(FIX_ETHTOOL_K_FARA_LRO))[0] is False
 
     # --- P3 EEE
+    # Semantica de banc: FAIL doar cand EEE e DEMONSTRABIL activ. Cazurile 'nesuportat'
+    # si 'necunoscut' TREBUIE sa treaca -- altfel poarta opreste bancul pe Raspberry Pi
+    # din motivul gresit. Notele exista ca sa ramana urma in raport.
     assert verdict_eee(EEE_OFF)[0] is True
-    assert verdict_eee(EEE_NESUP)[0] is True
-    assert verdict_eee(EEE_ON)[0] is False
-    assert verdict_eee(EEE_NECUNOSCUT)[0] is False
+    assert verdict_eee(EEE_NESUP)[0] is True and verdict_eee(EEE_NESUP)[2]
+    assert verdict_eee(EEE_NECUNOSCUT)[0] is True and verdict_eee(EEE_NECUNOSCUT)[2]
+    assert verdict_eee(EEE_ON)[0] is True and verdict_eee(EEE_ON)[2]      # inactiv + nota
+    assert verdict_eee(EEE_ACTIV)[0] is False
+    assert verdict_eee(EEE_ACTIV_CAMP)[0] is False
+    assert eee_este_activ(EEE_ON) is False and eee_este_activ(EEE_ACTIV) is True
+    assert eee_este_activ(EEE_NECUNOSCUT) is None
 
     # --- MTU
     assert verdict_mtu(1500)[0] is True
@@ -1363,15 +1453,25 @@ def _mutanti():
     def mediu_doar_avertisment(qd):
         return (True, [])
 
-    def eee_inactive_e_off(eee):
-        if eee and eee.get("status", "").startswith("enabled"):
-            return (True, [])
+    def eee_activ_acceptat(eee):
+        return (True, [], [])
+
+    def eee_nesuportat_pica(eee):
+        # REGRESIA CARE AR OPRI BANCUL PE Pi: driverul nu expune EEE si poarta pica
+        if eee and eee.get("suportat") is False:
+            return (False, ["nesuportat"], [])
         return ve(eee)
 
-    def eee_necunoscut_trece(eee):
+    def eee_necunoscut_pica(eee):
+        # a doua regresie Pi-safe: format nerecunoscut tratat ca esec
         if eee and eee.get("suportat") is None:
-            return (True, [])
+            return (False, ["necunoscut"], [])
         return ve(eee)
+
+    def eee_fara_note(eee):
+        # notele dispar: 'enabled - inactive' ar trece FARA urma in raport
+        ok, mot, _ = ve(eee)
+        return (ok, mot, [])
 
     def mtu_orice(mtu, cerut=1500):
         return (True, [])
@@ -1403,8 +1503,12 @@ def _mutanti():
         m("v1 P2: 'on [fixed]' acceptat ca off", "verdict_offloads", offload_fixed_e_off),
         m("v1 P5: limita nu se mai compara (doar kind)", "verdict_tc_limit", tc_doar_kind),
         m("v1 P5: limita ceruta 100000 -> 1000", "verdict_tc_limit", tc_limita_1000),
-        m("NOU P3: 'enabled - inactive' acceptat ca off", "verdict_eee", eee_inactive_e_off),
-        m("NOU P3: EEE necunoscut trece", "verdict_eee", eee_necunoscut_trece),
+        m("NOU P3: EEE ACTIV acceptat ca oprit", "verdict_eee", eee_activ_acceptat),
+        m("NOU P3: EEE nesuportat pica (ar opri bancul pe Pi)", "verdict_eee",
+          eee_nesuportat_pica),
+        m("NOU P3: EEE necunoscut pica (ar opri bancul pe Pi)", "verdict_eee",
+          eee_necunoscut_pica),
+        m("NOU P3: notele EEE dispar din raport", "verdict_eee", eee_fara_note),
         m("NOU P5: MTU-ul nu mai conteaza", "verdict_mtu", mtu_orice),
     ]
 
@@ -1494,11 +1598,23 @@ def _demonstratie_banc_rupt():
     dintre masuratoare si decizie."""
     rezultate = {}
 
-    # --- P3: EEE pornit
+    # --- P3: EEE ACTIV pe link -> singurul caz de FAIL
     ex = _ExecutorFals([("--show-eee", (0, "EEE settings for enp2s0:\n"
-                                          "\tEEE status: enabled - inactive\n", ""))])
+                                          "\tEEE status: enabled - active\n", ""))])
     ok, mesaj, _ = poarta3_eee(ex, _Args())
-    rezultate["P3 EEE pornit"] = (ok, mesaj)
+    rezultate["P3 EEE ACTIV pe link"] = (ok, mesaj)
+
+    # --- P3: Raspberry Pi fara EEE -> TREBUIE sa treaca (control pozitiv Pi)
+    ex = _ExecutorFals([("--show-eee", (1, "", "netlink error: Operation not "
+                                             "supported\n"))])
+    ok, mesaj, _ = poarta3_eee(ex, _Args())
+    rezultate["P3 Pi fara EEE (control pozitiv)"] = (ok, mesaj)
+
+    # --- P3: format nerecunoscut -> trece, dar cu urma in raport (control pozitiv Pi)
+    ex = _ExecutorFals([("--show-eee", (0, "EEE settings for end0:\n\t(alt format)\n",
+                                        ""))])
+    ok, mesaj, _ = poarta3_eee(ex, _Args())
+    rezultate["P3 format nerecunoscut (control pozitiv)"] = (ok, mesaj)
 
     # --- P4: peer pe alt subnet (ruta iese pe Wi-Fi)
     ex = _ExecutorFals([("ip route get",
@@ -1795,8 +1911,12 @@ def _selftest():
          "motivul de MTU trebuie sa apara explicit")
     _ver(any("intervale de 1 s sub prag" in m for _, m in dem.values()),
          "prabusirea trebuie raportata pe INTERVALE, nu pe medie")
-    _ver(any("EEE" in m for _, m in dem.values()),
-         "motivul de EEE trebuie sa apara explicit")
+    _ver(any("EEE este ACTIV" in m for _, m in dem.values()),
+         "FAIL-ul de EEE trebuie sa spuna ca e ACTIV, nu doar 'pornit'")
+    _ver(any("nesuportat" in m for _, m in dem.values()),
+         "cazul Pi fara EEE trebuie sa lase o nota in raport, nu sa taca")
+    _ver(any("NECUNOSCUTA" in m for _, m in dem.values()),
+         "formatul nerecunoscut trebuie notat, nu trecut in tacere")
 
     print("SELFTEST hil_wired_preflight OK (%d verificari, %d mutanti omoriti %d/%d)."
           % (_VERIF[0], om, om, inj))
