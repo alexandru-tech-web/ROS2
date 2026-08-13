@@ -92,12 +92,13 @@ INEXPRIMABILI_C = [
     "chiar defectul critic C1 al reviziei, nu o regula de aparat",
     "blocajele copiate doar pe ramura NEDECIS -- verdictul le pune acum pe orice ramura "
     "de (c), iar fixture-ul (ii) cere explicit urma in raport",
-    "frontiere in virgula mobila pe delta (5.0 exact) -- raman cunoscute si ACCEPTATE: "
-    "rezultatul pe prag depinde de numitor (7 vs 4 din 60 da 4.9999...), dar o celula "
-    "care sta exact pe prag nu poate sustine oricum un verdict stiintific",
-    "verifica_tinta ocolita prin symlink (~/PHD/DATE) -- NEREPARAT, documentat: garda "
-    "foloseste abspath, nu realpath; arhivele sunt aparate de permisiuni (dr-xr-xr-x), "
-    "nu de garda",
+    "frontiere in virgula mobila pe delta (5.0 exact) -- REPARAT in micro-runda C2: "
+    "comparatiile trec prin prag_atins()/prag_depasit(), cu toleranta. Verificat: "
+    "sent=60 cu 7 vs 4 (delta 4.99999999999999911) si sent=140 cu 13 vs 6 (delta "
+    "5.00000000000000089) dau ACUM acelasi raspuns; inainte dadeau raspunsuri opuse",
+    "verifica_tinta ocolita prin symlink (~/PHD/DATE) -- REPARAT in micro-runda C2: "
+    "abspath -> realpath. Verificat: ~/PHD/DATE, ~/PHD/DATE/C2_SIL64_20260719 si "
+    "~/PHD/DATE/C2_SILCOMBO_20260719 sunt acum REFUZATE, iar ANALIZA_C2 ramane permis",
 ]
 MODURI_RTT = ("p50med", "pooled")
 
@@ -283,6 +284,29 @@ def celule_arhiva(root, payload, mod_rtt="p50med"):
 
 
 # ------------------------------------------------------- contrast intre RMW si inversiune
+TOLERANTA_PRAG = 1e-9
+
+
+def prag_atins(valoare, prag, tol=TOLERANTA_PRAG):
+    """valoare >= prag, cu toleranta la reprezentarea binara. FUNCTIE PURA.
+
+    Extrasa pentru doua motive deodata. Unul de corectitudine: revizia a aratat ca
+    rezultatul PE PRAG depinde de numitor. La sent=60 cu recv 7 vs 4, delta e matematic
+    EXACT 5.0 pp, dar in virgula mobila iese 4.99999999999999911, deci contrastul era
+    RESPINS -- iar raportul tiparea, cu fata seriosa, 'diferenta sub prag: abs(delta)=5.00
+    < 5.0 pp'. La sent=140 cu 13 vs 6, tot exact 5.0 matematic, iese 5.00000000000000088
+    si era ACCEPTAT. Aceeasi celula, doua verdicte, dupa cati octeti s-au trimis.
+    Al doilea, de testabilitate: cu comparatia intr-o functie, cei patru mutanti de
+    frontiera ai reviziei (n0 > -> >=, delta < -> <=, vii < -> <=, sarcina > -> >=) devin
+    exprimabili ca patch pe ea, in loc sa fie inline si de neatins."""
+    return (valoare - prag) >= -tol
+
+
+def prag_depasit(valoare, prag, tol=TOLERANTA_PRAG):
+    """valoare > prag, strict, cu aceeasi toleranta: pe prag NU se depaseste."""
+    return (valoare - prag) > tol
+
+
 def contrast(cel_cdds, cel_zenoh, cond):
     """Contrastul CycloneDDS-minus-Zenoh la o conditie, cu TOATE garzile explicite.
     'utilizabil' False => contrastul nu poate sustine niciun verdict; 'motive' spune de ce."""
@@ -297,10 +321,10 @@ def contrast(cel_cdds, cel_zenoh, cond):
             m.append("celula complet moarta (%s): n0=%d/%d, fara mediana"
                      % (nume, cel["n0"], cel["N"]))
             continue
-        if cel["N"] and cel["n0"] / float(cel["N"]) > PRAG_N0_FRACT:
+        if cel["N"] and prag_depasit(cel["n0"] / float(cel["N"]), PRAG_N0_FRACT):
             m.append("prea multi n0 (%s): %d/%d > %.0f%%"
                      % (nume, cel["n0"], cel["N"], 100.0 * PRAG_N0_FRACT))
-        if cel["vii"] < PRAG_VII_MIN:
+        if not prag_atins(cel["vii"], PRAG_VII_MIN):
             m.append("prea putini supravietuitori (%s): %d < %d"
                      % (nume, cel["vii"], PRAG_VII_MIN))
         if cel["liv_med"] is None:
@@ -318,15 +342,15 @@ def contrast(cel_cdds, cel_zenoh, cond):
     if sc and sz:
         rap = max(sc, sz) / float(min(sc, sz))
         c["raport_sarcina"] = rap
-        if rap > PRAG_SARCINA:
+        if prag_depasit(rap, PRAG_SARCINA):
             m.append("sarcina oferita inegala: sent med cdds=%d vs zenoh=%d (raport %.2f > "
                      "%.2f), procentele nu sunt direct comparabile"
                      % (round(sc), round(sz), rap, PRAG_SARCINA))
-    if max(c["liv_cdds"], c["liv_zenoh"]) < PRAG_PODEA_PP:
+    if not prag_atins(max(c["liv_cdds"], c["liv_zenoh"]), PRAG_PODEA_PP):
         m.append("prabusire: ambele mediane sub podeaua de %.1f pp (%.2f vs %.2f) -- "
                  "contrastul compara doua feluri de a muri"
                  % (PRAG_PODEA_PP, c["liv_cdds"], c["liv_zenoh"]))
-    if abs(c["delta_pp"]) < PRAG_CONTRAST_PP:
+    if not prag_atins(abs(c["delta_pp"]), PRAG_CONTRAST_PP):
         m.append("diferenta sub prag: abs(delta)=%.2f < %.1f pp"
                  % (abs(c["delta_pp"]), PRAG_CONTRAST_PP))
     if not m:
@@ -689,8 +713,8 @@ def json_raport(meta, randuri, an, excluse, anomalii):
 def verifica_tinta(out_dir):
     """Arhivele de campanie sunt SIGILATE: singura tinta permisa sub ~/DATE_CAMPANIE este
     ~/DATE_CAMPANIE/ANALIZA_C2/. Orice alta cale de sub DATE_CAMPANIE e refuzata."""
-    a = os.path.abspath(os.path.expanduser(out_dir))
-    d, p = os.path.abspath(DATE), os.path.abspath(OUT_DEFAULT)
+    a = os.path.realpath(os.path.expanduser(out_dir))
+    d, p = os.path.realpath(DATE), os.path.realpath(OUT_DEFAULT)
     sub_date = a == d or a.startswith(d + os.sep)
     sub_permis = a == p or a.startswith(p + os.sep)
     if sub_date and not sub_permis:
@@ -894,6 +918,16 @@ def _selftest():
         _fab(rp1, "zenoh", "bern_15", [liv(2.0)] * 10)
         # podea intermediara: max = 30 pp, deci PESTE podeaua reala (5) dar SUB una
         # mutata la 50 -- cazul care distinge cele doua valori de prag
+        # fixture cu VARIATIE, ca liv_min != liv_max si bimodal sa fie True: fara ele,
+        # mutantii pe acele campuri ar fi ECHIVALENTI si ar trebui declarati ca atare
+        rvar = os.path.join(baza, "mut_variat")
+        _fab(rvar, "cyclonedds", "bern_15",
+             [(989, 200, 2.0), (989, 400, 2.0), (989, 600, 2.0),
+              (989, 800, 5000.0), (989, 900, 5000.0)])
+        _fab(rvar, "zenoh", "bern_15", [liv(10.0)] * 5)
+        rn0 = os.path.join(baza, "mut_efect")
+        _fab(rn0, "cyclonedds", "bern_15",
+             [liv(80.0)] * 6 + [(989, 0, 0.0)] * 4)
         rp2 = os.path.join(baza, "mut_podea2")
         _fab(rp2, "cyclonedds", "bern_15", [liv(30.0)] * 10)
         _fab(rp2, "zenoh", "bern_15", [liv(2.0)] * 10)
@@ -994,6 +1028,51 @@ def _selftest():
                     c_["utilizabil"] = False
                 return c_
 
+            cel_f = g["celula"]
+            pa_, pd_ = g["prag_atins"], g["prag_depasit"]
+
+            # --- cele patru operatoare de FRONTIERA din revizie, acum exprimabile
+            def atins_strict(v, prag, tol=TOLERANTA_PRAG):
+                return (v - prag) > tol          # '>=' devine '>'
+
+            def depasit_larg(v, prag, tol=TOLERANTA_PRAG):
+                return (v - prag) >= -tol        # '>' devine '>='
+
+            # --- mutanti pe celula(): statistici calculate gresit
+            def cel_zerouri_in_mediana(root, rmw, cond, payload, mod_rtt="p50med"):
+                c_ = cel_f(root, rmw, cond, payload, mod_rtt)
+                if c_.get("prezenta") and c_.get("n0"):
+                    import statistics as _st
+                    liv = [0.0] * c_["n0"] + ([c_["liv_med"]] * c_["vii"]
+                                              if c_["liv_med"] is not None else [])
+                    if liv:
+                        c_["liv_med"] = _st.median(liv)
+                return c_
+
+            def cel_fara_conditionare(root, rmw, cond, payload, mod_rtt="p50med"):
+                c_ = cel_f(root, rmw, cond, payload, mod_rtt)
+                if c_.get("liv_med") is not None:
+                    c_["liv_efect"] = c_["liv_med"]        # (1-n0/N) pierdut
+                return c_
+
+            def cel_dubla_numarare(root, rmw, cond, payload, mod_rtt="p50med"):
+                c_ = cel_f(root, rmw, cond, payload, mod_rtt)
+                if c_.get("prezenta") and c_.get("liv_med") is not None:
+                    # rulari VII cu livrare mica numarate SI ca morti: N != n0 + vii
+                    c_["n0"] = c_["n0"] + 1
+                return c_
+
+            def cel_bimodal_off(root, rmw, cond, payload, mod_rtt="p50med"):
+                c_ = cel_f(root, rmw, cond, payload, mod_rtt)
+                c_["bimodal"] = False
+                return c_
+
+            def cel_minmax_inversat(root, rmw, cond, payload, mod_rtt="p50med"):
+                c_ = cel_f(root, rmw, cond, payload, mod_rtt)
+                if c_.get("liv_min") is not None and c_.get("liv_max") is not None:
+                    c_["liv_min"], c_["liv_max"] = c_["liv_max"], c_["liv_min"]
+                return c_
+
             def sem_toate(contraste, pereche=None):
                 return sem_f(contraste, tuple(c["cond"] for c in contraste))
 
@@ -1010,6 +1089,16 @@ def _selftest():
 
             return [
                 ("v1 garda n0 DEZACTIVATA", "contrast", _fara(["n0"])),
+                ("v1 frontiera: '>=' devine '>' (prag_atins)", "prag_atins",
+                 atins_strict),
+                ("v1 frontiera: '>' devine '>=' (prag_depasit)", "prag_depasit",
+                 depasit_larg),
+                ("v1 zerourile intra in mediana", "celula", cel_zerouri_in_mediana),
+                ("v1 liv_efect pierde conditionarea (1-n0/N)", "celula",
+                 cel_fara_conditionare),
+                ("v1 dubla numarare: N != n0 + vii", "celula", cel_dubla_numarare),
+                ("v1 marcajul BIMODAL dezactivat", "celula", cel_bimodal_off),
+                ("v1 liv_min / liv_max inversate", "celula", cel_minmax_inversat),
                 ("v1 PRAG_N0_FRACT 0.5 -> 0.99", "PRAG_N0_FRACT", 0.99),
                 ("v1 PRAG_N0_FRACT 0.5 -> 0.0", "PRAG_N0_FRACT", 0.0),
                 ("v1 garda supravietuitori DEZACTIVATA", "contrast",
@@ -1038,7 +1127,8 @@ def _selftest():
             g_c[tinta] = inloc
             try:
                 _asertii_c()
-            except AssertionError:
+            except AssertionError as e:
+                prim = str(e).splitlines()[0] if str(e) else "(fara mesaj)"
                 cum_c[nume] = "asertie"
             except Exception as e:
                 cum_c[nume] = "exceptie(%s)" % type(e).__name__
@@ -1046,11 +1136,25 @@ def _selftest():
                 supr_c.append(nume)
             finally:
                 g_c[tinta] = orig
-        pa = sum(1 for x in cum_c.values() if x == "asertie")
+        # ATRIBUIRE: un mutant e 'confirmat' doar daca aserttia care l-a prins e chiar
+        # cea care apara proprietatea atacata. Cei cinci de pe celula() sunt prinsi de o
+        # asertie din amonte (contrastele SIL se schimba inainte sa se ajunga la
+        # proprietatea lor), deci omorarea e reala dar ATRIBUIREA e neconfirmata -- se
+        # spune, nu se ascunde sub un 23/23 curat.
+        NEATRIBUITI = {"v1 zerourile intra in mediana",
+                       "v1 liv_efect pierde conditionarea (1-n0/N)",
+                       "v1 dubla numarare: N != n0 + vii",
+                       "v1 marcajul BIMODAL dezactivat",
+                       "v1 liv_min / liv_max inversate"}
+        for k_ in NEATRIBUITI:
+            if k_ in cum_c:
+                cum_c[k_] = "omorat, ATRIBUIRE NECONFIRMATA (asertie din amonte)"
+        pa = sum(1 for x in cum_c.values() if x.startswith("asertie"))
         print("-- suita de mutanti C (regresie numita) --")
-        print("   injectati=%d  omorati=%d (prin asertie %d, prin exceptie %d)  "
-              "supravietuitori=%d" % (len(mut_c), len(cum_c), pa, len(cum_c) - pa,
-                                      len(supr_c)))
+        na = sum(1 for x in cum_c.values() if "NECONFIRMATA" in x)
+        print("   injectati=%d  omorati=%d (atribuit %d, neatribuit %d, exceptie %d)  "
+              "supravietuitori=%d" % (len(mut_c), len(cum_c), pa, na,
+                                      len(cum_c) - pa - na, len(supr_c)))
         for nume, _t, _i in mut_c:
             print("     %-52s %s" % (nume, cum_c.get(nume, "SUPRAVIETUITOR")))
         print("   INEXPRIMABILI din cei 27 (tinta a disparut odata cu stare_inversiune):")
@@ -1125,7 +1229,7 @@ def _selftest():
                 raise AssertionError("verifica_tinta a acceptat %s" % rea)
             except ValueError:
                 n_ver += 1
-        ok(verifica_tinta(baza) == os.path.abspath(baza), "tinta din tmp refuzata")
+        ok(verifica_tinta(baza) == os.path.realpath(baza), "tinta din tmp refuzata")
 
         # ------------------------------------------- 12. raportul se construieste intreg
         meta = {"sil": s3, "hil": None, "payload": 65536, "rtt_mod": "p50med",
@@ -1171,12 +1275,12 @@ def main(argv):
     if mod_rtt not in MODURI_RTT:
         print("mod RTT necunoscut: %s (permise: %s)" % (mod_rtt, ", ".join(MODURI_RTT)))
         return 2
-    sil = os.path.abspath(os.path.expanduser(sil))
+    sil = os.path.realpath(os.path.expanduser(sil))
     if not os.path.isdir(sil):
         print("arhiva SIL inexistenta: %s" % sil)
         return 2
     if hil is not None:
-        hil = os.path.abspath(os.path.expanduser(hil))
+        hil = os.path.realpath(os.path.expanduser(hil))
         if not os.path.isdir(hil):
             print("arhiva HIL inexistenta: %s" % hil)
             return 2
