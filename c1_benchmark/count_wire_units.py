@@ -373,6 +373,62 @@ def _strat_legatura(linktype, cadru):
     return None, None
 
 
+# ---------------------------------------------------------------------------
+# PRAGURI DE INTEGRITATE A CAPTURII (v2.0). Toate intra sub mutanti: un prag eliminat
+# sau mutat la infinit trebuie prins de suita, altfel se repeta povestea pragului de
+# 105 Mbit/s de la preflight -- o garda care exista pe hartie si nu poate refuza nimic.
+# ---------------------------------------------------------------------------
+# DISCIPLINA DE CAPTURA, acum impusa de instrument, nu doar recomandata:
+#   un fisier = o interfata = o directie.
+# Un merge de doua capturi (emitator + receptor), 'tcpdump -i any' sau un port-mirror
+# care vede ambele sensuri dubleaza fiecare unitate de fir. Multiplicitatea iese exact
+# dublata si -- pana la v2.0 -- fara nicio alarma.
+PRAG_DUBLARE_FRACT = 0.02     # peste 2% cadre identice = captura dubla, nu coincidenta
+PRAG_DUBLARE_MIN = 5          # sub atatea repetitii nu se acuza nimic (esantion mic)
+
+
+def verdict_dublare(vazute, cadre_ip, prag=PRAG_DUBLARE_FRACT, minim=PRAG_DUBLARE_MIN):
+    """(ok, motive[]) -- captura contine acelasi cadru de mai multe ori?
+
+    Cheia e (ver, src, dst, proto, ip.id, frag_off, lungime). Repetarea ei inseamna fie
+    merge de doua capturi (emitator + receptor), fie 'tcpdump -i any', fie port-mirror
+    care vede ambele sensuri. In toate cazurile fiecare unitate de fir se numara de doua
+    ori, iar multiplicitatea iese exact dublata -- cu ZERO avertismente, fiindca dedup-ul
+    de fragmente nu prinde asta (grupul precedent e complet, deci copia porneste un grup
+    NOU). Masurat la revizie: 98 cadre in loc de 49, suprasarcina +106%, nicio alarma.
+
+    Retransmisiile RTPS legitime NU cad aici: ele reemit acelasi fragment cu ALT ip.id.
+    Reciclarea reala de ip.id apare abia dupa 65536 de datagrame si nu produce si aceeasi
+    lungime si acelasi offset in mod repetat."""
+    dubluri = sum(n - 1 for n in vazute.values() if n > 1)
+    if dubluri < minim:
+        return (True, [])
+    fract = float(dubluri) / float(cadre_ip) if cadre_ip else 0.0
+    if fract <= prag:
+        return (True, [])
+    top = sorted(((n, k) for k, n in vazute.items() if n > 1), reverse=True)[:3]
+    detalii = "; ".join("%s x%d" % (str(k[1]) + "->" + str(k[2]) + " id=" + str(k[4]),
+                                    n) for n, k in top)
+    return (False, ["captura dubla: %d cadre repetate identic (%.1f%% din %d cadre IP, "
+                    "peste pragul de %.1f%%). Cel mai des: merge de doua capturi "
+                    "(emitator + receptor), 'tcpdump -i any', sau port-mirror care vede "
+                    "ambele sensuri. DISCIPLINA: un fisier = o interfata = o directie. "
+                    "Exemple: %s"
+                    % (dubluri, 100.0 * fract, cadre_ip, 100.0 * prag, detalii)])
+
+
+def verdict_integritate(erori):
+    """(ok, motive[]) -- lungimile de pe fir sunt interpretabile? Orice artefact de
+    offload e BLOCANT: o numaratoare pe lungimi false e mai rea decat lipsa ei."""
+    if not erori:
+        return (True, [])
+    # se raporteaza primele cateva, plus totalul: o captura cu TSO are mii de cadre rele
+    cap = erori[:3]
+    if len(erori) > 3:
+        cap = cap + ["... si inca %d cadre cu aceeasi problema" % (len(erori) - 3)]
+    return (False, cap)
+
+
 def _parse_ipv4(b, off):
     if len(b) < off + 20:
         return None
@@ -735,9 +791,18 @@ def _histograma(d):
 
 
 def _mod(d):
+    """Valoarea cea mai frecventa dintr-o histograma. LA EGALITATE se alege cea MAI
+    MARE, deliberat.
+
+    Pana la v2.0 se alegea cea mai mica (sortare crescatoare + max pe frecventa, deci
+    primul maxim intalnit). Pe o histograma ca {5: 2, 6: 2} raporta 5 -- varianta
+    OPTIMISTA. Dar cifra asta e chiar multiplicitatea care ajunge in articol: 'cate
+    unitati de fir costa un esantion'. A o subestima inseamna a subestima costul pe o
+    retea unde pachetele sunt resursa rara. La indoiala egala, instrumentul de masura
+    raporteaza varianta mai scumpa, nu pe cea mai comoda."""
     if not d:
         return None
-    return max(sorted(d.items()), key=lambda kv: kv[1])[0]
+    return max(sorted(d.items(), key=lambda kv: -int(kv[0])), key=lambda kv: kv[1])[0]
 
 
 def analizeaza_flux(f, opt):
@@ -753,6 +818,8 @@ def analizeaza_flux(f, opt):
     linktypes = {}
     buget = opt.buget_octeti
     buget_epuizat = False
+    erori_captura = []            # BLOCANTE: captura nu poate fi numarata deloc
+    vazute_cadre = {}             # (ip, frag) -> de cate ori a aparut identic
 
     # ---- pasul 1: citirea cadrelor si gruparea fragmentelor IP
     for idx, (ts_ns, orig_len, cap_len, cadru, link) in enumerate(pachete):
@@ -769,6 +836,37 @@ def analizeaza_flux(f, opt):
             cadre_ne_ip += 1
             octeti_ne_ip += orig_len
             continue
+
+        # ---- B1: integritatea lungimilor, PE LUNGIMEA ORIGINALA de pe fir.
+        # Pana la v2.0 garda anti-super-segment compara octetii CAPTURATI
+        # (g.octeti_l4() > mtu - 20). La TSO, tcpdump pe emitator scrie ip.len = 0,
+        # deci sarcina iesea 0, comparatia devenea 0 > 1480 si garda tacea exact in
+        # scenariul pentru care fusese scrisa. Cele doua artefacte sunt DISTINCTE si
+        # au diagnostice distincte: ip.len == 0, si ip.len care depaseste cadrul.
+        if ip["ver"] == 4:
+            if ip.get("ip_total") == 0:
+                erori_captura.append(
+                    "cadrul %d: ip.len = 0 -- semnatura clasica de TSO la tcpdump pe "
+                    "EMITATOR (nucleul preda NIC-ului un super-segment si scrie lungimea "
+                    "abia dupa segmentare). Sarcina reala e necunoscuta, deci numaratoarea "
+                    "ar fi falsa. REPARA: opreste offload-urile ('ethtool -K <if> tso off "
+                    "gso off gro off lro off') si REIA captura." % idx)
+            elif ip["ip_total"] > orig_len:
+                erori_captura.append(
+                    "cadrul %d: ip.len = %d depaseste cadrul de pe fir (%d octeti) -- "
+                    "super-segment nesegmentat inca (TSO/GSO activ) sau captura "
+                    "coalescata la receptie (GRO/LRO). REPARA: opreste offload-urile "
+                    "si REIA captura." % (idx, ip["ip_total"], orig_len))
+        if orig_len > opt.mtu + 14:
+            erori_captura.append(
+                "cadrul %d: %d octeti pe fir, peste MTU %d + antet Ethernet -- un "
+                "super-cadru nu poate exista pe o legatura cu acest MTU; un offload a "
+                "ramas activ." % (idx, orig_len, opt.mtu))
+
+        # ---- B2: cadre identice repetate = captura dubla
+        cheie_dubl = (ip["ver"], ip["src"], ip["dst"], ip["proto"], ip["ident"],
+                      ip["frag_off"], orig_len)
+        vazute_cadre[cheie_dubl] = vazute_cadre.get(cheie_dubl, 0) + 1
 
         sarcina = cadru[ip["off_l4"]:]
         # se pastreaza mereu antetul L4 (necesar pentru porturi); restul
@@ -856,12 +954,18 @@ def analizeaza_flux(f, opt):
             clasa, motiv = "discovery", "port explicit (--port-discovery)"
         elif any(p in opt.port_date for p in porturi):
             clasa, motiv = "date", "port explicit (--port-date)"
+        # B3: decodarea RTPS se face INTOTDEAUNA, pe CONTINUT (magicul RTPS), nu doar
+        # cand clasificarea nu a fost deja fixata de --port-date/--port-discovery.
+        # Pana la v2.0, o optiune de port -- documentata drept prioritatea 1 -- oprea
+        # tacut decodarea, iar odata cu ea singurul control incrucisat al instrumentului
+        # (garda DECLARAT-vs-MASURAT). O optiune care ar trebui sa RAFINEZE clasificarea
+        # nu are voie sa dezarmeze o garda.
         r = None
-        if clasa is None and g.proto == PROTO_UDP and len(date_l4) > 8:
+        if g.proto == PROTO_UDP and len(date_l4) > 8:
             r = parse_rtps(date_l4[8:])
-            if r is not None:
-                clasa = _clasa_rtps(r)
-                motiv = "RTPS decodat (entityKind al writerId)"
+        if clasa is None and r is not None:
+            clasa = _clasa_rtps(r)
+            motiv = "RTPS decodat (entityKind al writerId)"
         if clasa is None and g.proto == PROTO_UDP and len(porturi) == 2:
             cp = [clasa_port_rtps(p, opt.domenii) for p in porturi]
             # se cere ca AMBELE porturi sa cada in ACELASI domeniu RTPS,
@@ -1072,6 +1176,19 @@ def analizeaza_flux(f, opt):
         mult["suprasarcina_l2_procent"] = round(
             100.0 * (unitati["octeti_l2"] - util) / util, 3) if util else None
 
+    # B1+B2: integritatea capturii. Astea NU sunt avertismente: daca lungimile de pe fir
+    # nu sunt interpretabile, sau daca fiecare cadru apare de doua ori, orice cifra de
+    # multiplicitate e falsa. FAIL LOUD -- multiplicitatea nici nu se mai calculeaza.
+    erori = []
+    ok_i, mot_i = verdict_integritate(erori_captura)
+    if not ok_i:
+        erori += mot_i
+    ok_d, mot_d = verdict_dublare(vazute_cadre, cadre_numarate)
+    if not ok_d:
+        erori += mot_d
+    if erori:
+        mult = None
+
     avert = []
     # GARDA: --numar-esantioane e DECLARAT de om, iar RTPS masoara singur cate esantioane
     # distincte a vazut pe fir. Cand cele doua nu coincid, tot blocul 'multiplicitate' e
@@ -1145,6 +1262,7 @@ def analizeaza_flux(f, opt):
         unitati_de_fir=unitati,
         numar_esantioane=n,
         multiplicitate=mult,
+        erori_captura=erori,
         avertismente=avert)
 
 
@@ -1295,6 +1413,13 @@ def formateaza_tabel(r):
                  "%.3f %%" % m["suprasarcina_l2_procent"]))
     A("=" * lat)
 
+    if r.get("erori_captura"):
+        A("")
+        A("!" * lat)
+        A("CAPTURA NEUTILIZABILA -- multiplicitatea NU a fost calculata")
+        for e in r["erori_captura"]:
+            A("  * %s" % e)
+        A("!" * lat)
     if r["avertismente"]:
         A("AVERTISMENTE")
         for a in r["avertismente"]:
@@ -1326,6 +1451,15 @@ def _fab_ipv4(src, dst, proto, ident, off_octeti, mf, sarcina, ttl=64):
     if mf:
         fo |= 0x2000
     h = struct.pack(">BBHHHBBH", 0x45, 0, total, ident, fo, ttl, proto, 0)
+    h += _ip4(src) + _ip4(dst)
+    h = h[:10] + struct.pack(">H", _suma_internet(h)) + h[12:]
+    return h + sarcina
+
+
+def _fab_ipv4_len(src, dst, proto, ident, sarcina, total_fals):
+    """IPv4 cu campul totalLength FORTAT la o valoare aleasa: asa se fabrica artefactele
+    de offload (ip.len = 0 la TSO pe emitator; ip.len > cadru la GRO/LRO la receptie)."""
+    h = struct.pack(">BBHHHBBH", 0x45, 0, total_fals, ident, 0, 64, proto, 0)
     h += _ip4(src) + _ip4(dst)
     h = h[:10] + struct.pack(">H", _suma_internet(h)) + h[12:]
     return h + sarcina
@@ -1583,8 +1717,10 @@ def _selftest():
     dims = [13536, 13524, 13524, 13524, 11868]
     plan = [(1, 10), (11, 10), (21, 10), (31, 10), (41, 9)]
 
-    def _cyc(sn):
-        """Cele 49 de cadre ale unui esantion de 64 KB, ca la CycloneDDS."""
+    def _cyc(sn, id_baza=None):
+        """Cele 49 de cadre ale unui esantion de 64 KB, ca la CycloneDDS.
+        id_baza permite reemiterea ACELUIASI esantion cu ALTE ip.id -- adica o
+        retransmisie reala, care NU trebuie confundata cu o captura dubla."""
         out = []
         for i, (start, nf) in enumerate(plan):
             util = 1344 * nf if nf == 10 else 1344 * 8 + 1028
@@ -1598,7 +1734,8 @@ def _selftest():
                 msg += b"\x00" * (dims[i] - len(msg))
             msg = msg[:dims[i]]
             out.extend(_fragmenteaza("10.0.0.1", "10.0.0.2", PROTO_UDP,
-                                     1000 + 10 * sn + i,
+                                     (1000 + 10 * sn if id_baza is None
+                                      else id_baza) + i,
                                      _fab_udp(7411, 7411, msg)))
         return out
 
@@ -1812,22 +1949,207 @@ def _selftest():
     assert isinstance(json.dumps(r), str)
     v += 8
 
-    # ---- 15b. CONTROL NEGATIV pentru garda: acelasi esantion replayat de trei ori, dar
-    # declarat ca trei. Asta era exact fixture-ul vechi, si tocmai el a ascuns defectul:
-    # blocul 'multiplicitate' imparte la 3 desi pe fir exista un singur esantion, deci
-    # scoate 5 datagrame/esantion cand adevarul RTPS e 15. Fara avertisment, cifra ar fi
-    # plecat linistita spre articol.
-    r_rep = analizeaza_octeti(_fab_pcap(cadre_cyc * 3), Optiuni(numar_esantioane=3))
-    assert r_rep["rtps"]["data_frag"]["esantioane"] == 1, r_rep["rtps"]["data_frag"]
-    assert r_rep["multiplicitate"]["datagrame_udp_per_esantion"] == 5.0
-    assert r_rep["rtps"]["data_frag"]["mod_datagrame_per_esantion"] == 15
-    nepotriviri = [a for a in r_rep["avertismente"] if "DECLARAT" in a]
-    assert len(nepotriviri) == 1, r_rep["avertismente"]
+    # ---- 15b. CAPTURA DUBLA (B2): aceleasi cadre, octet cu octet, de trei ori.
+    # E exact ce produce un merge de doua capturi sau 'tcpdump -i any'. Instrumentul
+    # trebuie sa REFUZE sa numere, nu sa raporteze 147 de cadre cu zero alarme.
+    r_dub = analizeaza_octeti(_fab_pcap(cadre_cyc * 3), Optiuni(numar_esantioane=1))
+    assert r_dub["erori_captura"], "captura dubla NU a fost detectata"
+    assert any("captura dubla" in e for e in r_dub["erori_captura"]), r_dub["erori_captura"]
+    assert r_dub["multiplicitate"] is None, "multiplicitatea NU are voie sa fie calculata"
+    assert "captura dubla" in formateaza_tabel(r_dub)
+    # o captura CURATA nu declanseaza garda (altfel ar refuza tot)
+    assert not analizeaza_octeti(_fab_pcap(cadre_cyc),
+                                 Optiuni(numar_esantioane=1))["erori_captura"]
+    v += 5
+
+    # ---- 15c. REEMITERE (nu captura dubla): acelasi writerSN, ALTE ip.id. Aici garda
+    # de dublare trebuie sa TACA, iar cea de DECLARAT-vs-MASURAT sa vorbeasca: pe fir
+    # exista un singur esantion RTPS, dar CLI-ului i s-au declarat trei.
+    cadre_reemis = _cyc(1) + _cyc(1, id_baza=5000) + _cyc(1, id_baza=6000)
+    r_re = analizeaza_octeti(_fab_pcap(cadre_reemis), Optiuni(numar_esantioane=3))
+    assert not r_re["erori_captura"], r_re["erori_captura"]
+    assert r_re["rtps"]["data_frag"]["esantioane"] == 1, r_re["rtps"]["data_frag"]
+    nepotriviri = [a for a in r_re["avertismente"] if "DECLARAT" in a]
+    assert len(nepotriviri) == 1, r_re["avertismente"]
     assert "MASURAT din RTPS (1" in nepotriviri[0], nepotriviri[0]
-    assert "DECLARAT (3" in nepotriviri[0], nepotriviri[0]
-    # si avertismentul chiar ajunge in tabel, nu doar in JSON
-    assert "DECLARAT" in formateaza_tabel(r_rep)
-    v += 7
+    assert "DECLARAT" in formateaza_tabel(r_re)
+    v += 5
+
+    # ---- 15d. B3: garda DECLARAT-vs-MASURAT NU mai poate fi dezarmata de --port-date.
+    # Pana la v2.0, o optiune de port oprea decodarea RTPS si odata cu ea garda.
+    r_pd = analizeaza_octeti(_fab_pcap(cadre_reemis),
+                             Optiuni(numar_esantioane=3, port_date=[7411]))
+    assert r_pd["rtps"] is not None and r_pd["rtps"]["data_frag"]["esantioane"] == 1, \
+        "RTPS trebuie decodat si cu --port-date dat"
+    assert any("DECLARAT" in a for a in r_pd["avertismente"]), r_pd["avertismente"]
+    assert r_pd["clase"]["date"]["datagrame"] > 0
+    v += 3
+
+    # ---- 15e. B1: ARTEFACTELE DE OFFLOAD, fiecare cu diagnosticul LUI.
+    # Cele trei sunt distincte si trebuie sa ramana distincte: un mesaj generic ar
+    # trimite omul sa caute in locul gresit.
+    def _dem_b1():
+        rez = {}
+        # (a) ip.len == 0 -- semnatura clasica de TSO la tcpdump pe EMITATOR
+        c = _fab_eth(_fab_ipv4_len("10.0.0.1", "10.0.0.2", PROTO_UDP, 77,
+                                   _fab_udp(7411, 7411, b"z" * 1000), 0))
+        rez["ip.len == 0 (TSO la emitator)"] = analizeaza_octeti(
+            _fab_pcap([c]), Optiuni(numar_esantioane=1))
+        # (b) ip.len mai mare decat cadrul de pe fir -- coalescere la receptie
+        c = _fab_eth(_fab_ipv4_len("10.0.0.1", "10.0.0.2", PROTO_UDP, 78,
+                                   _fab_udp(7411, 7411, b"z" * 1000), 65535))
+        rez["ip.len > cadru (GRO/LRO)"] = analizeaza_octeti(
+            _fab_pcap([c]), Optiuni(numar_esantioane=1))
+        # (c) super-cadru de 22 KB pe o legatura cu MTU 1500
+        c = _fab_eth(_fab_ipv4("10.0.0.1", "10.0.0.2", PROTO_UDP, 79, 0, False,
+                               _fab_udp(7411, 7411, b"z" * 22000)))
+        rez["super-cadru 22 KB pe MTU 1500"] = analizeaza_octeti(
+            _fab_pcap([c]), Optiuni(numar_esantioane=1))
+        # (d) captura dubla
+        rez["captura dubla (cadre repetate)"] = analizeaza_octeti(
+            _fab_pcap(cadre_cyc * 3), Optiuni(numar_esantioane=1))
+        # (e) CONTROL POZITIV: captura curata trebuie sa TREACA
+        rez["captura CURATA (control pozitiv)"] = analizeaza_octeti(
+            _fab_pcap(cadre_cyc), Optiuni(numar_esantioane=1))
+        return rez
+
+    dem = _dem_b1()
+    print("-- demonstratia B1/B2: fiecare artefact pica pe garda LUI --")
+    asteptat = {
+        "ip.len == 0 (TSO la emitator)": "ip.len = 0",
+        "ip.len > cadru (GRO/LRO)": "depaseste cadrul de pe fir",
+        "super-cadru 22 KB pe MTU 1500": "peste MTU",
+        "captura dubla (cadre repetate)": "captura dubla",
+    }
+    for nume in sorted(dem):
+        r = dem[nume]
+        er = r.get("erori_captura") or []
+        prima = er[0][:70] if er else ""
+        print("   %-38s %s  %s" % (nume, "REFUZA" if er else "NUMARA ", prima))
+        if nume in asteptat:
+            assert er, "%s trebuie sa fie refuzata" % nume
+            assert any(asteptat[nume] in e for e in er), (nume, er)
+            assert r["multiplicitate"] is None, nume
+        else:
+            assert not er, (nume, er)
+            assert r["multiplicitate"] is not None, nume
+    v += 10
+
+    # ---- 15f. SUITA DE MUTANTI (B5). Fiecare intrare strica deliberat o regula;
+    # bateria de asertii de mai jos trebuie sa o prinda. Un supravietuitor = carantina.
+    def _asertii_b():
+        """Bateria pe care o lovesc mutantii. Cifrele sunt EXACTE, nu 'aproximativ'."""
+        r = analizeaza_octeti(_fab_pcap(cadre_cyc), Optiuni(numar_esantioane=1))
+        assert r["cadre"]["total"] == 49 and r["udp"]["datagrame"] == 5
+        assert r["udp"]["fragmente_ip"] == 49
+        assert r["octeti"]["numarate_l2"] == 67682
+        assert r["rtps"]["data_frag"]["esantioane"] == 1
+        assert r["rtps"]["data_frag"]["mod_datagrame_per_esantion"] == 5
+        assert r["rtps"]["data_frag"]["mod_fragmente_per_esantion"] == 49
+        assert not r["erori_captura"]
+        assert r["multiplicitate"]["cadre_per_esantion"] == 49.0
+        assert abs(r["multiplicitate"]["suprasarcina_l2_procent"] - 3.275) < 0.01
+        # clasele noi: dublare, len-vs-caplen, decodare oprita
+        d = analizeaza_octeti(_fab_pcap(cadre_cyc * 3), Optiuni(numar_esantioane=1))
+        assert d["erori_captura"] and d["multiplicitate"] is None
+        assert any("captura dubla" in e for e in d["erori_captura"])
+        for sarcina_id, total_fals, semn in ((77, 0, "ip.len = 0"),
+                                             (78, 65535, "depaseste cadrul")):
+            c = _fab_eth(_fab_ipv4_len("10.0.0.1", "10.0.0.2", PROTO_UDP, sarcina_id,
+                                       _fab_udp(7411, 7411, b"z" * 1000), total_fals))
+            x = analizeaza_octeti(_fab_pcap([c]), Optiuni(numar_esantioane=1))
+            assert x["erori_captura"] and any(semn in e for e in x["erori_captura"])
+            assert x["multiplicitate"] is None
+        big = _fab_eth(_fab_ipv4("10.0.0.1", "10.0.0.2", PROTO_UDP, 79, 0, False,
+                                 _fab_udp(7411, 7411, b"z" * 22000)))
+        x = analizeaza_octeti(_fab_pcap([big]), Optiuni(numar_esantioane=1))
+        assert x["erori_captura"] and any("peste MTU" in e for e in x["erori_captura"])
+        # B3: garda declarat-vs-masurat rezista si cu --port-date
+        for opt_extra in ({}, {"port_date": [7411]}):
+            y = analizeaza_octeti(_fab_pcap(cadre_reemis),
+                                  Optiuni(numar_esantioane=3, **opt_extra))
+            assert y["rtps"]["data_frag"]["esantioane"] == 1
+            assert any("DECLARAT" in a for a in y["avertismente"]), opt_extra
+        # TOLERANTA: un singur cadru repetat NU condamna o captura. Fara asta, un prag
+        # de dublare mutat la 0 ar fi echivalent comportamental si ar supravietui.
+        tol = cadre_3 + [cadre_3[0]]
+        t = analizeaza_octeti(_fab_pcap(tol), Optiuni(numar_esantioane=3))
+        assert not t["erori_captura"], t["erori_captura"]
+        # _mod: la egalitate se alege varianta CONSERVATOARE (cea mai mare)
+        assert _mod({"5": 2, "6": 2}) == "6", _mod({"5": 2, "6": 2})
+        assert _mod({"5": 3, "6": 2}) == "5"
+        # non-IP nu intra in octetii numarati
+        arp = _fab_eth(b"\x00" * 28, ethertype=0x0806)
+        z = analizeaza_octeti(_fab_pcap(cadre_cyc + [arp]), Optiuni(numar_esantioane=1))
+        assert z["cadre"]["ne_ip"] == 1 and z["octeti"]["numarate_l2"] == 67682
+
+    def _mutanti_b():
+        g = globals()
+        vd, vi, md = g["verdict_dublare"], g["verdict_integritate"], g["_mod"]
+
+        def dubl_dezactivata(vazute, cadre, prag=None, minim=None):
+            return (True, [])
+
+        def dubl_prag_infinit(vazute, cadre, prag=None, minim=None):
+            return vd(vazute, cadre, 1e9, PRAG_DUBLARE_MIN)
+
+        def dubl_prag_zero(vazute, cadre, prag=None, minim=None):
+            return vd(vazute, cadre, 0.0, 0)      # acuza si o captura curata
+
+        def dubl_minim_infinit(vazute, cadre, prag=None, minim=None):
+            return vd(vazute, cadre, PRAG_DUBLARE_FRACT, 10 ** 9)
+
+        def integr_dezactivata(erori):
+            return (True, [])
+
+        def integr_doar_avertisment(erori):
+            return (True, [])
+
+        def mod_cel_mai_mic(h):
+            """Regresia reala: la egalitate se raporteaza varianta OPTIMISTA."""
+            if not h:
+                return None
+            return max(sorted(h.items(), key=lambda kv: int(kv[0])),
+                       key=lambda kv: kv[1])[0]
+
+        return [
+            ("NOU B2: garda de dublare DEZACTIVATA", "verdict_dublare", dubl_dezactivata),
+            ("NOU B2: pragul de dublare mutat la infinit", "verdict_dublare",
+             dubl_prag_infinit),
+            ("NOU B2: pragul de dublare = 0 (acuza si captura curata)",
+             "verdict_dublare", dubl_prag_zero),
+            ("NOU B2: minimul de repetitii la infinit", "verdict_dublare",
+             dubl_minim_infinit),
+            ("NOU B1: garda de integritate DEZACTIVATA", "verdict_integritate",
+             integr_dezactivata),
+            ("NOU B1: artefactele redevin avertismente", "verdict_integritate",
+             integr_doar_avertisment),
+            ("v1: _mod alege varianta OPTIMISTA la egalitate", "_mod", mod_cel_mai_mic),
+        ]
+
+    g_mod = globals()
+    supr_b = []
+    mut_b = _mutanti_b()
+    for nume, tinta, inloc in mut_b:
+        orig = g_mod[tinta]
+        g_mod[tinta] = inloc
+        try:
+            _asertii_b()
+        except (AssertionError, Exception):
+            omorat = True
+        else:
+            omorat = False
+        finally:
+            g_mod[tinta] = orig
+        if not omorat:
+            supr_b.append(nume)
+    print("-- suita de mutanti B --")
+    print("   mutanti injectati=%d  omorati=%d  supravietuitori=%d"
+          % (len(mut_b), len(mut_b) - len(supr_b), len(supr_b)))
+    for x in supr_b:
+        print("   SUPRAVIETUITOR: %s" % x)
+    assert not supr_b, supr_b
+    v += len(mut_b)
 
     # ---- 16. main() cu fisier trunchiat: cod de iesire, fara traceback
     import tempfile
