@@ -1073,6 +1073,25 @@ def analizeaza_flux(f, opt):
             100.0 * (unitati["octeti_l2"] - util) / util, 3) if util else None
 
     avert = []
+    # GARDA: --numar-esantioane e DECLARAT de om, iar RTPS masoara singur cate esantioane
+    # distincte a vazut pe fir. Cand cele doua nu coincid, tot blocul 'multiplicitate' e
+    # calculat pe un numitor gresit -- si tocmai el produce cifra care ajunge in articol.
+    # Pana acum tabelul afisa ambele numere fara sa spuna ca se contrazic; defectul a iesit
+    # la iveala fiindca un fixture de test declara 3 esantioane peste o captura care
+    # continea unul singur repetat de trei ori, iar nimeni nu observase.
+    # LIMITA CUNOSCUTA a acestei garzi (revizie adversariala, 2026-08-13): RTPS se
+    # decodeaza doar cand clasificarea nu a fost deja fixata de --port-date/--port-discovery
+    # (linia ~860). Cu una din acele optiuni date, 'rtps' ramane None si garda TACE. Deci
+    # garda protejeaza drumul implicit -- cel pe care va rula campania -- dar NU e o
+    # garantie generala. De reparat odata cu C3 din raportul de revizie.
+    if n and rtps and rtps.get("data_frag", {}).get("esantioane"):
+        masurat = rtps["data_frag"]["esantioane"]
+        if masurat != n:
+            avert.append("numar de esantioane DECLARAT (%d, prin --numar-esantioane) "
+                         "difera de cel MASURAT din RTPS (%d writerSN distincte). Blocul "
+                         "'multiplicitate' e impartit la %d, deci cifrele per esantion NU "
+                         "sunt de incredere; ori captura contine retransmisii/duplicate, "
+                         "ori numarul declarat e gresit." % (n, masurat, n))
     if buget_epuizat:
         avert.append("bugetul de memorie (%d MiB) s-a epuizat: sarcinile mari "
                      "nu au fost retinute integral, analiza RTPS/Zenoh acopera "
@@ -1776,14 +1795,39 @@ def _selftest():
     v += 4
 
     # ---- 15. multiplicitatea cu mai multe esantioane si tabelul se formeaza
-    r = analizeaza_octeti(_fab_pcap(cadre_cyc * 3), Optiuni(numar_esantioane=3))
+    # Fixture-ul foloseste TREI writerSN distincte, nu aceiasi octeti de trei ori: altfel
+    # RTPS vede corect un singur esantion purtat de 15 datagrame, iar testul ar pretinde
+    # ca verifica 'mai multe esantioane' verificand de fapt unul replayat. Vezi 15b.
+    cadre_3 = _cyc(1) + _cyc(2) + _cyc(3)
+    r = analizeaza_octeti(_fab_pcap(cadre_3), Optiuni(numar_esantioane=3))
     assert r["multiplicitate"]["cadre_per_esantion"] == 49.0
     assert r["multiplicitate"]["datagrame_udp_per_esantion"] == 5.0
-    assert r["rtps"]["data_frag"]["esantioane"] == 1     # acelasi writerSN
+    assert r["rtps"]["data_frag"]["esantioane"] == 3, r["rtps"]["data_frag"]
+    assert r["rtps"]["data_frag"]["mod_datagrame_per_esantion"] == 5
+    assert r["rtps"]["data_frag"]["mod_fragmente_per_esantion"] == 49
     tab = formateaza_tabel(r)
     assert "MULTIPLICITATE RTPS MASURATA: 5 datagrame si 49 fragmente" in tab
+    # declaratul si masuratul coincid -> NICIUN avertisment de nepotrivire
+    assert not any("DECLARAT" in a for a in r["avertismente"]), r["avertismente"]
     assert isinstance(json.dumps(r), str)
-    v += 5
+    v += 8
+
+    # ---- 15b. CONTROL NEGATIV pentru garda: acelasi esantion replayat de trei ori, dar
+    # declarat ca trei. Asta era exact fixture-ul vechi, si tocmai el a ascuns defectul:
+    # blocul 'multiplicitate' imparte la 3 desi pe fir exista un singur esantion, deci
+    # scoate 5 datagrame/esantion cand adevarul RTPS e 15. Fara avertisment, cifra ar fi
+    # plecat linistita spre articol.
+    r_rep = analizeaza_octeti(_fab_pcap(cadre_cyc * 3), Optiuni(numar_esantioane=3))
+    assert r_rep["rtps"]["data_frag"]["esantioane"] == 1, r_rep["rtps"]["data_frag"]
+    assert r_rep["multiplicitate"]["datagrame_udp_per_esantion"] == 5.0
+    assert r_rep["rtps"]["data_frag"]["mod_datagrame_per_esantion"] == 15
+    nepotriviri = [a for a in r_rep["avertismente"] if "DECLARAT" in a]
+    assert len(nepotriviri) == 1, r_rep["avertismente"]
+    assert "MASURAT din RTPS (1" in nepotriviri[0], nepotriviri[0]
+    assert "DECLARAT (3" in nepotriviri[0], nepotriviri[0]
+    # si avertismentul chiar ajunge in tabel, nu doar in JSON
+    assert "DECLARAT" in formateaza_tabel(r_rep)
+    v += 7
 
     # ---- 16. main() cu fisier trunchiat: cod de iesire, fara traceback
     import tempfile
