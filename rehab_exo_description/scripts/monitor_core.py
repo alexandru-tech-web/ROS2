@@ -40,6 +40,17 @@ PRAG_URMARIRE_RAD = 0.10
 SKEW_MAX_S = 0.05
 ZGOMOT_UNGHI_RAD = 0.0015          # valoarea canonica vine din senzori_core
 
+# Termenul de viteza din pragul de coerenta se PLAFONEAZA. Motivul e o capcana in
+# care am si cazut: glezna oscila in saturatie de viteza, iar pragul, largit chiar
+# de viteza aia, ajunsese 0.155 rad -- de cincizeci de ori zgomotul. Verificarea
+# trecea, dar din motivul gresit: devenise vida exact cand era mai multa nevoie de
+# ea. Un prag care creste nelimitat cu marimea pe care ar trebui s-o supravegheze
+# nu mai supravegheaza nimic.
+VITEZA_MAX_PRAG_RAD_S = 0.5
+
+# Peste ce fractie din limita nominala o articulatie se considera SATURATA.
+PRAG_SATURATIE = 0.98
+
 
 def fmt(v, latime=8, zecimale=3):
     """Un numar, sau NaN scris ca NaN. Niciodata NaN transformat in 0."""
@@ -71,8 +82,30 @@ def verdict_urmarire(erori, prag=PRAG_URMARIRE_RAD):
 
 
 def prag_coerenta(viteza, zgomot=ZGOMOT_UNGHI_RAD, skew=SKEW_MAX_S):
-    """Cat are voie sa difere senzorul de articulatie, la viteza data."""
-    return 2.0 * zgomot + abs(viteza or 0.0) * skew
+    """Cat are voie sa difere senzorul de articulatie, la viteza data. Termenul de
+    viteza e plafonat -- vezi VITEZA_MAX_PRAG_RAD_S."""
+    v = min(abs(viteza or 0.0), VITEZA_MAX_PRAG_RAD_S)
+    return 2.0 * zgomot + v * skew
+
+
+def articulatia(nume_joint):
+    """'left_ankle_joint' -> 'ankle'. None daca numele nu are forma asteptata."""
+    p = nume_joint.split("_")
+    return p[1] if len(p) >= 3 else None
+
+
+def verdict_saturatie(viteze, limite, prag=PRAG_SATURATIE):
+    """Ce articulatii isi ating limita nominala de viteza. O articulatie saturata
+    poate parea NEMISCATA in pozitie si sa bata totusi intre extreme la viteza
+    maxima; in pozitie nu se vede, in viteza da. Pentru un dispozitiv care se pune
+    pe piciorul unui om, asta trebuie sa fie pe ecran, nu ascuns.
+    `limite` e {articulatie: rad/s} si vine din spec_derivate, nu de aici."""
+    sat = []
+    for j, v in sorted(viteze.items()):
+        lim = limite.get(articulatia(j) or "")
+        if lim and v is not None and abs(v) >= prag * lim:
+            sat.append((j, v, lim))
+    return (not sat, sat)
 
 
 def verdict_coerenta(unghi_senzor, q_masurat, offset, viteze=None,
@@ -125,13 +158,14 @@ def _bara(e, prag, latime=12):
 
 
 def tabel(t, cerut, masurat, cupluri, unghi_senzor, w6, nemasurate, eticheta,
-          offset=None, viteze=None):
+          offset=None, viteze=None, limite=None):
     """Tabloul complet, ca lista de linii. Pur: nimic nu se citeste din lume aici."""
     offset = offset or {}
     er = eroare_urmarire(cerut, masurat)
     ok_u, e_max, j_max = verdict_urmarire(er)
     ok_c, det_c = verdict_coerenta(unghi_senzor, masurat, offset, viteze)
     ok_n, rele = verdict_nemasurate(w6, nemasurate)
+    ok_s, sat = verdict_saturatie(viteze or {}, limite or {})
 
     L = []
     L.append("t = %6.1f s   %s" % (t, eticheta))
@@ -159,6 +193,10 @@ def tabel(t, cerut, masurat, cupluri, unghi_senzor, w6, nemasurate, eticheta,
     L.append("  CANALE    : %s%s"
              % (_eticheta(ok_n),
                 "" if ok_n else " -- " + "; ".join("%s: %s" % r for r in rele)))
+    L.append("  VITEZA    : %s%s"
+             % (_eticheta(ok_s),
+                " (nicio articulatie in saturatie)" if ok_s else
+                " -- SATURATE: " + ", ".join("%s %+.3f din %.3f rad/s" % r for r in sat)))
     return L
 
 
@@ -219,11 +257,32 @@ def _selftest():
         "viteza nu are voie sa largeasca pragul destul cat sa ascunda 0.2 rad"
     n += 2
 
-    # 5d. pragul creste cu viteza, dar pleaca de la zgomot, nu de la zero
+    # 5d. pragul creste cu viteza, dar pleaca de la zgomot si SE PLAFONEAZA
     assert prag_coerenta(0.0) == 2.0 * ZGOMOT_UNGHI_RAD
-    assert prag_coerenta(1.0) > prag_coerenta(0.0)
+    assert prag_coerenta(0.1) > prag_coerenta(0.0)
     assert prag_coerenta(None) == prag_coerenta(0.0)
-    n += 3
+    # regresia care conteaza: o viteza absurda NU are voie sa umfle pragul
+    assert prag_coerenta(50.0) == prag_coerenta(VITEZA_MAX_PRAG_RAD_S), \
+        "prag neplafonat: o articulatie in saturatie ar face verificarea vida"
+    assert prag_coerenta(50.0) < 0.03
+    n += 5
+
+    # 5e. SATURATIA. Cifrele sunt cele reale ale gleznei, masurate pe 21 aug 2026:
+    # pozitia parea nemiscata (+-0.02 rad) iar viteza statea fixata pe limita.
+    LIM = {"hip": 1.5786, "knee": 1.9732, "ankle": 3.0369}
+    assert articulatia("left_ankle_joint") == "ankle"
+    assert articulatia("seat_lift_joint") == "lift"
+    assert articulatia("ciudat") is None
+    ok_s, sat = verdict_saturatie({"left_ankle_joint": -3.0369,
+                                   "left_hip_joint": 0.02}, LIM)
+    assert ok_s is False and len(sat) == 1 and sat[0][0] == "left_ankle_joint", sat
+    assert verdict_saturatie({"left_ankle_joint": 0.5}, LIM)[0] is True
+    # un nume necunoscut NU declanseaza si NU crapa
+    assert verdict_saturatie({"nimic": 99.0}, LIM)[0] is True
+    # limita se ia pe ARTICULATIE, nu global: 2.0 rad/s satureaza soldul, nu glezna
+    assert verdict_saturatie({"left_hip_joint": 2.0}, LIM)[0] is False
+    assert verdict_saturatie({"left_ankle_joint": 2.0}, LIM)[0] is True
+    n += 8
 
     assert verdict_coerenta({}, {}, OFF)[0] is None
     n += 1
@@ -244,12 +303,14 @@ def _selftest():
     # 7. tabelul se construieste si NU pierde NaN-urile pe drum
     linii = tabel(1.0, {"left_hip_joint": 0.1}, {"left_hip_joint": 0.11},
                   {("left", "hip"): 2.0}, {"left": 0.0, "right": 0.0}, bun, nem,
-                  "sintetic", OFF, {})
+                  "sintetic", OFF, {"left_ankle_joint": -3.0369},
+                  {"hip": 1.5786, "knee": 1.9732, "ankle": 3.0369})
     text = "\n".join(linii)
     assert "NaN" in text, "NaN a disparut din tabel"
     assert text.count("NaN") >= 3, text
     assert "URMARIRE" in text and "COERENTA" in text and "CANALE" in text
-    n += 3
+    assert "VITEZA" in text and "SATURATE" in text, "saturatia trebuie sa se vada in tabel"
+    n += 4
 
     # 8. bara e monotona si se satureaza, nu creste la infinit
     assert len(_bara(0.0, 0.1).strip()) == 0

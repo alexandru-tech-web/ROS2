@@ -25,6 +25,12 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import monitor_core as mc                                          # noqa: E402
 import senzori_core as sc                                          # noqa: E402
+import spec_derivate as sd                                        # noqa: E402
+
+# Limitele nominale de viteza NU se scriu aici: se deriva, o singura data, din
+# reductor + motor, in spec_derivate. Sunt aceleasi cifre care ajung si in xacro.
+RO = {"hip": "sold", "knee": "genunchi", "ankle": "glezna"}
+LIMITE_VITEZA = {en: sd.viteza_nominala_rad_s(ro) for en, ro in RO.items()}
 
 
 def main(argv=None):
@@ -98,7 +104,7 @@ def main(argv=None):
                 self.get_clock().now().nanoseconds * 1e-9 - self.t0)
             linii = mc.tabel(t, self.cerut, self.masurat, self.cupluri,
                              self.unghi, self.w6, sc.NEMASURATE, self.eticheta,
-                             sc.OFFSET_MONTAJ_GLEZNA, self.viteze)
+                             sc.OFFSET_MONTAJ_GLEZNA, self.viteze, LIMITE_VITEZA)
             # ecran curat, ca sa se citeasca de la distanta la o demonstratie
             sys.stdout.write("\033[H\033[2J" if sys.stdout.isatty() else "\n")
             sys.stdout.write("\n".join(linii) + "\n")

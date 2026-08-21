@@ -33,6 +33,7 @@ Un tablou de text, reimprospatat la 2 Hz:
       URMARIRE  : OK   (max +0.029 rad la right_ankle_joint, prag 0.100)
       COERENTA  : OK   (abatere NEEXPLICATA, dupa scaderea offsetului de montaj: ...)
       CANALE    : OK
+      VITEZA    : ATENTIE -- SATURATE: left_ankle_joint +3.037 din 3.037 rad/s
 
 - **cerut** = referinta lui `joint_trajectory_controller`; **masurat** = `/joint_states`
   din Gazebo. Diferenta lor e urmarirea REALA, in fizica simulata.
@@ -43,6 +44,10 @@ Un tablou de text, reimprospatat la 2 Hz:
   neexplicata; la o rulare sanatoasa e de ordinul zgomotului (~0.001 rad).
 - **CANALE** verifica in AMBELE sensuri ca doar canalele nemasurate sunt NaN. Un
   canal numit care devine NaN inseamna senzor rupt si trebuie sa se vada.
+- **VITEZA** arata articulatiile care isi ating limita nominala (derivata din
+  reductor si motor, in `spec_derivate.py`). Contra-intuitiv, o articulatie poate
+  parea NEMISCATA in pozitie si sa bata totusi intre extreme la viteza maxima --
+  exact ce fac gleznele acum. In coloana de pozitie nu se vede; aici, da.
 
 `NaN` se afiseaza ca `NaN`, niciodata ca `0.000`. Un canal nemasurat afisat ca zero
 ar arata ca o masuratoare valida de valoare zero -- e cea mai proasta varianta.
@@ -58,6 +63,21 @@ ar arata ca o masuratoare valida de valoare zero -- e cea mai proasta varianta.
 Eticheta senzorilor circula pe `/rehab/senzori/eticheta` si apare in fiecare cadru
 al tabloului. Nu e scrisa a doua oara in monitor, tocmai ca sa nu poata ajunge sa
 spuna altceva decat sursa.
+
+## Ce NU e in regula, si se vede in tablou
+
+Ambele glezne stau in **saturatie de viteza** (+-3.037 rad/s, adica exact limita
+nominala), desi in pozitie par nemiscate, la +-0.02 rad. Deci oscileaza intre
+extreme la viteza maxima. Pe un dispozitiv care se pune pe piciorul unui om asta nu
+e un detaliu, si de aceea are propriul rand in tablou in loc sa fie lasat sa se
+ascunda in spatele unei pozitii linistite. Cauza nu e stabilita: candidatii sunt
+lipsa amortizarii pe articulatie si controlul pur proportional al lui
+gz_ros2_control. Este primul item al sesiunii urmatoare.
+
+Merita spus cum a iesit la iveala: prima versiune a verificarii de coerenta isi
+largea pragul cu viteza masurata, iar viteza saturata il umflase la 0.155 rad, de
+cincizeci de ori zgomotul. Verificarea trecea -- din motivul gresit. Termenul de
+viteza e acum plafonat, si asertat ca plafonat in selftest.
 
 ## Cifre masurate pe 21 aug 2026
 
