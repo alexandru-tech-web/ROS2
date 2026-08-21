@@ -1,170 +1,80 @@
 # rehab_exo_description
 
-Descrierea URDF/xacro a unui robot medical de recuperare locomotorie cu 6 GDL
-(sold/genunchi/glezna x2, 0-180 grade), plus configurarea ros2_control, scripturi
-de control si fisiere de lansare pentru RViz si Gazebo (gz). Este demonstratorul
-exoschelet din teza (track C4 conform CLAUDE.md), peste care se monteaza extensiile
-de telereabilitare (heartbeat, supervizor de siguranta, model de pacient) ce
-folosesc aceeasi metodologie de retea degradata ca benchmark-ul rmw_zenoh vs
-CycloneDDS. Model de dezvoltare/simulare, NU controller medical certificat (sursa:
-package.xml, docstring-uri).
+Descrierea robotului de reabilitare LLR (demonstratorul C4 al tezei): scaun medical
++ doua picioare mecanice, 6 articulatii revolute active in plan sagital
+(sold/genunchi/glezna x2) plus 5 axe prismatice de pozitionare, cu configurare
+ros2_control, scripturi de control si lansari pentru RViz si Gazebo.
+Model de dezvoltare/simulare, NU controller medical certificat.
 
-## Scop
+## O SINGURA SURSA DE ADEVAR
 
-Ofera un model robotic complet (geometrie + control + simulare) pe care se pot
-demonstra exercitii de recuperare si, prin extensiile de telereabilitare, masura
-calitatea legaturii operator-robot peste retea degradata (netem). Docstring-ul din
-operator_heartbeat.py spune explicit ca datele de retea publicate sunt 'exact
-datele de care ai nevoie pentru graficele comparative rmw_zenoh vs CycloneDDS din
-articol', iar netem_profiles.sh declara profilurile 'identice cu metodologia
-benchmark-ului rmw_zenoh vs CycloneDDS'. Legatura cu o contributie numerotata
-(C1-C4) nu e scrisa literal in cod; vezi CLAUDE.md (sec. 7) care plaseaza
-pachetul la C4 (exoschelet + motor).
+`urdf/rehab_exo.urdf.xacro` este SINGURA descriere. URDF-ul e ARTEFACT generat la
+build si instalat in `share/rehab_exo_description/urdf/rehab_exo.urdf`. Nu se
+editeaza manual niciodata.
 
-## Arhitectura
+Pana la F1a (19 aug 2026) existau TREI surse: un URDF editat manual (620 linii), un
+xacro care descria alt robot (8 linkuri, 6 DOF, 0..pi pe toate articulatiile), si un
+script care mutata URDF-ul in loc dupa generare. Acest README documenta xacro-ul
+gresit -- de acolo venea afirmatia "0-180 grade". Cele doua fisiere retrase sunt in
+`attic/`, cu explicatie.
 
-Pachetul este de tip ament_cmake (package.xml: build_type ament_cmake;
-CMakeLists.txt instaleaza resursele in share/ si scripturile in lib/). Nu are
-structura ament_python cu entry_points; scripturile se lanseaza ca executabile
-(ros2 run / Node) sau direct cu python3.
+Generare manuala:
 
-Singurul strat 'nucleu pur fara ROS' clar identificabil este exercise_core.py
-(docstring: 'Nucleul procesului de control ... FARA dependinte ROS'). El este
-importat de nodul subtire exercise_controller.py (`import exercise_core as core`).
-ATENTIE la metodologia nucleu pur + `_selftest`: exercise_core.py NU contine
-nicio functie `_selftest` si nici bloc `if __name__ == "__main__"` (verificat prin
-grep) -- deci nu este auto-testabil prin rulare directa in forma actuala.
+    xacro urdf/rehab_exo.urdf.xacro -o /tmp/rehab_exo.urdf
 
-Alte scripturi pur offline (fara ROS): plot_recording.py si session_report.py
-(docstring-uri: 'Nu necesita ROS' / 'Nu este nod ROS'). patch_urdf_extensions.py
-este un utilitar XML offline.
+## Flaguri
 
-## Fisiere
+| flag | implicit | efect |
+|---|---|---|
+| `gazebo:=` | true | cele 6 plugin-uri `ApplyJointForce` (canalul prin care `patient_model.py` aplica cupluri) |
+| `senzori:=` | true | cei 3 senzori IMU la 100 Hz (base_link + ambele talpi) |
+| `rmw:=` | cyclonedds | implementarea RMW, pinuita in toate lansarile |
 
-Scripturi Python (scripts/):
+Continutul flagurilor `gazebo` si `senzori` e cel absorbit din fostul
+`patch_urdf_extensions.py`; efectul e numeric identic cu al patch-ului.
 
-| Fisier | Rol (din docstring/cod) |
-| --- | --- |
-| exercise_core.py | Nucleu fara ROS: repertoriu de 12 exercitii atomice + 4 sesiuni; genereaza traiectorii cosinus (viteza zero la capete) cu siguranta (clamp + validare viteza) si Player.sample(t). Contine si clamp_adjust() pentru cele 5 axe de ajustare (regula shank_ext <= seat_lift + 0.03). FARA `_selftest`. |
-| exercise_controller.py | Nod ROS subtire (v3) peste exercise_core. Comanda 6 servomotoare de exercitiu + 5 axe de ajustare. Backend `joint_states` (publica 11 articulatii pe /joint_states la 50 Hz pentru RViz) sau `trajectory` (JointTrajectory + Float64MultiArray pentru ros2_control/Gazebo). |
-| operator_panel.py | Interfata grafica Tkinter a operatorului: zona exercitii, zona ajustare la pacient, zona inregistrare. Publica pe exercise_cmd, adjust_cmd, record_cmd. Necesita python3-tk. |
-| telemetry_display.py | Afisaj LIVE Tkinter/matplotlib: pozitie/viteza/torque pentru cele 6 servomotoare (ultimele ~12 s); citeste doar /joint_states. Necesita python3-tk. |
-| sensor_recorder.py | Nod ROS care inregistreaza /joint_states in CSV in ~/rehab_data/; comenzi start / start nume_fisier / stop pe /record_cmd. |
-| plot_recording.py | Offline (fara ROS): transforma un CSV din sensor_recorder intr-o figura cu 3 panouri (pozitie, viteza, torque) + statistici in consola. Necesita matplotlib. |
-| session_report.py | Offline (fara ROS): calculeaza metrici de recuperare (ROM, simetrie SI, SPARC, repetari, cuplu, urmarire RMS) dintr-un CSV si produce raport PDF. Are argparse (vezi mai jos). |
-| safety_supervisor.py | Nod ROS pe partea robotului: vegheaza cupluri, viteze si (optional) heartbeat-ul operatorului; la depasire publica comanda de STOP lin pe /exercise_cmd. Raspunde la heartbeat (echo). |
-| operator_heartbeat.py | Nod ROS pe partea operatorului: heartbeat numerotat + echo, masoara RTT (EMA) si pierderea de pachete; publica starea legaturii pe /telerehab/network_health si optional scrie CSV in ~/rehab_data/. |
-| patient_model.py | Nod ROS: simuleaza pacientul ca sarcina dinamica (arc-amortizor + tremor optional) si aplica cupluri prin ApplyJointForce/ros_gz_bridge. Citeste /joint_states, publica /rehab/patient_force/<joint> (Float64). |
-| patch_urdf_extensions.py | Utilitar offline: insereaza in rehab_exo.urdf plugin-urile gz ApplyJointForce (6 articulatii) + 3 senzori IMU, inainte de </robot>. Idempotent, face backup .bak, valideaza XML-ul. |
-| netem_profiles.sh | Script bash (sudo): aplica profiluri tc netem de degradare a retelei (loss5/loss15/loss30/sar/wifi_slab/clear/status) pe interfata lo, identic cu metodologia benchmark-ului. |
+## RMW pinuit
 
-Resurse (instalate in share/ prin CMakeLists.txt): urdf/ (rehab_exo.urdf,
-rehab_exo.xacro), launch/ (10 fisiere .launch.py), config/ (controllers.yaml,
-gz_patient_bridge.yaml, patient_demo.yaml, safety_limits.yaml), rviz/ (rehab.rviz),
-worlds/ (rehab_world.sdf). Documentatie suplimentara: docs/INSTALL_EXTENSII.md.
-
-## Sintaxe de rulare
-
-Build:
-
-    cd ~/ros2_ws && colcon build --packages-select rehab_exo_description --symlink-install
-    source install/setup.bash
-
-Scripturi offline (fara ROS):
-
-    python3 scripts/session_report.py ~/rehab_data/sesiune.csv
-    python3 scripts/session_report.py sesiune.csv --out ~/rehab_data/rapoarte
-    python3 scripts/session_report.py sesiune.csv --inspect
-    python3 scripts/plot_recording.py ~/rehab_data/sesiune_X.csv [iesire.png]
-    python3 scripts/patch_urdf_extensions.py ~/ros2_ws/src/rehab_exo_description/urdf/rehab_exo.urdf
-
-Argumente session_report.py (din argparse, sursa reala):
-  csv (pozitional)  fisierul CSV inregistrat de sensor_recorder
-  --out             director de iesire (implicit ~/rehab_data/rapoarte)
-  --inspect         doar listeaza coloanele, nu genereaza raport
-
-NOTA: exercise_core.py NU expune `_selftest` si nici bloc `__main__`, deci nu se
-ruleaza standalone pentru verificare offline (verificat in cod).
-
-Rulare noduri (scripturile se instaleaza in lib/<pkg>, deci se cheama cu .py):
-
-    ros2 run rehab_exo_description exercise_controller.py
-    ros2 run rehab_exo_description operator_panel.py
-    ros2 run rehab_exo_description telemetry_display.py
-    ros2 run rehab_exo_description sensor_recorder.py
-    ros2 run rehab_exo_description safety_supervisor.py
-    ros2 run rehab_exo_description operator_heartbeat.py
-    ros2 run rehab_exo_description patient_model.py
-
-Launch (din docstring-urile fisierelor din launch/):
+Toate lansarile declara `rmw:=` (implicit `rmw_cyclonedds_cpp`, decizia din registrul
+de pe 18 aug) si il aplica prin `SetEnvironmentVariable` intr-un `GroupAction` scoped.
+`scripts/rmw_guard.py` verifica la runtime implementarea EFECTIV incarcata si iese cu
+cod 3 la nepotrivire: pinuirea singura nu ajunge, fiindca daca RMW-ul cerut nu e
+instalat, rclpy cade linistit pe implicit.
 
     ros2 launch rehab_exo_description display.launch.py
-    ros2 launch rehab_exo_description demo.launch.py
-    ros2 launch rehab_exo_description demo_all.launch.py
-    ros2 launch rehab_exo_description operator.launch.py
-    ros2 launch rehab_exo_description gazebo.launch.py
-    ros2 launch rehab_exo_description exercitii_glezna.launch.py [reps:=2]
-    ros2 launch rehab_exo_description exercitii_genunchi.launch.py [reps:=2]
-    ros2 launch rehab_exo_description exercitii_sold.launch.py [reps:=2]
-    ros2 launch rehab_exo_description exercitii_combinat.launch.py [reps:=2]
-    ros2 launch rehab_exo_description telerehab.launch.py \
-        [telerehab:=true] [with_patient:=true] [profile:=<cale.yaml>] \
-        [limits:=<cale.yaml>] [stop_command:=<txt>]
+    ros2 launch rehab_exo_description display.launch.py rmw:=zenoh
 
-(Argumentele de launch de mai sus sunt verificate in corpul fisierelor prin
-DeclareLaunchArgument. telerehab.launch.py declara exact: telerehab
-(implicit false), with_patient (implicit false), profile, limits, stop_command
-(implicit neutral). demo_all.launch.py declara in plus argumentul exercise
-(implicit full_extension) pe langa reps (implicit 3); fisierele exercitii_*.launch.py
-si demo_all.launch.py accepta reps (implicit 3).)
+## Conventia de zero (se schimba la F1b)
 
-## Parametri si topicuri
+Zeroul articular actual este **zero = SEZUT**, mostenit de la autorul initial
+(declarat in antetul URDF-ului livrat: "Postura zero = SEZUT"). Cursele actuale --
+sold 65,89 grade, genunchi 100,27, glezna 68,75 -- sunt IPOTEZE LOCALE (GAP 4 din
+`SPEC_LLR_twin_din_PDF.md`), nu valori din documentatia tehnica, care cere
+90 / 140 / 70 grade.
 
-exercise_controller.py
-  Parametri: exercise (implicit "neutral"), reps (3), backend ("joint_states"),
-             rate_hz (50.0), loop (False).
-  Sub: exercise_cmd (std_msgs/String), adjust_cmd (std_msgs/Float64MultiArray),
-       joint_states (sensor_msgs/JointState, doar backend trajectory ca feedback).
-  Pub: joint_states (backend joint_states) SAU
-       /leg_trajectory_controller/joint_trajectory +
-       /adjust_position_controller/commands (backend trajectory).
-  Mesaj /exercise_cmd: nume simplu ("ankle_pump", "knee_session", "neutral") sau
-  JSON {"exercise": "...", "reps": N} (cod: json.loads, d.get("exercise"/"reps")).
-  adjust_cmd: [seat_lift, left_thigh_ext, right_thigh_ext, left_shank_ext,
-              right_shank_ext] in metri.
+La F1b (Valul 2) zeroul se redefineste ANATOMIC conform documentului-sursa, cursele
+se aliniaza la 90/140/70, si apare al doilea set de limite (`postura:=sezut|culcat`,
+mecanismul inelului de oprire din documentatie).
 
-operator_panel.py
-  Pub: exercise_cmd (String), adjust_cmd (Float64MultiArray), record_cmd (String).
+## Mase si inertii: NEVERIFICATE
 
-sensor_recorder.py
-  Sub: joint_states (JointState), record_cmd (String -> "start"/"start nume"/"stop").
+Toate masele si inertiile sunt PLACEHOLDER pentru simulare. Documentul-sursa nu
+contine mase pe segmente, centre de masa sau inertii (GAP 1). Sunt INTERZISE pentru
+concluzii dinamice. Lista completa cu statut: `urdf/MASE_NEVERIFICATE.md`.
 
-telemetry_display.py
-  Sub: joint_states (JointState).
+## Teste
 
-safety_supervisor.py
-  Parametri: limits_file (""), stop_command ("neutral"), enable_heartbeat (False),
-             heartbeat_timeout (0.6), startup_grace (2.0), rate (50.0).
-  Sub: /joint_states (JointState), /telerehab/heartbeat (String, "seq;t_ns"),
-       /safety/reset (std_msgs/Empty).
-  Pub: /telerehab/heartbeat_echo (String), /exercise_cmd (String, comanda STOP),
-       /safety/status (String, "OK"/"TRIPPED:<motiv>"), /safety/event (String).
+    colcon test --packages-select rehab_exo_description
+    python3 test/test_descriere.py     # direct, fara colcon
+    python3 scripts/rmw_guard.py --selftest
 
-operator_heartbeat.py
-  Parametri: hb_rate (20.0), loss_timeout (1.0), window (100), rtt_warn (150.0),
-             rtt_crit (400.0), loss_warn (5.0), loss_crit (20.0), log_csv (True),
-             label (implicit $RMW_IMPLEMENTATION sau "necunoscut").
-  Pub: /telerehab/heartbeat (String), /telerehab/network_health (String,
-       format "cheie=valoare ..." conform docstring).
-  Sub: /telerehab/heartbeat_echo (String).
+`test_descriere.py` genereaza URDF-ul din xacro si verifica topologia (15 linkuri,
+14 jointuri, 11 DOF active), limitele, simetria stanga-dreapta joint cu joint, si
+flagurile cu CONTROL NEGATIV (prezenta cand sunt active, absenta cand nu sunt).
 
-patient_model.py
-  Parametri: profile_file (""), rate (100.0), scale (1.0).
-  Sub: /joint_states (JointState), /patient_model/scale (std_msgs/Float64).
-  Pub: /rehab/patient_force/<joint> (std_msgs/Float64), cate unul pentru fiecare
-       din cele 6 articulatii motorizate.
+## Limita cunoscuta
 
-Conventia de semn URDF (din exercise_core.py): hip + ridica coapsa
-[-0.45..+0.70] rad; knee + extensie [0.00..+1.75] rad; ankle + dorsiflexie
-[-0.60..+0.60] rad. NOTA MEDICALA (din cod): valorile sunt de demonstratie, nu
-prescriptii clinice.
+`adjust_position_controller` nu urca sub `gazebo.launch.py`. Serviciul
+`/controller_manager/list_controllers` exista dar nu raspunde; un timeout de 60 s nu
+ajuta. Prezent sub ambele RMW-uri testate, cu variabilitate intre rulari. Cauza NU e
+stabilita -- item deschis, vezi raportul F0b.
