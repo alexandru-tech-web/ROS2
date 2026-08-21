@@ -4,11 +4,14 @@
 DOUA INVARIANTE DIFERITE, si diferenta conteaza:
   genunchi + glezna -- unghiul FIZIC ramane identic (reetichetare pura);
   sold              -- unghiul fizic SE SCHIMBA deliberat; se pastreaza FRACTIA din
-                       cursa disponibila. Motiv masurat: cursa veche a soldului,
-                       exprimata anatomic, e 64.22..130.11 grade (permanent flectat,
-                       peste flexia umana normala) si nu incape in cei 90 de grade
-                       documentati [PDF Tabel 3.1]. Limitele vechi erau placeholdere
-                       fara sursa (GAP 4); documentul are prioritate.
+                       cursa disponibila. Motiv MASURAT pe cele 636 de valori vechi de
+                       sold, exprimate anatomic: punctele stau in 90.00..124.38 grade
+                       (span 34.38), deci incap intr-o fereastra de 90 -- dar NU intr-una
+                       ANCORATA ANATOMIC. Cu zero la culcat drept si cursa documentata de
+                       90 [PDF Tabel 3.1], fereastra e 0..90 si punctele urca la 124.38.
+                       Exercitiile vechi porneau din sezut (minimul e exact 90.00, adica
+                       vechiul zero) si ridicau coapsa peste el. Limitele vechi erau
+                       placeholdere fara sursa (GAP 4); documentul are prioritate.
 
 Conversia de conventie (M1) a atins 36 de valori de unghi din exercise_core.py si
 6 pozitii de repaus din patient_demo.yaml. O conversie facuta cu mana ar fi trecut

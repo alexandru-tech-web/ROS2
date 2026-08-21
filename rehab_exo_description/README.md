@@ -73,6 +73,34 @@ plus control negativ cu o mapare gresita).
 ATENTIE la genunchi: in conventia veche unghiul crestea spre EXTENSIE; acum creste spre
 FLEXIE. Inversarea de semn e reala si e materializata in axa jointului.
 
+### Postura initiala
+
+`POSTURA_INITIALA` din `scripts/exercise_core.py`, in conventia noua:
+
+| articulatie | valoare | de unde |
+|---|---|---|
+| sold | **35.22 grade** | RE-DERIVATA: fractia 0.3913 (unde cadea vechiul zero in cursa veche) din noua cursa de 90 |
+| genunchi | **90.00 grade** | convertita exact: vechiul zero era gamba verticala sub coapsa orizontala |
+| glezna | **0.00 grade** | neschimbata |
+
+ATENTIE, si e o consecinta de stiut, nu un detaliu: soldul de 35.22 grade e IN setul de
+limite `postura:=sezut` (25..90), dar NU e postura sezut. Sezutul fizic inseamna 90 de
+grade de flexie de sold; vechea stare initiala chiar acolo era. Fractia s-a pastrat,
+postura fizica de plecare nu -- exact acelasi compromis ca la traiectoriile de sold.
+Daca se prefera ca dispozitivul sa PORNEASCA fizic din sezut, valoarea devine 90 si
+primul segment al fiecarui exercitiu se schimba; e o decizie deschisa, nu o scapare.
+
+### Schimbari DELIBERATE de domeniu (registrul complet)
+
+Trei domenii articulare s-au schimbat intentionat la M1. Doua dintre ele nu au legatura
+cu traiectoriile si de aceea sunt usor de trecut cu vederea:
+
+| # | schimbare | vechi (anatomic) | nou | efect |
+|---|---|---|---|---|
+| 1 | sold RE-DERIVAT | 64.22 .. 130.11 | 0 .. 90 | traiectoriile pastreaza fractia, nu unghiul |
+| 2 | **hiperextensia genunchiului ELIMINATA** | -10.27 .. 90 | 0 .. 140 | vechiul model permitea 10.27 grade de hiperextensie; niciun exercitiu nu o folosea (dovedit de test), dar disparitia ei e DECIZIE, nu consecinta |
+| 3 | glezna largita | -34.38 .. +34.38 (68.75) | -35 .. +35 (70) | +0.62 grade pe fiecare parte, spre cursa documentata |
+
 ### Traiectoriile: doua invariante diferite
 
 Genunchi si glezna au fost CONVERTITE (unghi fizic identic). Soldul a fost RE-DERIVAT:
