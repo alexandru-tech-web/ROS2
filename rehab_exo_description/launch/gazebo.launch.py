@@ -73,6 +73,16 @@ def generate_launch_description():
         output="screen",
     )
 
+    # HOMING (M3): citeste encoderele ABSOLUTE si iese cu 0 abia cand toate au
+    # raspuns. Controllerele de MISCARE se lanseaza pe OnProcessExit al lui, deci o
+    # pornire fara pozitie cunoscuta nu poate ajunge la o comanda de traiectorie
+    # [secventa reala, PDF p.10].
+    homing = Node(
+        package="rehab_exo_description", executable="homing_node.py",
+        name="rehab_homing", output="screen",
+        parameters=[{"use_sim_time": True}],
+    )
+
     jsb = Node(
         package="controller_manager", executable="spawner",
         arguments=["joint_state_broadcaster",
@@ -105,8 +115,12 @@ def generate_launch_description():
     #       -> (controler exercitii + inregistrator)
     after_spawn = RegisterEventHandler(
         OnProcessExit(target_action=spawn, on_exit=[jsb]))
+    # joint_state_broadcaster are voie INAINTE de homing: doar publica starea, nu
+    # comanda nimic. Fara el, homing-ul nici nu ar avea ce citi.
     after_jsb = RegisterEventHandler(
-        OnProcessExit(target_action=jsb, on_exit=[traj]))
+        OnProcessExit(target_action=jsb, on_exit=[homing]))
+    after_homing = RegisterEventHandler(
+        OnProcessExit(target_action=homing, on_exit=[traj]))
     after_traj = RegisterEventHandler(
         OnProcessExit(target_action=traj, on_exit=[adjust]))
     after_adjust = RegisterEventHandler(
@@ -114,4 +128,5 @@ def generate_launch_description():
 
     return LaunchDescription([argument_rmw(), cu_rmw(
         [gz_sim, rsp, clock_bridge, spawn,
-         after_spawn, after_jsb, after_traj, after_adjust], "gazebo")])
+         after_spawn, after_jsb, after_homing, after_traj, after_adjust],
+        "gazebo")])

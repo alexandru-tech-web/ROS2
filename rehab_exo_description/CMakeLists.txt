@@ -41,6 +41,8 @@ install(
     scripts/session_report.py
     scripts/rmw_guard.py
     scripts/spec_derivate.py
+    scripts/transmisie_core.py
+    scripts/homing_node.py
   DESTINATION lib/${PROJECT_NAME}
 )
 # rmw_guard.py se instaleaza SI in launch/, ca modul: launch/rmw_common.py importa de
@@ -58,6 +60,12 @@ if(BUILD_TESTING)
   # xunit-ul, deci il genereaza wrapper-ul din codul de iesire.
   # Echivalenta conventiei (M1): schimbarea de zero nu a schimbat robotul.
   # Nucleul pur al valorilor derivate din documentatie.
+  ament_add_test(test_transmisie
+    GENERATE_RESULT_FOR_RETURN_CODE_ZERO
+    COMMAND "/usr/bin/python3" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/transmisie_core.py" "--selftest"
+    OUTPUT_FILE "${CMAKE_BINARY_DIR}/test_transmisie.log"
+    RESULT_FILE "${CMAKE_BINARY_DIR}/test_transmisie.xunit.xml"
+    TIMEOUT 60)
   ament_add_test(test_spec_derivate
     GENERATE_RESULT_FOR_RETURN_CODE_ZERO
     COMMAND "/usr/bin/python3" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/spec_derivate.py" "--selftest"
