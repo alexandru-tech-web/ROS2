@@ -48,6 +48,17 @@ JOINT_NAMES = [
     "right_hip_joint", "right_knee_joint", "right_ankle_joint",
 ]
 
+# VERSIUNEA DE CONVENTIE in care sunt scrise traiectoriile din acest fisier.
+# Modelul poarta a lui in URDF (conventie_versiune). Cat timp cele doua difera,
+# exercise_controller REFUZA sa ruleze: o traiectorie scrisa in alta conventie ar
+# duce robotul in alt loc decat scrie pe ea, si ar face-o linistit.
+# B0 = zero anatomic (M1). B1 = zero mecanic al dispozitivului (D1, 22 aug).
+# Traiectoriile de mai jos sunt inca in B0; se reconvertesc la punctul 7.
+CONVENTIE_TRAIECTORII = "B0"
+
+# Cod de esec DISTINCT, ca un refuz de conventie sa nu poata fi confundat cu altceva.
+COD_CONVENTIE = 7
+
 LIMITS = {
     "hip":   (0.00000, 1.57080),   # 0..90 grade anatomic [PDF Tabel 3.1]
     "knee":  (0.00000, 2.44346),   # 0..140 grade anatomic [PDF Tabel 3.1]
@@ -140,6 +151,25 @@ class Player:
 # Segmente complete per exercitiu: _FULL[nume](reps) -> lista de segmente
 # (include prolog/epilog acolo unde e nevoie; incepe si se termina la zero)
 # ============================================================
+
+def verdict_conventie(a_modelului, a_traiectoriilor=None):
+    """Se pot rula traiectoriile pe modelul asta? NUCLEU PUR.
+
+    Intoarce (permis, motiv). Un "nu stiu" NU e un "da": daca modelul nu declara
+    nicio versiune, refuzul e tot refuz. Altfel gardianul ar fi ocolit exact de
+    modelele vechi, adica de cele pentru care a fost facut."""
+    mea = CONVENTIE_TRAIECTORII if a_traiectoriilor is None else a_traiectoriilor
+    if not a_modelului:
+        return (False, "modelul nu declara nicio versiune de conventie; traiectoriile "
+                       "sunt scrise in %s. Refuz: nu pot verifica pe ce le rulez." % mea)
+    if a_modelului != mea:
+        return (False, "NEPOTRIVIRE DE CONVENTIE: modelul e in %s, traiectoriile in "
+                       "%s. Refuz sa rulez. Unghiurile ar fi interpretate altfel decat "
+                       "au fost scrise, si robotul s-ar misca in alta parte fara sa se "
+                       "planga nimeni. Vezi DECIZII.md, D1."
+                       % (a_modelului, mea))
+    return (True, "conventie confirmata: model si traiectorii in %s" % mea)
+
 
 def _both(d):
     out = {}

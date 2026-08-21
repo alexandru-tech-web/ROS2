@@ -99,6 +99,20 @@ if(BUILD_TESTING)
     RESULT_FILE "${CMAKE_BINARY_DIR}/test_rmw_mutant.xunit.xml"
     TIMEOUT 300)
 
+  ament_add_test(test_podea
+    GENERATE_RESULT_FOR_RETURN_CODE_ZERO
+    COMMAND "/usr/bin/python3" "${CMAKE_CURRENT_SOURCE_DIR}/test/test_podea.py"
+    OUTPUT_FILE "${CMAKE_BINARY_DIR}/test_podea.log"
+    RESULT_FILE "${CMAKE_BINARY_DIR}/test_podea.xunit.xml"
+    TIMEOUT 300)
+
+  ament_add_test(test_gardian_conventie
+    GENERATE_RESULT_FOR_RETURN_CODE_ZERO
+    COMMAND "/usr/bin/python3" "${CMAKE_CURRENT_SOURCE_DIR}/test/test_gardian_conventie.py"
+    OUTPUT_FILE "${CMAKE_BINARY_DIR}/test_gardian_conventie.log"
+    RESULT_FILE "${CMAKE_BINARY_DIR}/test_gardian_conventie.xunit.xml"
+    TIMEOUT 120)
+
   ament_add_test(test_geometrie
     GENERATE_RESULT_FOR_RETURN_CODE_ZERO
     COMMAND "/usr/bin/python3" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/geometrie_core.py" "--selftest"

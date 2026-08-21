@@ -66,6 +66,17 @@ class ExerciseController(Node):
             v = min(3.0, max(0.1, v))
         self.viteza = v
 
+        # GARDIANUL DE CONVENTIE. Modelul isi declara versiunea in URDF; fisierul de
+        # traiectorii pe a lui. Cat timp difera, nu se ruleaza NIMIC. Un exercitiu
+        # rulat in conventia gresita nu da eroare: misca robotul altundeva, linistit.
+        self._conventie_ok = None
+        from rclpy.qos import (QoSProfile, QoSDurabilityPolicy,
+                               QoSHistoryPolicy, QoSReliabilityPolicy)
+        qos = QoSProfile(depth=1, history=QoSHistoryPolicy.KEEP_LAST,
+                         reliability=QoSReliabilityPolicy.RELIABLE,
+                         durability=QoSDurabilityPolicy.TRANSIENT_LOCAL)
+        self.create_subscription(String, "/robot_description", self._descriere, qos)
+
         # starea curenta a tuturor articulatiilor
         self.q_cur = {j: 0.0 for j in core.JOINT_NAMES}
         self.q_prev = dict(self.q_cur)
@@ -95,6 +106,29 @@ class ExerciseController(Node):
             self.t0 = self.get_clock().now()
             self.finished_logged = False
             self.timer = self.create_timer(1.0 / self.rate, self.tick_joint_states)
+
+    def _descriere(self, msg):
+        """Extrage versiunea de conventie din URDF si da verdictul, o singura data."""
+        import re as _re
+        m = _re.search(r'conventie_versiune"\s*>\s*([^<\s]+)\s*<', msg.data)
+        a_modelului = m.group(1) if m else None
+        ok, motiv = core.verdict_conventie(a_modelului)
+        self._conventie_ok = ok
+        if ok:
+            self.get_logger().info(motiv)
+        else:
+            self.get_logger().error(motiv)
+            self.get_logger().error(
+                "NU trimit nicio traiectorie. Reconversia e punctul 7 din planul de "
+                "geometrie; pana atunci exercitiile sunt blocate deliberat.")
+
+    def _pot_rula(self):
+        if self._conventie_ok is None:
+            self.get_logger().warn(
+                "inca nu am primit /robot_description; nu pot verifica conventia, "
+                "deci nu trimit nimic (un 'nu stiu' nu e un 'da')")
+            return False
+        return self._conventie_ok
 
     # ---------------- constructie / comenzi ----------------
     def _build(self, name, reps):
@@ -144,6 +178,8 @@ class ExerciseController(Node):
 
     # ---------------- backend RViz: /joint_states ----------------
     def tick_joint_states(self):
+        if not self._pot_rula():
+            return
         dt = 1.0 / self.rate
         t = (self.get_clock().now() - self.t0).nanoseconds * 1e-9
         q, done = self.player.sample(t * self.viteza)
@@ -184,6 +220,8 @@ class ExerciseController(Node):
         self.send_trajectory()
 
     def send_trajectory(self):
+        if not self._pot_rula():
+            return
         traj = JointTrajectory()
         traj.joint_names = list(core.JOINT_NAMES)
         t, dt = 0.0, 0.1

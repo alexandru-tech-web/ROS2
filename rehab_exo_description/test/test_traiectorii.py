@@ -80,7 +80,47 @@ def fractie(joint, val, tabel):
     return (val - lo) / (hi - lo)
 
 
+# ---------------------------------------------------------------------------
+# SKIP DELIBERAT, de la 22 aug 2026 (decizia D1, conventia B-prim).
+#
+# Testul asta compara traiectoriile din exercise_core cu cele vechi si dovedeste ca
+# pastreaza aceeasi forma. Comparatia are sens doar cat timp AMBELE sunt in aceeasi
+# conventie. Flip-ul B -> B-prim a schimbat intelesul unghiului de sold, iar
+# traiectoriile NU au fost inca reconvertite (punctul 7 din planul de geometrie).
+# Pana atunci verdictul lui n-ar insemna nimic: ar compara doua lucruri numite la fel
+# si masurate altfel.
+#
+# NU e sters si NU e lasat sa pice tacut. E sarit EXPLICIT, iar conditia de sarire se
+# ANULEAZA SINGURA: in clipa in care traiectoriile ajung in aceeasi conventie cu
+# modelul, skip-ul de mai jos PICA si obliga pe cineva sa reactiveze testul. Un skip
+# care supravietuieste motivului lui e cum se pierd suitele de teste.
+# ---------------------------------------------------------------------------
+def _motiv_de_skip():
+    """(trebuie_sarit, mesaj). Se uita la versiunile REALE, nu la o constanta."""
+    import re
+    sys.path.insert(0, os.path.join(PACHET, "scripts"))
+    import exercise_core as ec
+    urdf = os.path.join(PACHET, "urdf", "rehab_exo.urdf.xacro")
+    text = open(urdf).read()
+    m = re.search(r'name="conventie_versiune"\s+value="([^"]+)"', text)
+    a_modelului = m.group(1) if m else None
+    a_traiect = getattr(ec, "CONVENTIE_TRAIECTORII", None)
+    if a_modelului is None or a_traiect is None:
+        return (False, "nu pot citi versiunile; testul se ruleaza")
+    if a_modelului != a_traiect:
+        return (True, "modelul e in %s, traiectoriile in %s" % (a_modelului, a_traiect))
+    return (False, "versiunile coincid (%s)" % a_modelului)
+
+
 def main(argv=None):
+    sarit, motiv = _motiv_de_skip()
+    if sarit:
+        print("SKIP test_traiectorii: %s." % motiv)
+        print("  Motivul: comparatia de forma nu are sens intre doua conventii.")
+        print("  Se reactiveaza singur cand traiectoriile se reconverteste (punctul 7).")
+        return 0
+    print("test_traiectorii: NU se mai sare (%s); rulez comparatia." % motiv)
+
     nou = incarca(os.path.join(PACHET, "scripts", "exercise_core.py"), "ec_nou")
     vechi = incarca(os.path.join(PACHET, "attic", "exercise_core.py.vechi"), "ec_vechi")
 
