@@ -1,0 +1,7 @@
+### 'ros2 control list_controllers' cu RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+### simularea ruleaza pe rmw_cyclonedds_cpp; singura variabila schimbata e RMW-ul clientului
+
+[WARN] [1787313589.468882635] [_ros2cli_143748]: Failed getting a result from calling /controller_manager/list_controllers in 10.0. (Attempt 1 of 3.)
+[WARN] [1787313599.471281017] [_ros2cli_143748]: Failed getting a result from calling /controller_manager/list_controllers in 10.0. (Attempt 2 of 3.)
+
+### cod de iesire: 124  (124 = timeout, adica serviciul nu a raspuns)

@@ -53,6 +53,23 @@ rezultate. Daca un push esueaza, prima suspiciune: date brute / fisiere >100 MB.
   `colcon build ... --cmake-args -DPython3_EXECUTABLE=/usr/bin/python3`.
   Fara el: `ModuleNotFoundError: No module named 'catkin_pkg'`. A muscat pe doua cai
   diferite (PATH si CMake), deci e proprietate a mediului, nu incident.
+- snap-VSCode fura procesele grafice: terminalul VSCode e pornit din snap si scurge
+  biblioteci `core20` in mediul copiilor. `gz sim gui` moare instant cu
+  `symbol lookup error: /snap/core20/.../libpthread.so.0: __libc_pthread_init`, iar
+  cand GUI-ul moare `gz sim` escaladeaza la SIGKILL pe SERVER: lumea nu mai paseste,
+  `/clock` tace, si `controller_manager`-ul (care ruleaza IN bucla de update a
+  Gazebo) nu mai e actualizat niciodata. Simptomul arata ca un defect de
+  `ros2_control`, nu de mediu. Curatarea lui `LD_LIBRARY_PATH` NU ajuta (snap-ul
+  injecteaza si `LOCPATH`, `GTK_PATH`, `GIO_MODULE_DIR`). Demonstratiile se pornesc
+  HEADLESS (`gz sim -s -r`, implicit in launch-uri) sau dintr-un terminal ne-snap.
+  Aceeasi clasa cu capcana conda de mai sus: proprietate a mediului, nu incident.
+- RMW nepotrivit intre procese arata ca un sistem sanatos: FastRTPS si CycloneDDS
+  interopereaza pe discovery si pub/sub, dar NU pe request/reply. Deci topicurile
+  curg, `ros2 node list` arata tot, si DOAR apelurile de serviciu nu se intorc.
+  `SetEnvironmentVariable` intr-un `GroupAction` scoped isi retrage mediul inainte
+  ca nodurile nascute din `RegisterEventHandler` sa porneasca -- acelea pornesc pe
+  implicit. Mediul RMW se aplica GLOBAL pe launch, nu in grup scoped.
+  Material de teza: `docs/material_teza/cm_rmw_mismatch/`.
 - `--` (doua liniute) e ILEGAL in interiorul unui comentariu XML. Regula ASCII de la
   sectiunea 3 (em-dash -> `--`) are EXCEPTIE pe .xml/.urdf/.xacro: acolo se foloseste
   `;` sau se reformuleaza. A rupt generarea xacro de doua ori.

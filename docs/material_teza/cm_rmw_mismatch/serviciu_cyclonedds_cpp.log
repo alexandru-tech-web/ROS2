@@ -1,0 +1,8 @@
+### 'ros2 control list_controllers' cu RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+### simularea ruleaza pe rmw_cyclonedds_cpp; singura variabila schimbata e RMW-ul clientului
+
+adjust_position_controller position_controllers/JointGroupPositionController      active
+leg_trajectory_controller  joint_trajectory_controller/JointTrajectoryController  active
+joint_state_broadcaster    joint_state_broadcaster/JointStateBroadcaster          active
+
+### cod de iesire: 0  (124 = timeout, adica serviciul nu a raspuns)

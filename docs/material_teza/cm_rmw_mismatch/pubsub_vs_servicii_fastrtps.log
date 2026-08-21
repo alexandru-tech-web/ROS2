@@ -1,0 +1,45 @@
+### CLIENT pe rmw_fastrtps_cpp, SIMULARE pe rmw_cyclonedds_cpp.
+### Intrebarea: ce anume supravietuieste nepotrivirii si ce nu.
+
+--- 1. DISCOVERY: se vad nodurile? ---
+/adjust_position_controller
+/controller_manager
+/exercise_controller
+/gz_ros_control
+/joint_state_broadcaster
+/leg_trajectory_controller
+/rehab_monitor
+/robot_state_publisher
+/ros_gz_bridge
+
+--- 2. PUB/SUB: curge /joint_states? ---
+average rate: 95.692
+	min: 0.009s max: 0.014s std dev: 0.00093s window: 97
+average rate: 94.841
+	min: 0.008s max: 0.014s std dev: 0.00102s window: 191
+average rate: 94.330
+	min: 0.008s max: 0.014s std dev: 0.00108s window: 285
+average rate: 94.222
+	min: 0.007s max: 0.016s std dev: 0.00116s window: 379
+average rate: 93.072
+	min: 0.007s max: 0.019s std dev: 0.00134s window: 468
+average rate: 93.246
+	min: 0.007s max: 0.019s std dev: 0.00128s window: 563
+average rate: 93.141
+	min: 0.007s max: 0.019s std dev: 0.00130s window: 656
+average rate: 93.343
+	min: 0.007s max: 0.019s std dev: 0.00129s window: 751
+average rate: 93.032
+	min: 0.007s max: 0.019s std dev: 0.00132s window: 842
+average rate: 93.150
+	min: 0.007s max: 0.019s std dev: 0.00130s window: 937
+
+--- 3. DISCOVERY DE SERVICII: serviciul e ANUNTAT? ---
+/controller_manager/cleanup_controller
+/controller_manager/configure_controller
+/controller_manager/describe_parameters
+
+--- 4. APEL DE SERVICIU: raspunde? ---
+[INFO] [1787313729.643612601] [_ros2cli_144989]: waiting for service /controller_manager/list_controllers to become available...
+[WARN] [1787313740.145865244] [_ros2cli_144989]: Failed getting a result from calling /controller_manager/list_controllers in 10.0. (Attempt 1 of 3.)
+### cod de iesire la apel: 124 (124 = timeout)
