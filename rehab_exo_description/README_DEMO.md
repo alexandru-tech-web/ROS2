@@ -104,7 +104,11 @@ viteza e acum plafonat, si asertat ca plafonat in selftest.
 
 Exercitiu `knee_extension`, `viteza:=1.0`, castig 15.0, robot la 1.2 m:
 
-- cele trei controlere `active`, `/joint_states` la ~57 Hz
+- cele trei controlere `active`, `/joint_states` la **76.6 Hz de perete @ RTF 0.75**,
+  adica ~102 Hz in timp simulat -- consistent cu `update_rate: 100` al lui
+  `controller_manager`. Orice rata se citeste impreuna cu RTF-ul: fara el, aceeasi
+  cifra inseamna lucruri diferite de la o rulare la alta, si toate masuratorile
+  zilelor 2 si 3 au fost facute in timp de perete. RTF-ul apare in antetul tabloului.
 - homing curat, 4 encodere absolute citite
 - eroare de urmarire maxima **0.027 rad (1.5 grade)**, genunchiul drept la 0.002 rad
 - abatere de coerenta neexplicata **0.001 rad**, adica nivelul zgomotului declarat
@@ -119,7 +123,18 @@ fiindca terminalul e pornit din snap-ul VSCode, care scurge biblioteci `core20` 
 mediul proceselor copil. Cand GUI-ul moare, `gz sim` escaladeaza la SIGKILL pe
 SERVER: lumea nu mai paseste, `/clock` tace, si `controller_manager`-ul, care ruleaza
 IN bucla de update a Gazebo, nu mai e actualizat niciodata. Fizica ruleaza perfect
-fara GUI. Dintr-un terminal care nu vine din snap, `gui:=true` functioneaza.
+fara GUI.
+
+**Se poate totusi porni cu fereastra, si e verificat.** Curatarea doar a lui
+`LD_LIBRARY_PATH` nu ajuta (snap injecteaza si `LOCPATH`, `GTK_PATH`,
+`GIO_MODULE_DIR`, `XDG_DATA_DIRS`), dar un mediu pornit de la zero cu `env -i`, in
+care se repun doar acreditarile de afisare, functioneaza:
+
+    ./scripts/demo_cu_gui.sh exercitiu:=knee_extension
+
+Masurat pe 22 aug 2026: demonstratia completa ruleaza cu fereastra, fara eroarea de
+simboluri, cu toate cele patru verdicte ale monitorului verzi. Dintr-un terminal care
+nu vine din snap, scriptul nu e necesar -- `gui:=true` merge direct.
 
 ## Trei lucruri de stiut inainte sa se modifice ceva
 

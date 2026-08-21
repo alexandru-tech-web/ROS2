@@ -47,6 +47,7 @@ install(
     scripts/senzori_node.py
     scripts/monitor_senzori.py
     scripts/supervizor_electric.py
+    scripts/demo_cu_gui.sh
     scripts/supervizor_core.py
     scripts/monitor_core.py
   DESTINATION lib/${PROJECT_NAME}

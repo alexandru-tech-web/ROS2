@@ -61,7 +61,10 @@ rezultate. Daca un push esueaza, prima suspiciune: date brute / fisiere >100 MB.
   Gazebo) nu mai e actualizat niciodata. Simptomul arata ca un defect de
   `ros2_control`, nu de mediu. Curatarea lui `LD_LIBRARY_PATH` NU ajuta (snap-ul
   injecteaza si `LOCPATH`, `GTK_PATH`, `GIO_MODULE_DIR`). Demonstratiile se pornesc
-  HEADLESS (`gz sim -s -r`, implicit in launch-uri) sau dintr-un terminal ne-snap.
+  HEADLESS (`gz sim -s -r`, implicit in launch-uri). SE POATE si cu fereastra,
+  verificat: `env -i` cu repunerea DOAR a acreditarilor de afisare (DISPLAY,
+  XAUTHORITY, WAYLAND_DISPLAY, XDG_RUNTIME_DIR) -- vezi
+  `rehab_exo_description/scripts/demo_cu_gui.sh`.
   Aceeasi clasa cu capcana conda de mai sus: proprietate a mediului, nu incident.
 - RMW nepotrivit intre procese arata ca un sistem sanatos: FastRTPS si CycloneDDS
   interopereaza pe discovery si pub/sub, dar NU pe request/reply. Deci topicurile

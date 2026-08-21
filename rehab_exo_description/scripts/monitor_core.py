@@ -52,6 +52,22 @@ VITEZA_MAX_PRAG_RAD_S = 0.5
 PRAG_SATURATIE = 0.98
 
 
+def rtf(d_sim, d_perete):
+    """Factorul de timp real: cat timp simulat trece pe secunda de timp de perete.
+
+    De ce sta langa fiecare rata raportata: '/joint_states la 57 Hz' nu inseamna
+    nimic singur. Daca simularea merge la jumatate de viteza, aceleasi 57 Hz de
+    perete sunt 114 Hz de timp simulat, si invers. O rata fara RTF nu se poate
+    compara nici cu alta rulare, nici cu hardware-ul real -- si toate cifrele din
+    rapoartele zilelor 2 si 3 au fost masurate in timp de perete.
+
+    Intoarce None daca fereastra e prea scurta ca raportul sa insemne ceva; NU 0.0
+    si NU 1.0, fiindca 'nu stiu inca' si 'merge in timp real' sunt lucruri diferite."""
+    if d_perete is None or d_perete < 0.5:
+        return None
+    return d_sim / d_perete
+
+
 def fmt(v, latime=8, zecimale=3):
     """Un numar, sau NaN scris ca NaN. Niciodata NaN transformat in 0."""
     if v is None:
@@ -158,7 +174,7 @@ def _bara(e, prag, latime=12):
 
 
 def tabel(t, cerut, masurat, cupluri, unghi_senzor, w6, nemasurate, eticheta,
-          offset=None, viteze=None, limite=None):
+          offset=None, viteze=None, limite=None, factor=None):
     """Tabloul complet, ca lista de linii. Pur: nimic nu se citeste din lume aici."""
     offset = offset or {}
     er = eroare_urmarire(cerut, masurat)
@@ -168,7 +184,8 @@ def tabel(t, cerut, masurat, cupluri, unghi_senzor, w6, nemasurate, eticheta,
     ok_s, sat = verdict_saturatie(viteze or {}, limite or {})
 
     L = []
-    L.append("t = %6.1f s   %s" % (t, eticheta))
+    L.append("t = %6.1f s (simulat)   RTF = %s   %s"
+             % (t, "?" if factor is None else "%.2f" % factor, eticheta))
     L.append("")
     L.append("  articulatie      cerut   masurat    eroare  " + "urmarire".ljust(12) + "  cuplu[Nm]")
     for p in PARTI:
@@ -311,6 +328,18 @@ def _selftest():
     assert "URMARIRE" in text and "COERENTA" in text and "CANALE" in text
     assert "VITEZA" in text and "SATURATE" in text, "saturatia trebuie sa se vada in tabel"
     n += 4
+
+    # 7b. RTF: 'nu stiu inca' NU e acelasi lucru cu 'merge in timp real'
+    assert rtf(5.0, 10.0) == 0.5
+    assert rtf(10.0, 10.0) == 1.0
+    assert rtf(1.0, 0.2) is None, "fereastra prea scurta trebuie sa dea None, nu o cifra"
+    assert rtf(1.0, None) is None
+    assert rtf(0.0, 10.0) == 0.0, "simulare oprita = RTF 0, si asta se poate raporta"
+    text_rtf = "\n".join(tabel(1.0, {}, {}, {}, {}, bun, nem, "s", OFF, {}, {}, 0.5))
+    assert "RTF = 0.50" in text_rtf, text_rtf.splitlines()[0]
+    text_fara = "\n".join(tabel(1.0, {}, {}, {}, {}, bun, nem, "s", OFF, {}, {}, None))
+    assert "RTF = ?" in text_fara, "RTF necunoscut trebuie sa se vada ca necunoscut"
+    n += 7
 
     # 8. bara e monotona si se satureaza, nu creste la infinit
     assert len(_bara(0.0, 0.1).strip()) == 0

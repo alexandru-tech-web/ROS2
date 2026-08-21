@@ -20,6 +20,7 @@ Rulare:  ros2 run rehab_exo_description monitor_senzori.py
 """
 import os
 import sys
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -52,6 +53,7 @@ def main(argv=None):
             self.unghi, self.w6 = {}, {}
             self.eticheta = "(eticheta senzorilor inca nu a sosit)"
             self.t0 = None
+            self.perete0 = None
 
             self.create_subscription(JointState, "/joint_states", self._js, 10)
             self.create_subscription(
@@ -72,6 +74,7 @@ def main(argv=None):
         def _js(self, m):
             if self.t0 is None:
                 self.t0 = self.get_clock().now().nanoseconds * 1e-9
+                self.perete0 = time.time()
             for n, p in zip(m.name, m.position):
                 self.masurat[n] = p
             for n, v in zip(m.name, m.velocity):
@@ -102,9 +105,15 @@ def main(argv=None):
         def _tic(self):
             t = 0.0 if self.t0 is None else (
                 self.get_clock().now().nanoseconds * 1e-9 - self.t0)
+            # RTF: nodul are use_sim_time, deci get_clock() e timpul SIMULAT, iar
+            # time.time() e cel de perete. Raportul lor e ce cauta oricine compara
+            # o rata masurata aici cu alta rulare sau cu hardware-ul.
+            factor = None if self.perete0 is None else mc.rtf(
+                t, time.time() - self.perete0)
             linii = mc.tabel(t, self.cerut, self.masurat, self.cupluri,
                              self.unghi, self.w6, sc.NEMASURATE, self.eticheta,
-                             sc.OFFSET_MONTAJ_GLEZNA, self.viteze, LIMITE_VITEZA)
+                             sc.OFFSET_MONTAJ_GLEZNA, self.viteze, LIMITE_VITEZA,
+                             factor)
             # ecran curat, ca sa se citeasca de la distanta la o demonstratie
             sys.stdout.write("\033[H\033[2J" if sys.stdout.isatty() else "\n")
             sys.stdout.write("\n".join(linii) + "\n")
