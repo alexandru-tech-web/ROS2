@@ -179,6 +179,22 @@ def main(argv):
     ok(z_min >= c["margine_podea"],
        "cel mai jos punct e la %.4f m, sub marginea ceruta de %.3f m: %s"
        % (z_min, c["margine_podea"], unde))
+
+    # SENSIBILITATE, scrisa aici ca sa nu produca panica peste sase luni.
+    # Testul trece cu circa 0.7 mm PESTE marginea ceruta, si asta NU e o slabiciune:
+    # inaltimea talpii a fost aleasa exact ca marginea sa fie atinsa, deci cazul cel
+    # mai defavorabil sta PE marja prin CONSTRUCTIE, nu cu rezerva peste ea.
+    # Consecinta practica: orice retus de cota (segmente, offset de glezna, lungimea
+    # tapei) basculeaza invariantul, si asta e comportamentul dorit -- inseamna ca
+    # testul chiar mai are dinti. Daca se doreste rezerva reala, se creste
+    # MARGINE_PODEA in geometrie_core, NU se slabeste asertia de aici.
+    rezerva = z_min - c["margine_podea"]
+    print("  rezerva peste marginea ceruta: %+.4f m (asteptat: mic, prin constructie)"
+          % rezerva)
+    ok(rezerva < 0.010,
+       "rezerva de %.4f m e mai mare decat se astepta: inseamna ca inaltimea talpii "
+       "nu mai e stransa pe invariant si comentariul de mai sus a devenit fals"
+       % rezerva)
     n[0] += cate
 
     # --- 2. LA REPAUS talpa se aseaza EXACT pe inaltimea derivata a suportului.

@@ -12,6 +12,7 @@ raspunde dintr-o privire la intrebarea "de unde vine cifra asta".
 | **IPOTEZA** | alegere motivata, nu in document | doar declarat ca atare |
 | **NEVERIFICAT** | placeholder, necesar simularii | NU |
 | **ALES PRIN MASURARE** | fixat dupa un experiment in simulare | doar despre SIMULARE, nu despre dispozitiv |
+| **INVARIANT** | ales ca un invariant intern sa treaca | NU. Cea mai slaba provenienta din pachet |
 
 Deciziile de PROIECTARE (nu cifre, ci alegeri care constrang tot ce vine dupa) stau
 separat, in `DECIZII.md`. Prima dintre ele, D1, fixeaza conventia articulara B' si
@@ -37,6 +38,21 @@ este cea care da intelesul coloanei "valoare" de mai jos pentru orice unghi.
 | 14 | banda de armare (histerezis) | 2 grade | IPOTEZA | `supervizor_core.BANDA_ARMARE_RAD` | 22 aug |
 | 15 | praguri terapeutice de cuplu/viteza | vezi fisier | IPOTEZA | `config/safety_limits.yaml`; de stabilit cu personal clinic | anterior |
 | 16 | praguri de raportare in monitor | urmarire 0.10 rad, saturatie 0.98 din limita, plafon de viteza 0.5 rad/s | **ALES PRIN MASURARE** | `scripts/monitor_core.py`; praguri de DEMONSTRATIE, nu cerinte clinice | 21-22 aug |
+| 17 | segmente coapsa / gamba | 0.4287 / 0.4305 m | DERIVAT (ANTROPO) | `scripts/geometrie_core.py`, 0.245 si 0.246 x statura 1.75 | 22 aug |
+| 18 | gabaritul articulatiilor | sold 170, genunchi 142, glezna 60 mm | DOCUMENTAT | fisele componentelor: reductoare SHG-40 si SHG-32, motor TBM60 | 22 aug |
+| 19 | **inaltimea suportului de talpa** | **0.230 m** | **INVARIANT** | `geometrie_core.INALTIME_TALPA`; ALEASA ca invariantul podelei sa treaca. Nu descrie dispozitivul, descrie o cerinta pe care i-am impus-o eu. **Prima de masurat la vizita.** | 22 aug |
+| 20 | marja fata de podea | 0.030 m | IPOTEZA | `geometrie_core.MARGINE_PODEA`; cerinta de proiectare aleasa | 22 aug |
+| 21 | plasarea ferestrei soldului | 0..90 in B-prim | IPOTEZA | re-derivata la D1; latimea ramane documentata | 22 aug |
+| 22 | banda de postura sezut | -65..0 in B-prim | **TRANSPORTATA, NEVALIDATA** | cade sub orizontala, deci imposibila; se rejustifica la punctul 5 impreuna cu banda culcat | 22 aug |
+## Ordinea la vizita fizica
+
+1. **inaltimea suportului de talpa (19)** -- singura cota din clasa INVARIANT, adica
+   singura aleasa ca sa treaca un test, nu ca sa descrie ceva. Ea determina inaltimea
+   soldului si a scaunului, deci greseala ei se propaga in tot modelul.
+2. geometria scaunului si a coloanei (pozitia axei soldului fata de marginea din fata)
+3. lungimile si cursele reale ale push rod-urilor 306 si 403
+4. unde sunt montate proximitatile (13)
+5. masele si inertiile (6, 7)
 
 ## Ce ar transforma ipotezele in masuratori
 

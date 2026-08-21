@@ -16,6 +16,11 @@ Asta confirma GAP LIST punctele 2, 3 si 8 din SPEC_LLR_twin_din_PDF.md.
 
 TREI CLASE DE PROVENIENTA, si nimic in afara lor:
   FISA      -- din fisa unei componente numite in document. Cifre reale.
+  INVARIANT -- valoare ALEASA ca un invariant sa treaca. E clasa cu cea mai SLABA
+               provenienta din tot modelul: nu vine nici din document, nici din
+               antropometrie, ci dintr-o cerinta pe care i-am impus-o eu. Merita
+               nume propriu tocmai ca sa nu se ascunda printre cele derivate, si
+               urca prima pe agenda vizitei fizice.
   ANTROPO   -- din antropometria adultului. Argumentul NU e comoditatea: coapsa si
                gamba sunt REGLABILE prin push rod 306 si 403 tocmai ca sa se
                potriveasca pacientului, deci intervalul lor trebuie sa acopere
@@ -91,7 +96,13 @@ GROSIME_PLACA_BAZA = 0.060       # LAYOUT: placa de baza a modulului de picior
 # negativa fata de pozitia de lucru); nu e o cota de scaun obisnuit, e o statie de
 # antrenament la care pacientul e adus, nu pe care se urca singur.
 MARGINE_PODEA = 0.030            # ALES: cat trebuie sa ramana sub cel mai jos punct
-INALTIME_TALPA = 0.230           # LAYOUT + ALES PRIN MASURARE (vezi test_podea.py)
+# CLASA: INVARIANT. Nu LAYOUT. Cifra asta nu descrie dispozitivul, descrie o cerinta
+# pe care i-am impus-o eu modelului. E cota cu cea mai slaba provenienta din tot
+# pachetul si prima de masurat la vizita, alaturi de geometria scaunului.
+# Verificare ieftina cu ochiul, la orice inspectie in RViz: ancora de scara de la
+# glezna e motorul TBM60, adica 60 mm diametru DOCUMENTAT. O talpa de 230 mm langa
+# un motor de 60 mm se vede imediat daca e absurda ca proportie.
+INALTIME_TALPA = 0.230           # INVARIANT (vezi test_podea.py)
 
 # Amplasarea in plan. Axa soldului MASINII sta lateral fata de scaun, fiindca modulul
 # de picior e un ansamblu propriu langa scaun [Fig 2.2: 001 baza scaun, 003 baza
@@ -173,7 +184,7 @@ def _tabel():
         ("gamba_cursa", c["gamba_cursa"], "ANTROPO", "push rod 403; acelasi interval"),
         ("talpa_lungime", c["talpa_lungime"], "ANTROPO", "0.152 x statura"),
         ("glezna_offset", c["glezna_offset"], "ANTROPO", "0.039 x statura, glezna peste talpa"),
-        ("talpa_inaltime", c["talpa_inaltime"], "LAYOUT", "fata suportului de talpa deasupra podelei"),
+        ("talpa_inaltime", c["talpa_inaltime"], "INVARIANT", "ALEASA ca invariantul podelei sa treaca; PROVENIENTA CEA MAI SLABA din model"),
         ("glezna_inaltime", c["glezna_inaltime"], "LAYOUT", "talpa + offset de glezna"),
         ("sold_inaltime", c["sold_inaltime"], "LAYOUT", "glezna + gamba; coapsa e orizontala la sezut"),
         ("placa_grosime", c["placa_grosime"], "LAYOUT", "placa de baza a modulului de picior"),

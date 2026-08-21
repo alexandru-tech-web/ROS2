@@ -22,6 +22,28 @@ Zero ANATOMIC, plan sagital (decizia B din registrul de pe 18 aug):
 | genunchi | 0 .. +140 | 140 | Conventia clinica standard: zero la extensie completa, flexia pozitiva. Nu se presupune hiperextensie, care ar cere justificare separata. |
 | glezna | -35 .. +35 | 70 | Impartire SIMETRICA. Alternativa clinica ar fi -50 plantar / +20 dorsi (tot 70), dar dispozitivul e o masina cu opritoare, iar modelul mostenit folosea deja o impartire simetrica (+-34.38 grade, adica 68.75 total, evident derivata din cei 70 documentati). Simetria e ipoteza cu cele mai putine presupuneri in plus. |
 
+## POSTSCRIPTUM, 22 aug 2026: ipoteza "culcat" a MURIT pe geometrie
+
+Ipoteza de la randul "sold (culcat)" era cea mai curata din tot GAP 4: capetele
+ferestrei erau chiar cele doua posturi documentate ale dispozitivului, deci nu avea
+nevoie de nicio cifra inventata in plus. Tocmai ea s-a dovedit imposibila.
+
+Flip-ul de conventie (DECIZII.md, D1) a dat o mapare derivata din FK: se scad 90 de
+grade la sold. Transportata mecanic prin ea, fereastra 0..90 anatomic devine
+**-90..0 mecanic**, adica INTEGRAL sub coapsa orizontala. Iar sub orizontala piciorul
+trece prin podea, pentru orice lungime din intervalul de reglaj. Deci ipoteza nu era
+doar nesigura: plasa toata cursa in jumatatea geometric imposibila.
+
+Ce se invata din asta, si e mai important decat cifra: o provenienta buna NU e o
+verificare. Rationamentul "capetele = posturile documentate" era corect ca
+rationament si fals ca rezultat, fiindca nu fusese confruntat niciodata cu geometria.
+Confruntarea exista acum ca test permanent, `test/test_podea.py`.
+
+CONSECINTA PENTRU PUNCTUL 5. Nu doar banda de SEZUT se rejustifica. Se rejustifica
+**ambele**, in termeni B-prim, si se rescrie rationamentul, nu doar cifrele: argumentul
+"capetele = posturile" nu se transporta, fiindca a fost aratat gresit. Ce ramane
+valabil e latimea de 90 de grade, care e documentata [PDF Tabel 3.1].
+
 ## Ce ar confirma sau infirma
 
 - masurare pe dispozitivul fizic: unghiul la fiecare opritor mecanic, in ambele posturi;

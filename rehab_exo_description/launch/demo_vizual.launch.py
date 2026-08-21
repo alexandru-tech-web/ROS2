@@ -41,8 +41,16 @@ def generate_launch_description():
 
     rsp = Node(package="robot_state_publisher", executable="robot_state_publisher",
                output="screen", parameters=[{"robot_description": descriere}])
+    # POZA DE PORNIRE = postura de LUCRU, nu toate zerourile. La zero, genunchiul e
+    # complet intins, deci piciorul iese orizontal in fata pe toata lungimea lui si
+    # modelul arata sprawled, desi e o configuratie perfect legala. Cine deschide
+    # fereastra ca sa verifice geometria trebuie sa vada intai postura in care
+    # dispozitivul chiar sta: coapsa orizontala, gamba verticala, talpa pe suport.
+    # Sold ramane 0 fiindca ZERO CHIAR E repausul in conventia B-prim.
     jsp = Node(package="joint_state_publisher_gui",
-               executable="joint_state_publisher_gui", output="screen")
+               executable="joint_state_publisher_gui", output="screen",
+               parameters=[{"zeros.left_knee_joint": 1.5708,
+                            "zeros.right_knee_joint": 1.5708}])
     rviz = Node(package="rviz2", executable="rviz2", output="screen",
                 condition=IfCondition(LaunchConfiguration("rviz")),
                 arguments=["-d", os.path.join(pkg, "rviz", "rehab.rviz")])
