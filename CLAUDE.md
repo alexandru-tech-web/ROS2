@@ -48,6 +48,24 @@ in repo intra DOAR sumarele (campaign_summary.csv) si figurile.
 rezultate. Daca un push esueaza, prima suspiciune: date brute / fisiere >100 MB.
 
 ## 6. Gotchas care musca (verificate)
+- colcon + conda: pe masina asta `python3` e Anaconda (3.13, fara catkin_pkg), iar
+  CMake il alege SINGUR chiar daca cureti PATH-ul. Deci intotdeauna:
+  `colcon build ... --cmake-args -DPython3_EXECUTABLE=/usr/bin/python3`.
+  Fara el: `ModuleNotFoundError: No module named 'catkin_pkg'`. A muscat pe doua cai
+  diferite (PATH si CMake), deci e proprietate a mediului, nu incident.
+- `--` (doua liniute) e ILEGAL in interiorul unui comentariu XML. Regula ASCII de la
+  sectiunea 3 (em-dash -> `--`) are EXCEPTIE pe .xml/.urdf/.xacro: acolo se foloseste
+  `;` sau se reformuleaza. A rupt generarea xacro de doua ori.
+- ou-si-gaina la build: `xacro` rezolva `$(find <pachet>)` la GENERARE, dar in timpul
+  build-ului pachetul nu e inca in ament_index. Solutia: argument de xacro pasat de
+  CMake din `CMAKE_INSTALL_PREFIX`, nu `$(find)` in fisier.
+- igiena de commit in rulari standalone: cai EXPLICITE la `git add`, niciodata
+  `git add -A` -- e echivalentul de tooling al lui accept-all fara validare.
+- CONTROL NEGATIV: trebuie sa pice din MOTIVUL CORECT. Se verifica mecanismul si
+  mesajul, nu doar caderea; clasele de esec primesc coduri distincte, asertate ca
+  distincte in selftest. (Aparuta de trei ori: lista alba din verifica_legenda,
+  FileExistsError la mutantii comparatorului, coliziunea exit code 2 argparse vs
+  nepotrivire RMW.)
 - `ros2 run` zice "failure 1" desi scriptul a mers: entry point returneaza truthy
   (sys.exit(True)==1). Foloseste main() care intoarce None, entry_points la
   `:main`, si REBUILD.
