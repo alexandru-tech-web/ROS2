@@ -13,6 +13,10 @@ raspunde dintr-o privire la intrebarea "de unde vine cifra asta".
 | **NEVERIFICAT** | placeholder, necesar simularii | NU |
 | **ALES PRIN MASURARE** | fixat dupa un experiment in simulare | doar despre SIMULARE, nu despre dispozitiv |
 
+Deciziile de PROIECTARE (nu cifre, ci alegeri care constrang tot ce vine dupa) stau
+separat, in `DECIZII.md`. Prima dintre ele, D1, fixeaza conventia articulara B' si
+este cea care da intelesul coloanei "valoare" de mai jos pentru orice unghi.
+
 ## Registrul
 
 | # | cifra | valoare | clasa | unde | de cand |
