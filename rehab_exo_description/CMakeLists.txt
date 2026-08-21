@@ -74,6 +74,13 @@ if(BUILD_TESTING)
     OUTPUT_FILE "${CMAKE_BINARY_DIR}/test_transmisie.log"
     RESULT_FILE "${CMAKE_BINARY_DIR}/test_transmisie.xunit.xml"
     TIMEOUT 60)
+  ament_add_test(test_rmw_scope
+    GENERATE_RESULT_FOR_RETURN_CODE_ZERO
+    COMMAND "/usr/bin/python3" "${CMAKE_CURRENT_SOURCE_DIR}/test/test_rmw_scope.py"
+    OUTPUT_FILE "${CMAKE_BINARY_DIR}/test_rmw_scope.log"
+    RESULT_FILE "${CMAKE_BINARY_DIR}/test_rmw_scope.xunit.xml"
+    TIMEOUT 60)
+
   ament_add_test(test_spec_derivate
     GENERATE_RESULT_FOR_RETURN_CODE_ZERO
     COMMAND "/usr/bin/python3" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/spec_derivate.py" "--selftest"

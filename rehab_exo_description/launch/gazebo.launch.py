@@ -21,7 +21,9 @@ from launch import LaunchDescription
 from launch.actions import IncludeLaunchDescription, RegisterEventHandler
 from launch.event_handlers import OnProcessExit
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import Command, PathJoinSubstitution
+from launch.actions import DeclareLaunchArgument
+from launch.substitutions import (Command, LaunchConfiguration, PathJoinSubstitution,
+                                  PythonExpression)
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
@@ -41,13 +43,24 @@ def generate_launch_description():
     robot_description = ParameterValue(
         Command(["xacro ", urdf_path]), value_type=str)
 
-    # Gazebo (gz) cu lume goala
+    # Gazebo (gz). IMPLICIT FARA GUI, si asta NU e o preferinta estetica.
+    # Pe masina asta procesul 'gz sim gui' moare instant cu
+    #   symbol lookup error: /snap/core20/.../libpthread.so.0: __libc_pthread_init
+    # fiindca terminalul e pornit din snap-ul VSCode, care scurge biblioteci core20
+    # in mediul copiilor. Cand GUI-ul moare, 'gz sim' escaladeaza la SIGKILL pe
+    # SERVER, deci lumea nu mai paseste, /clock tace, iar controller_manager-ul
+    # (care ruleaza IN bucla de update a Gazebo, prin gz_ros2_control) nu mai este
+    # actualizat niciodata. De aici venea simptomul raportat luni intregi ca
+    # "serviciul exista dar nu raspunde": nu era o problema de ros2_control.
+    # gui:=true ramane disponibil dintr-un terminal care nu vine din snap.
     gz_sim = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([
             PathJoinSubstitution([FindPackageShare("ros_gz_sim"),
                                   "launch", "gz_sim.launch.py"])
         ]),
-        launch_arguments={"gz_args": "-r empty.sdf"}.items(),
+        launch_arguments={"gz_args": PythonExpression(
+            ["'-r empty.sdf' if '", LaunchConfiguration("gui"),
+             "'.lower() in ('true', '1') else '-s -r empty.sdf'"])}.items(),
     )
 
     rsp = Node(
@@ -126,7 +139,11 @@ def generate_launch_description():
     after_adjust = RegisterEventHandler(
         OnProcessExit(target_action=adjust, on_exit=[exercise, recorder]))
 
-    return LaunchDescription([argument_rmw(), cu_rmw(
+    gui_arg = DeclareLaunchArgument(
+        "gui", default_value="false",
+        description="porneste si GUI-ul Gazebo; false = server headless (implicit)")
+
+    return LaunchDescription([gui_arg, argument_rmw(), cu_rmw(
         [gz_sim, rsp, clock_bridge, spawn,
          after_spawn, after_jsb, after_homing, after_traj, after_adjust],
         "gazebo")])

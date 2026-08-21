@@ -1,8 +1,33 @@
 """rmw_common.py -- pinuirea RMW-ului, o singura data, pentru toate launch-urile.
 
-Tiparul e cel VALIDAT la C3 etapa 1c si masurat atunci cu un martor in afara
-grupurilor: SetEnvironmentVariable in interiorul unui GroupAction scoped. Fiecare
-proces din grup primeste exact RMW-ul grupului, iar valoarea nu se scurge afara.
+Tiparul vine de la C3 etapa 1c: SetEnvironmentVariable in interiorul unui
+GroupAction. Grupul NU mai e insa scoped, si motivul merita scris, fiindca a costat
+o zi de diagnostic gresit.
+
+DE CE NESCOPAT (masurat pe 21 aug 2026)
+Un GroupAction scoped isi pune si isi SCOATE mediul in timpul vizitarii grupului.
+Actiunile pornite mai tarziu de un RegisterEventHandler (on_exit) se executa DUPA ce
+scope-ul s-a inchis, deci pe mediul original. In gazebo.launch.py asta insemna ca
+gz_sim, robot_state_publisher si puntea de ceas porneau pe rmw_cyclonedds_cpp, dar
+joint_state_broadcaster, homing, leg_trajectory_controller si adjust -- toate
+declansate prin evenimente -- porneau pe RMW-ul implicit, rmw_fastrtps_cpp.
+
+Semnatura defectului induce puternic in eroare: FastRTPS si CycloneDDS interopereaza
+la nivel RTPS pe pub/sub, dar NU pe servicii. Deci topicurile se vedeau, `ros2 node
+list` si `ros2 service list` aratau totul, si singurul simptom era ca apelurile de
+serviciu nu se intorceau niciodata. De aici concluzia gresita, tinuta luni de zile,
+ca "serviciul /controller_manager/list_controllers exista dar nu raspunde" ar fi un
+defect de ros2_control. Nu era.
+
+Proba, pe aceeasi simulare pornita, la cateva secunde distanta:
+    RMW_IMPLEMENTATION=rmw_fastrtps_cpp   spawner joint_state_broadcaster -> timeout
+    RMW_IMPLEMENTATION=rmw_cyclonedds_cpp spawner joint_state_broadcaster -> activat
+
+Pretul renuntarii la scope: RMW-ul ramane setat pana la finalul procesului de launch.
+Nu se scurge in afara lui (e mediul unui proces copil al shell-ului), iar fiecare
+launch C4 pinuieste oricum EXACT o implementare. Cine chiar are nevoie de doua
+RMW-uri in acelasi fisier de launch cere explicit scoped=True si NU foloseste event
+handlers inauntru.
 
 Trei lucruri se intampla aici, nu unul:
   1. se DECLARA argumentul rmw:= (implicit cyclonedds -- decizia din registrul de
@@ -49,8 +74,8 @@ def argument_rmw():
                      "sau un identificator complet rmw_*_cpp"))
 
 
-def cu_rmw(actiuni, eticheta="rehab", cu_gardian=True):
-    """Inveleste `actiuni` intr-un GroupAction scoped cu RMW-ul pinuit.
+def cu_rmw(actiuni, eticheta="rehab", cu_gardian=True, scoped=False):
+    """Inveleste `actiuni` intr-un GroupAction cu RMW-ul pinuit.
 
     `actiuni` poate fi o lista, sau o functie context -> lista (cand actiunile au
     nevoie de valori rezolvate). Intoarce un OpaqueFunction, fiindca aliasul
@@ -71,5 +96,5 @@ def cu_rmw(actiuni, eticheta="rehab", cu_gardian=True):
                 arguments=["--rmw-asteptat", plin, "--eticheta",
                            "rmw_guard_%s" % eticheta],
                 output="screen"))
-        return [GroupAction(continut + interior)]
+        return [GroupAction(continut + interior, scoped=scoped)]
     return OpaqueFunction(function=_construieste)
