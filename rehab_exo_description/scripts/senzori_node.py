@@ -31,7 +31,7 @@ if AICI not in sys.path:
 
 from senzori_core import (ETICHETA, MAPARE_6D, NEMASURATE,          # noqa: E402
                          cuplu_sintetic, forta_6d_sintetica,
-                         rigla_gamba_sintetica, unghi_glezna_sintetic)
+                         rigla_gamba_sintetica, unghi_glezna_sintetic, OFFSET_MONTAJ_GLEZNA)
 
 PARTI = ("left", "right")
 CU_CUPLU = ("hip", "knee")
@@ -117,10 +117,10 @@ def main(argv=None):
 
         def _tic_unghi(self):
             t = self._t()
-            for i, p in enumerate(PARTI):
+            for p in PARTI:
                 self.p_ung[p].publish(Float64(data=unghi_glezna_sintetic(
                     self.q.get("%s_ankle_joint" % p, 0.0), t,
-                    offset_rad=0.012 * (1 if i == 0 else -1))))
+                    offset_rad=OFFSET_MONTAJ_GLEZNA[p])))
 
         def _tic_rigla(self):
             t = self._t()

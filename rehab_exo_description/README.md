@@ -162,7 +162,13 @@ de 0.002 .. 0.042 rad.
 
 ### Ce ramane deschis
 
-Articulatiile necomandate cedeaza gravitational cateva sutimi de radian pe
-fereastra de masurare: castigul de 15.0 da autoritate suficienta pentru urmarire,
-nu si rigiditate de mentinere. Se acorda cand modelul va avea mase reale -- pana
-atunci masele sunt placeholder (vezi mai sus), deci acordarea nu ar insemna nimic.
+Nimic din urmarire. Ipoteza pe care am avut-o initial -- ca ar lipsi rigiditatea de
+mentinere si ca s-ar rezolva din castig -- e INFIRMATA prin masurare: eroarea de
+0.153 rad de la genunchi era CONTACT cu planul solului, nu cedare, si de aceea era
+identica la castig 15 si la 100. Cu robotul aparut la 1.2 m, eroarea maxima e 0.027
+rad la castig 15. Castigul ramane 15.
+
+Deschis ramane restul: masele si inertiile sunt placeholder, deci nicio concluzie
+dinamica; senzorii sunt sintetici; supervizorul de siguranta (M5) nu e construit.
+
+Demonstratia asamblata si ce inseamna fiecare cifra din ea: `README_DEMO.md`.

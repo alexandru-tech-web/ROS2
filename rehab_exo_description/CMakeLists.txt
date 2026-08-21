@@ -45,6 +45,8 @@ install(
     scripts/homing_node.py
     scripts/senzori_core.py
     scripts/senzori_node.py
+    scripts/monitor_senzori.py
+    scripts/monitor_core.py
   DESTINATION lib/${PROJECT_NAME}
 )
 # rmw_guard.py se instaleaza SI in launch/, ca modul: launch/rmw_common.py importa de
@@ -74,6 +76,13 @@ if(BUILD_TESTING)
     OUTPUT_FILE "${CMAKE_BINARY_DIR}/test_transmisie.log"
     RESULT_FILE "${CMAKE_BINARY_DIR}/test_transmisie.xunit.xml"
     TIMEOUT 60)
+  ament_add_test(test_monitor
+    GENERATE_RESULT_FOR_RETURN_CODE_ZERO
+    COMMAND "/usr/bin/python3" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/monitor_core.py" "--selftest"
+    OUTPUT_FILE "${CMAKE_BINARY_DIR}/test_monitor.log"
+    RESULT_FILE "${CMAKE_BINARY_DIR}/test_monitor.xunit.xml"
+    TIMEOUT 60)
+
   ament_add_test(test_rmw_scope
     GENERATE_RESULT_FOR_RETURN_CODE_ZERO
     COMMAND "/usr/bin/python3" "${CMAKE_CURRENT_SOURCE_DIR}/test/test_rmw_scope.py"

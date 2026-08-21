@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-exercise_controller.py — v3. Comanda cele 6 servomotoare de exercitiu si
+exercise_controller.py  -- v3. Comanda cele 6 servomotoare de exercitiu si
 cele 5 axe de ajustare (scaun + segmente telescopice).
 
 Backend-uri (parametrul `backend`):
@@ -50,10 +50,21 @@ class ExerciseController(Node):
         self.declare_parameter("backend", "joint_states")
         self.declare_parameter("rate_hz", 50.0)
         self.declare_parameter("loop", False)
+        # viteza: factor pe axa TIMPULUI, nu pe amplitudine. Traiectoria are exact
+        # aceleasi unghiuri, parcurse mai repede sau mai incet. Amplitudinea nu se
+        # atinge niciodata dintr-un buton de viteza -- ar schimba exercitiul, nu
+        # ritmul lui, si limitele articulare sunt limite, nu sugestii.
+        self.declare_parameter("viteza", 1.0)
 
         self.backend = self.get_parameter("backend").value
         self.loop = bool(self.get_parameter("loop").value)
         self.rate = float(self.get_parameter("rate_hz").value)
+        v = float(self.get_parameter("viteza").value)
+        if not 0.1 <= v <= 3.0:
+            self.get_logger().warn(
+                "viteza=%.2f in afara intervalului 0.1..3.0; o limitez" % v)
+            v = min(3.0, max(0.1, v))
+        self.viteza = v
 
         # starea curenta a tuturor articulatiilor
         self.q_cur = {j: 0.0 for j in core.JOINT_NAMES}
@@ -135,7 +146,7 @@ class ExerciseController(Node):
     def tick_joint_states(self):
         dt = 1.0 / self.rate
         t = (self.get_clock().now() - self.t0).nanoseconds * 1e-9
-        q, done = self.player.sample(t)
+        q, done = self.player.sample(t * self.viteza)
         self.q_prev, self.q_cur = self.q_cur, q
         # rampa axelor de ajustare (viteza constanta ADJUST_VEL)
         step = core.ADJUST_VEL * dt
@@ -154,7 +165,7 @@ class ExerciseController(Node):
             if self.loop:
                 self.t0 = self.get_clock().now()
             elif not self.finished_logged:
-                self.get_logger().info("exercitiu terminat — mentin pozitia "
+                self.get_logger().info("exercitiu terminat; mentin pozitia "
                                        "(trimite altul pe /exercise_cmd)")
                 self.finished_logged = True
 
@@ -180,13 +191,14 @@ class ExerciseController(Node):
             q, _ = self.player.sample(t)
             pt = JointTrajectoryPoint()
             pt.positions = [q[j] for j in core.JOINT_NAMES]
-            pt.time_from_start = Duration(seconds=t).to_msg()
+            pt.time_from_start = Duration(seconds=t / self.viteza).to_msg()
             traj.points.append(pt)
             t += dt
         self.traj_pub.publish(traj)
         self.get_logger().info(
             f"traiectorie trimisa: {len(traj.points)} puncte, "
-            f"{self.player.p.total_time:.1f} s")
+            f"{self.player.p.total_time / self.viteza:.1f} s "
+            f"(viteza x{self.viteza:g})")
 
     def tick_adjust_trajectory(self):
         # rampa + publicarea comenzilor de pozitie pentru axele de ajustare

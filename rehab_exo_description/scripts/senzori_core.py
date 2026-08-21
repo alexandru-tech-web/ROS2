@@ -45,6 +45,17 @@ MAPARE_6D = {
 }
 NEMASURATE = [("force", "y"), ("torque", "x"), ("torque", "z")]
 
+# OFFSET-UL DE MONTAJ al senzorului dedicat de unghi, pe fiecare picior. Exista ca
+# senzorul sa NU fie o copie a lui /joint_states: un consumator care presupune ca
+# sunt aceeasi marime trebuie sa se loveasca de ceva. Sta AICI, o singura data,
+# fiindca il folosesc doua parti (nodul care publica si monitorul care verifica
+# coerenta); doua copii ale unui offset care se despart in timp sunt exact clasa de
+# defect pe care nimeni nu o mai gaseste.
+OFFSET_MONTAJ_GLEZNA = {"left": +0.012, "right": -0.012}
+
+# Amplitudinea zgomotului determinist al aceluiasi senzor (vezi unghi_glezna_sintetic).
+ZGOMOT_UNGHI_RAD = 0.0015
+
 ETICHETA = "sintetic, model declarat, fara pretentie de fidelitate fizica"
 
 
