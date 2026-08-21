@@ -14,6 +14,18 @@ install(
 # alaturi de el. Fisierul din arborele sursa NU se mai editeaza manual niciodata:
 # pana la F1a existau trei surse de adevar (urdf, xacro vechi, patch_urdf_extensions.py),
 # doi roboti diferiti si un README care il documenta pe cel gresit.
+# Cotele geometrice se GENEREAZA din scripts/geometrie_core.py, singura lor sursa.
+# Niciun numar de geometrie nu se scrie de mana in xacro: pana pe 22 aug 2026 toate
+# erau inventate si nemarcate, iar rezultatul se vedea in simulare (piciorul trecea
+# prin placa). Acum fiecare cota are o clasa de provenienta, verificata in selftest.
+set(COTE_GEN "${CMAKE_CURRENT_SOURCE_DIR}/urdf/cote_derivate.xacro")
+add_custom_command(
+  OUTPUT "${COTE_GEN}"
+  COMMAND "/usr/bin/python3" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/geometrie_core.py"
+          "--xacro" "${COTE_GEN}"
+  DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/scripts/geometrie_core.py"
+  COMMENT "Generare urdf/cote_derivate.xacro din geometrie_core.py")
+
 find_program(XACRO_EXE xacro REQUIRED)
 set(URDF_GEN "${CMAKE_CURRENT_BINARY_DIR}/rehab_exo.urdf")
 add_custom_command(
@@ -21,7 +33,7 @@ add_custom_command(
   COMMAND "${XACRO_EXE}" "${CMAKE_CURRENT_SOURCE_DIR}/urdf/rehab_exo.urdf.xacro"
           "controllers:=${CMAKE_INSTALL_PREFIX}/share/${PROJECT_NAME}/config/controllers.yaml"
           -o "${URDF_GEN}"
-  DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/urdf/rehab_exo.urdf.xacro"
+  DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/urdf/rehab_exo.urdf.xacro" "${COTE_GEN}"
   COMMENT "Generare rehab_exo.urdf din xacro (sursa canonica unica)")
 add_custom_target(urdf_generat ALL DEPENDS "${URDF_GEN}")
 install(FILES "${URDF_GEN}" DESTINATION share/${PROJECT_NAME}/urdf)
@@ -49,6 +61,7 @@ install(
     scripts/supervizor_electric.py
     scripts/demo_cu_gui.sh
     scripts/supervizor_core.py
+    scripts/geometrie_core.py
     scripts/monitor_core.py
   DESTINATION lib/${PROJECT_NAME}
 )
@@ -85,6 +98,13 @@ if(BUILD_TESTING)
     OUTPUT_FILE "${CMAKE_BINARY_DIR}/test_rmw_mutant.log"
     RESULT_FILE "${CMAKE_BINARY_DIR}/test_rmw_mutant.xunit.xml"
     TIMEOUT 300)
+
+  ament_add_test(test_geometrie
+    GENERATE_RESULT_FOR_RETURN_CODE_ZERO
+    COMMAND "/usr/bin/python3" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/geometrie_core.py" "--selftest"
+    OUTPUT_FILE "${CMAKE_BINARY_DIR}/test_geometrie.log"
+    RESULT_FILE "${CMAKE_BINARY_DIR}/test_geometrie.xunit.xml"
+    TIMEOUT 60)
 
   ament_add_test(test_supervizor_core
     GENERATE_RESULT_FOR_RETURN_CODE_ZERO
