@@ -54,13 +54,18 @@ def limite_din_urdf(cale, articulatii=ARTICULATII):
     return out
 
 
-def limite_sezut(limite, sold_min_rad):
-    """Setul SEZUT: inelul de oprire (reper 208) ridica minimul soldului. Restul
-    articulatiilor raman neatinse -- verificat in test_descriere."""
+def limite_sezut(limite, sold_min_rad, sold_max_rad=None):
+    """Setul SEZUT: inelul de oprire (reper 208) restrange cursa soldului. Restul
+    articulatiilor raman neatinse; verificat in test_descriere.
+
+    Banda are acum AMBELE capete, fiindca la flip-ul de conventie fereastra veche
+    (un minim ridicat, cu maximul comun) s-a transportat intr-una care are si un
+    maxim propriu. Daca sold_max_rad lipseste, se pastreaza maximul din culcat."""
     out = dict(limite)
     for j in out:
         if j.endswith("_hip_joint"):
-            out[j] = (sold_min_rad, out[j][1])
+            hi = out[j][1] if sold_max_rad is None else sold_max_rad
+            out[j] = (sold_min_rad, hi)
     return out
 
 
@@ -78,17 +83,25 @@ def main(argv=None):
         def __init__(self):
             Node.__init__(self, "rehab_supervizor_electric")
             self.declare_parameter("marja_deg", math.degrees(sc.MARJA_IMPLICITA_RAD))
-            self.declare_parameter("sold_sezut_min_deg", 25.0)
+            # TRANSPORTATE prin maparea B -> B-prim (se scad 90 de grade din
+            # 25..90). Banda cade sub orizontala si e deci imposibila; se pastreaza
+            # asa pana la rejustificarea de la punctul 5, ca nimic sa nu ramana in
+            # doua conventii. Vezi DECIZII.md, corectia 3.
+            self.declare_parameter("sold_sezut_min_deg", -65.0)
+            self.declare_parameter("sold_sezut_max_deg", 0.0)
             self.declare_parameter("postura", "culcat")
             self.declare_parameter("hz", 20.0)
 
             marja = math.radians(float(self.get_parameter("marja_deg").value))
             self.sezut_min = math.radians(
                 float(self.get_parameter("sold_sezut_min_deg").value))
+            self.sezut_max = math.radians(
+                float(self.get_parameter("sold_sezut_max_deg").value))
             urdf = os.path.join(get_package_share_directory("rehab_exo_description"),
                                 "urdf", "rehab_exo.urdf")
             self.lim_culcat = limite_din_urdf(urdf)
-            self.lim_sezut = limite_sezut(self.lim_culcat, self.sezut_min)
+            self.lim_sezut = limite_sezut(self.lim_culcat, self.sezut_min,
+                                          self.sezut_max)
             self.marja = marja
             self.postura = self.get_parameter("postura").value
             self.sup = sc.Supervizor(self._praguri(self.postura))
