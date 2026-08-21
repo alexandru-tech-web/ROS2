@@ -33,11 +33,15 @@ Trei lucruri se intampla aici, nu unul:
   1. se DECLARA argumentul rmw:= (implicit cyclonedds -- decizia din registrul de
      pe 18 aug: demonstratorul isi alege stiva care nu colapseaza, iar zenoh
      ramane optiune de prima clasa, nu accident de environment);
-  2. se APLICA, prin variabila de mediu, in grup scoped;
-  3. se VERIFICA la runtime, cu rmw_guard.py, care iese nenul daca implementarea
-     efectiv incarcata difera de cea ceruta. Pasul 3 nu e redundant fata de 2:
-     daca RMW-ul cerut nu e instalat, rclpy cade linistit pe implicit si pinuirea
-     devine o promisiune nerespectata in tacere.
+  2. se APLICA, prin variabila de mediu, in grup NEscopat (vezi mai jos de ce);
+  3. se VERIFICA la runtime, cu rmw_guard.py pornit DIN LANT (gardian_in_lant),
+     care iese nenul daca implementarea efectiv incarcata difera de cea ceruta
+     (cod 3), sau daca un apel de serviciu real nu se intoarce (cod 6).
+     Pasul 3 nu e redundant fata de 2, dar NU din motivul scris aici initial:
+     afirmatia ca 'rclpy cade linistit pe implicit cand RMW-ul nu e instalat' e
+     FALSA pe Jazzy -- acolo eroarea e zgomotoasa si procesul moare cu cod 1.
+     Ce e cu adevarat tacut e cazul din 21 aug: mediul care nu ajunge la procesele
+     nascute din event handlers. Vezi antetul lui rmw_guard.py.
 
 Tabela de aliasuri si functia de verdict NU se dubleaza aici: se importa din
 rmw_guard.py, care e instalat si in launch/ tocmai ca sa existe o singura sursa.
@@ -46,7 +50,9 @@ import os
 import sys
 
 from launch.actions import (DeclareLaunchArgument, GroupAction, LogInfo,
-                            OpaqueFunction, SetEnvironmentVariable)
+                            OpaqueFunction, RegisterEventHandler,
+                            SetEnvironmentVariable, Shutdown)
+from launch.event_handlers import OnProcessExit
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
@@ -98,3 +104,45 @@ def cu_rmw(actiuni, eticheta="rehab", cu_gardian=True, scoped=False):
                 output="screen"))
         return [GroupAction(continut + interior, scoped=scoped)]
     return OpaqueFunction(function=_construieste)
+
+
+def gardian_in_lant(eticheta, urmatoare, serviciu=None, asteapta=20.0):
+    """Gardianul, pornit PE ACELASI DRUM ca spawnerele, cu poarta pe codul de iesire.
+
+    DE CE NU IN PROCESUL LAUNCH-ULUI, cum era in Valul 1
+    Gardianul de atunci se executa in timpul vizitarii grupului si raporta VERDE in
+    tot timpul in care jumatate din lant pornea pe alt RMW. Nu era o slabiciune de
+    implementare: raspundea corect la 'pe ce RMW rulez EU', iar el chiar rula pe cel
+    cerut. Intrebarea era pusa din locul gresit. Aici gardianul se naste dintr-un
+    RegisterEventHandler, adica exact drumul pe care se nasteau si spawnerele care
+    deviau -- deci mosteneste acelasi mediu ca ele si masoara ce trebuie.
+    Fixture-ul test/fixtures/mutant_rmw_scoped.launch.py arata cele doua pozitii una
+    langa alta, pe acelasi sistem stricat, cu verdicte opuse.
+
+    `serviciu` adauga proba ACTIVA: un apel real care trebuie sa se intoarca. Nu e
+    redundanta fata de verificarea de identificator, fiindca raspunde la alta
+    intrebare -- 'ajung la restul lantului' -- si fiindca exact serviciile mor la
+    nepotrivire, in timp ce topicurile trec si ar da verde pe un sistem mort.
+
+    `urmatoare` porneste DOAR daca gardianul a iesit cu 0. Altfel lansarea se opreste
+    cu motiv: un lant care nu comunica nu merita pornit pe jumatate.
+    """
+    nume = "rmw_guard_%s" % eticheta
+    args = ["--rmw-asteptat", LaunchConfiguration("rmw"), "--eticheta", nume]
+    if serviciu:
+        args += ["--verifica-serviciu", serviciu, "--asteapta", str(asteapta)]
+    nod = Node(package=PACHET, executable="rmw_guard.py", name=nume,
+               arguments=args, output="screen")
+
+    def _dupa(event, context):
+        cod = event.returncode
+        if cod:
+            return [LogInfo(msg="[%s] gardianul a iesit cu %d; opresc lansarea. "
+                                "Vezi rmw_guard.py pentru intelesul codului "
+                                "(3 = nepotrivire RMW, 6 = serviciu mut)."
+                                % (nume, cod)),
+                    Shutdown(reason="gardian RMW: cod %d" % cod)]
+        return list(urmatoare)
+
+    return [nod, RegisterEventHandler(OnProcessExit(target_action=nod,
+                                                    on_exit=_dupa))]

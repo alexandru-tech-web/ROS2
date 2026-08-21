@@ -32,7 +32,7 @@ from launch_ros.substitutions import FindPackageShare
 # --- pinuirea RMW (F0): o singura sursa, launch/rmw_common.py ---
 import sys as _sys
 _sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from rmw_common import argument_rmw, cu_rmw          # noqa: E402
+from rmw_common import argument_rmw, cu_rmw, gardian_in_lant   # noqa: E402
 
 
 def generate_launch_description():
@@ -126,8 +126,14 @@ def generate_launch_description():
 
     # Lant: spawn -> joint_state_broadcaster -> leg_trajectory -> adjust
     #       -> (controler exercitii + inregistrator)
+    # Gardianul RMW e PRIMA veriga dupa spawn, si e o POARTA. Sta aici, nascut dintr-un
+    # handler, si nu in procesul launch-ului, fiindca de aici vede acelasi mediu ca
+    # spawnerele; din pozitia veche raporta verde in timp ce ele deviau.
+    gardian = gardian_in_lant("gazebo", [jsb],
+                              serviciu="/controller_manager/list_controllers",
+                              asteapta=30.0)
     after_spawn = RegisterEventHandler(
-        OnProcessExit(target_action=spawn, on_exit=[jsb]))
+        OnProcessExit(target_action=spawn, on_exit=gardian))
     # joint_state_broadcaster are voie INAINTE de homing: doar publica starea, nu
     # comanda nimic. Fara el, homing-ul nici nu ar avea ce citi.
     after_jsb = RegisterEventHandler(
@@ -146,4 +152,4 @@ def generate_launch_description():
     return LaunchDescription([gui_arg, argument_rmw(), cu_rmw(
         [gz_sim, rsp, clock_bridge, spawn,
          after_spawn, after_jsb, after_homing, after_traj, after_adjust],
-        "gazebo")])
+        "gazebo", cu_gardian=False)])

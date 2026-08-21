@@ -76,6 +76,13 @@ if(BUILD_TESTING)
     OUTPUT_FILE "${CMAKE_BINARY_DIR}/test_transmisie.log"
     RESULT_FILE "${CMAKE_BINARY_DIR}/test_transmisie.xunit.xml"
     TIMEOUT 60)
+  ament_add_test(test_rmw_mutant
+    GENERATE_RESULT_FOR_RETURN_CODE_ZERO
+    COMMAND "/usr/bin/python3" "${CMAKE_CURRENT_SOURCE_DIR}/test/test_rmw_mutant.py"
+    OUTPUT_FILE "${CMAKE_BINARY_DIR}/test_rmw_mutant.log"
+    RESULT_FILE "${CMAKE_BINARY_DIR}/test_rmw_mutant.xunit.xml"
+    TIMEOUT 300)
+
   ament_add_test(test_monitor
     GENERATE_RESULT_FOR_RETURN_CODE_ZERO
     COMMAND "/usr/bin/python3" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/monitor_core.py" "--selftest"

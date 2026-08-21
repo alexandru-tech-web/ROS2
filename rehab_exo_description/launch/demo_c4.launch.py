@@ -38,7 +38,7 @@ from launch_ros.substitutions import FindPackageShare
 
 import sys as _sys
 _sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from rmw_common import argument_rmw, cu_rmw          # noqa: E402
+from rmw_common import argument_rmw, cu_rmw, gardian_in_lant   # noqa: E402
 
 
 def generate_launch_description():
@@ -100,8 +100,16 @@ def generate_launch_description():
     monitor = Node(package="rehab_exo_description", executable="monitor_senzori.py",
                    output="screen", parameters=[{"hz": 2.0, "use_sim_time": True}])
 
+    # Gardianul e PRIMA veriga dupa spawn, si e o POARTA: restul lantului porneste
+    # doar daca el iese cu 0. Sta aici, si nu in procesul launch-ului, fiindca de aici
+    # vede acelasi mediu ca spawnerele. Proba activa cere ca serviciul CM sa raspunda
+    # -- exact clasa care moare la nepotrivire de RMW, in timp ce topicurile trec.
+    gardian = gardian_in_lant("demo_c4", [jsb],
+                              serviciu="/controller_manager/list_controllers",
+                              asteapta=30.0)
+
     lant = [
-        RegisterEventHandler(OnProcessExit(target_action=spawn, on_exit=[jsb])),
+        RegisterEventHandler(OnProcessExit(target_action=spawn, on_exit=gardian)),
         RegisterEventHandler(OnProcessExit(target_action=jsb, on_exit=[homing])),
         RegisterEventHandler(OnProcessExit(target_action=homing, on_exit=[traj])),
         RegisterEventHandler(OnProcessExit(target_action=traj, on_exit=[adjust])),
@@ -123,4 +131,4 @@ def generate_launch_description():
                               description="porneste si GUI-ul Gazebo (vezi antetul)"),
     ]
     return LaunchDescription(argumente + [argument_rmw(), cu_rmw(
-        [gz_sim, rsp, clock_bridge, spawn] + lant, "demo_c4")])
+        [gz_sim, rsp, clock_bridge, spawn] + lant, "demo_c4", cu_gardian=False)])

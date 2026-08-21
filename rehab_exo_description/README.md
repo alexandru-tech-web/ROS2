@@ -36,10 +36,26 @@ Continutul flagurilor `gazebo` si `senzori` e cel absorbit din fostul
 ## RMW pinuit
 
 Toate lansarile declara `rmw:=` (implicit `rmw_cyclonedds_cpp`, decizia din registrul
-de pe 18 aug) si il aplica prin `SetEnvironmentVariable` intr-un `GroupAction` scoped.
-`scripts/rmw_guard.py` verifica la runtime implementarea EFECTIV incarcata si iese cu
-cod 3 la nepotrivire: pinuirea singura nu ajunge, fiindca daca RMW-ul cerut nu e
-instalat, rclpy cade linistit pe implicit.
+de pe 18 aug) si il aplica prin `SetEnvironmentVariable` intr-un `GroupAction`
+**nescopat** -- scopat, grupul isi retrage mediul inainte ca nodurile pornite din
+event handlers sa apuce sa porneasca.
+
+`scripts/rmw_guard.py` face doua verificari cu coduri de esec DISTINCTE:
+
+| verificare | intrebarea | cod la esec |
+|---|---|---|
+| pasiva | pe ce RMW rulez EU | 3 |
+| activa (apel de serviciu real) | ajung eu la restul lantului | 6 |
+
+si ruleaza **din lant** (`gardian_in_lant`), pe acelasi drum ca spawnerele. Din
+pozitia veche, in procesul launch-ului, raporta verde in timp ce jumatate din noduri
+porneau pe alt RMW. Restul lantului porneste doar daca gardianul iese cu 0.
+
+Nota de corectie: pana pe 21 aug, aici scria ca gardianul e necesar fiindca 'rclpy
+cade linistit pe implicit daca RMW-ul cerut nu e instalat'. E fals pe Jazzy --
+`RMW_IMPLEMENTATION=rmw_connextdds` da eroare zgomotoasa si procesul moare cu cod 1.
+Gardianul a fost construit impotriva unei amenintari inexistente si s-a dovedit
+necesar pentru alta, reala si complet tacuta.
 
     ros2 launch rehab_exo_description display.launch.py
     ros2 launch rehab_exo_description display.launch.py rmw:=zenoh
