@@ -58,7 +58,20 @@ adjust_position_controller:
 # position_proportional_gain traieste AICI, pe /gz_ros_control (implicit 0.1), NU pe
 # /controller_manager si NU in URDF sub <hardware>. Puse in celelalte doua locuri,
 # valorile se accepta fara eroare si nu fac nimic.
+#
+# CASTIGUL 1.0, ales prin masurare pe 22 aug 2026, NU prin acordare din ochi.
+# La 15.0 gleznele intrau in oscilatie la frecventa buclei: schimbare de semn la
+# FIECARE esantion (557 din 558) si viteza fixata pe limita nominala in 553 din 558.
+# Contra-intuitiv, castigul MAI MIC urmareste MAI BINE, si motivul e ca articulatia
+# e comandata CINEMATIC: gz_ros2_control scrie JointVelocityCmd = k * eroare, iar
+# Gazebo o aplica drept constrangere de viteza, nu drept cuplu. Nu exista nimic de
+# invins, deci castigul mare doar suprareactioneaza.
+#   castig 15.0 : oscilatie violenta; eroare de urmarire in regim 0.023 rad
+#   castig  1.0 : zero oscilatie; treapta de 0.30 rad urmarita si asezata la 0.000
+# Consecinta de stiut: cu comanda cinematica NU exista rejectie de perturbatie. Cand
+# modelul de pacient va aplica forte reale, trebuie comanda in EFORT, si atunci
+# castigul asta devine irelevant si se reia acordarea.
 gz_ros_control:
   ros__parameters:
-    position_proportional_gain: 15.0
+    position_proportional_gain: 1.0
     hold_joints: false

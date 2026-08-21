@@ -78,6 +78,41 @@
   <xacro:property name="vi_genunchi" value="1.9732"/>
   <xacro:property name="vi_glezna"   value="3.0369"/>
 
+  <!-- AMORTIZARE SI FRECARE PE ARTICULATIE. Statut: NEVERIFICAT, acelasi ca masele.
+       Sunt necesare STABILITATII SIMULARII si INTERZISE concluziilor dinamice.
+       Documentul-sursa nu da coeficienti de amortizare (GAP 1, ca si masele).
+
+       De ce valori diferite si de ce glezna primeste mult mai mult: masurat pe
+       21 aug 2026, glezna intra in oscilatie la frecventa buclei de control, cu
+       schimbare de semn la FIECARE esantion si viteza fixata pe limita in 547 din
+       557 de esantioane, in timp ce soldul si genunchiul merg lin cu aceeasi
+       amortizare de 2.0. Cauza nu e clema de comanda: viteza COMANDATA reconstruita
+       (k * eroare) atinge maxim 0.42 rad/s dintr-o limita de 3.0369, deci nu se
+       apropie de ea. Cauza e raportul autoritate/inertie: 52 Nm de efort pe o
+       inertie de talpa de 0.00585 kg m2 dau ~8900 rad/s2, adica limita de viteza se
+       depaseste intr-un singur pas de simulare de 1 ms. Amortizarea de 2.0 e
+       neglijabila fata de asta.
+
+       Valorile de mai jos sunt ALESE prin masurare, nu derivate; vezi tabelul
+       inainte/dupa din raportul zilei 3.
+       Sunt ARGUMENTE, nu proprietati simple, si asta e deliberat: o proprietate NU
+       se poate suprascrie din linia de comanda, iar 'xacro ... amort_glezna:=99'
+       ar fi acceptat fara eroare si ignorat in tacere; a treia oara in aceeasi zi
+       cand o valoare pusa in locul gresit tace in loc sa cada. Ca argumente, se pot
+       balea si din launch. -->
+  <xacro:arg name="amort_sold"     default="2.0"/>
+  <xacro:arg name="amort_genunchi" default="2.0"/>
+  <xacro:arg name="amort_glezna"   default="2.0"/>
+  <xacro:arg name="frec_sold"      default="1.0"/>
+  <xacro:arg name="frec_genunchi"  default="1.0"/>
+  <xacro:arg name="frec_glezna"    default="1.0"/>
+  <xacro:property name="amort_sold"     value="$(arg amort_sold)"/>
+  <xacro:property name="amort_genunchi" value="$(arg amort_genunchi)"/>
+  <xacro:property name="amort_glezna"   value="$(arg amort_glezna)"/>
+  <xacro:property name="frec_sold"      value="$(arg frec_sold)"/>
+  <xacro:property name="frec_genunchi"  value="$(arg frec_genunchi)"/>
+  <xacro:property name="frec_glezna"    value="$(arg frec_glezna)"/>
+
   <xacro:arg name="controllers"
              default="$(find rehab_exo_description)/config/controllers.yaml"/>
   <!-- gazebo: cele 6 plugin-uri ApplyJointForce, canalul prin care patient_model.py
@@ -303,7 +338,7 @@
     <origin xyz="0.160 ${sy * 0.260} 0.035" rpy="0 ${pi/2} 0"/>
     <axis xyz="0 -1 0"/>
     <limit lower="${sold_lo}" upper="${sold_hi}" effort="${ef_sold}" velocity="${vi_sold}"/>
-    <dynamics damping="2.0" friction="1.0"/>
+    <dynamics damping="${amort_sold}" friction="${frec_sold}"/>
   </joint>
   <link name="${side}_thigh">
     <inertial>
@@ -364,7 +399,7 @@
     <origin xyz="0 0 0" rpy="0 ${-pi/2} 0"/>
     <axis xyz="0 1 0"/>
     <limit lower="${gen_lo}" upper="${gen_hi}" effort="${ef_genunchi}" velocity="${vi_genunchi}"/>
-    <dynamics damping="2.0" friction="1.0"/>
+    <dynamics damping="${amort_genunchi}" friction="${frec_genunchi}"/>
   </joint>
   <link name="${side}_shank">
     <inertial>
@@ -415,7 +450,7 @@
     <origin xyz="0 0 0" rpy="0 0 0"/>
     <axis xyz="0 -1 0"/>
     <limit lower="${gle_lo}" upper="${gle_hi}" effort="${ef_glezna}" velocity="${vi_glezna}"/>
-    <dynamics damping="2.0" friction="1.0"/>
+    <dynamics damping="${amort_glezna}" friction="${frec_glezna}"/>
   </joint>
   <link name="${side}_foot">
     <inertial>

@@ -176,15 +176,40 @@ toate cele trei controlere `active`, `/joint_states` la ~57 Hz, homing curat pe 
 encodere absolute, si un pas comandat de +0.30 rad pe genunchi urmarit cu eroare
 de 0.002 .. 0.042 rad.
 
+### Castigul si amortizarea: ce s-a masurat pe 22 aug
+
+Oscilatia gleznei din ziua 2 e REPARATA, dar niciuna din cele doua cauze pe care le
+banuiam nu era cea reala. Ambele au fost eliminate prin masurare:
+
+| ipoteza | test | rezultat |
+|---|---|---|
+| comanda de viteza loveste clema | reconstruit `v = k * eroare` la 93 Hz | max 0.42 rad/s dintr-o limita de 3.0369 -- **nu atinge clema** |
+| amortizare insuficienta | `amort_glezna` 2.0 -> 20.0 | **nicio schimbare** |
+| castig prea mare | 15.0 -> 1.0 | **oscilatia dispare complet** |
+
+Explicatia care leaga totul: articulatia e comandata **cinematic**, nu prin cuplu.
+`gz_ros2_control` scrie `JointVelocityCmd = k * eroare`, iar Gazebo o aplica drept
+constrangere de viteza. Nu exista nimic de invins, deci amortizarea nu are ce musca
+si castigul mare doar suprareactioneaza. Contra-intuitiv, castigul mai mic urmareste
+mai bine: la 1.0 o treapta de 0.30 rad se aseaza la eroare 0.000, iar articulatiile
+necomandate nu deriva deloc.
+
+Castigul PER ARTICULATIE nu e posibil: `gz_ros2_control` 1.2.17 expune doar un
+`position_proportional_gain` global (verificat in simbolurile bibliotecii).
+
+Amortizarea si frecarea sunt acum argumente xacro per articulatie
+(`amort_sold|genunchi|glezna`, `frec_*`), cu statut **NEVERIFICAT**, ca si masele.
+Valorile raman cele dinainte; parametrizarea a fost pastrata fiindca a reparat un
+bug separat: ca proprietati, `amort_glezna:=99` era acceptat fara eroare si ignorat
+in tacere.
+
+Consecinta de stiut: cu comanda cinematica NU exista rejectie de perturbatie. Cand
+modelul de pacient va aplica forte reale, e nevoie de comanda in EFORT, si atunci
+acordarea se reia de la zero.
+
 ### Ce ramane deschis
 
-Nimic din urmarire. Ipoteza pe care am avut-o initial -- ca ar lipsi rigiditatea de
-mentinere si ca s-ar rezolva din castig -- e INFIRMATA prin masurare: eroarea de
-0.153 rad de la genunchi era CONTACT cu planul solului, nu cedare, si de aceea era
-identica la castig 15 si la 100. Cu robotul aparut la 1.2 m, eroarea maxima e 0.027
-rad la castig 15. Castigul ramane 15.
-
-Deschis ramane restul: masele si inertiile sunt placeholder, deci nicio concluzie
-dinamica; senzorii sunt sintetici; supervizorul de siguranta (M5) nu e construit.
+Masele, inertiile, amortizarile si frecarile sunt placeholder -- nicio concluzie
+dinamica. Senzorii sunt sintetici.
 
 Demonstratia asamblata si ce inseamna fiecare cifra din ea: `README_DEMO.md`.
