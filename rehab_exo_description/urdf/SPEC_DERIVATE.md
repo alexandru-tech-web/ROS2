@@ -24,7 +24,7 @@ fara nicio sursa; acelea au disparut.
 | ipoteza | valoare | de ce si ce risca |
 |---|---|---|
 | randament lant (eta) | 0.80 | curea + reductor armonic. La glezna exista un PRAG: eta = 52/(0.706x100) = 0.7365. Peste el limiteaza reductorul, sub el motorul. Ipoteza de 0.80 e PESTE prag, deci daca randamentul real e mai mic, efortul gleznei scade sub 52 Nm. |
-| turatie TBM(S)-6025 | **2900 rpm** (bobinaj A, 48 V) sau 2450 (B, 24 V) | NU e in SPEC_LLR_twin_din_PDF.md. Cifrele vin din foaia de catalog TBM-6025, **comunicate de autor pe 21 aug 2026, NEconfirmate din documentul pe care il am**. Implicit A, fiindca driverul e ADP-090-40 la 90 V [PDF Tabel 3.2, p.11]. Afecteaza DOAR viteza gleznei, nu efortul. ISTORIC: prima versiune folosea 1500 rpm, cifra ALEASA de mine fara nicio sursa -- eticheta 'ipoteza' era corecta, provenienta lipsea. |
+| turatie TBM(S)-6025 | **2900 rpm** (bobinaj A, 48 V) sau 2450 (B, 24 V) | [PDF anexa, tabelul TBM(S) 60 Performance Data, pp. ~37-38, coloana Speed at Rated Power]. NU e in extractul SPEC, care rezuma din foaia TBM doar cuplu, tensiuni, poli, masa si inertie. Bobinajul implicit (A) e o INFERENTA din driverul ADP-090-40 la 90 V [PDF Tabel 3.2 p.11], nu un fapt: ce bobinaj e montat se citeste de pe motor. Afecteaza DOAR viteza gleznei, nu efortul. ISTORIC: prima versiune folosea 1500 rpm, cifra ALEASA de mine fara nicio sursa -- eticheta 'ipoteza' era corecta, provenienta lipsea. |
 | motor sold/genunchi | SMP8048 | lista de componente [PDF Tabel 3.2, p.11] numeste SMP802**4B**, dar foaia anexata e pentru 80**48**. Se folosesc cifrele foii, si discrepanta ramane vizibila in cod (campurile `nume` si `foaie` difera). DE CONFIRMAT PE MOTORUL FIZIC. |
 
 ## Valori derivate

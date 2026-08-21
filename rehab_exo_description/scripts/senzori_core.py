@@ -150,7 +150,29 @@ def _selftest():
     dif = [abs(rigla_gamba_sintetica(com, t) - com) for t in (0.1, 0.5, 1.0, 1.4)]
     v += ok(max(dif) > 0.0, "rigla trebuie sa aiba eroare proprie, altfel e inutila")
 
-    # 7. eticheta exista si spune ce trebuie
+    # 7. ASERTTIA INVERSA: cele trei marimi NUMITE nu au voie sa fie NaN niciodata.
+    # Fara ea, "NaN pe nemasurate" ar fi doar jumatate de contract: un bug care ar face
+    # si Ff sau MC sa iasa NaN ar trece neobservat, iar consumatorul ar primi un canal
+    # otravit exact acolo unde documentul promite o masuratoare.
+    for unghi in (-0.6, -0.1, 0.0, 0.35, 0.61):
+        for inc in (0.0, 120.0, 300.0, 900.0):
+            for t in (0.0, 0.4, 1.3, 7.7):
+                f = forta_6d_sintetica(unghi, inc, t)
+                for cheie in ("Ff", "FN", "MC"):
+                    v += ok(not math.isnan(f[cheie]) and not math.isinf(f[cheie]),
+                            "%s a iesit %s la unghi=%.2f inc=%.1f t=%.2f"
+                            % (cheie, f[cheie], unghi, inc, t))
+    # si maparea e canonica: definita O SINGURA data, fara duplicat in nod
+    import os as _os
+    nod = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "senzori_node.py")
+    if _os.path.isfile(nod):
+        text = open(nod).read()
+        v += ok('"force", "x"' not in text and '"torque", "y"' not in text,
+                "maparea 6D nu are voie sa fie rescrisa in nod: se importa MAPARE_6D")
+        v += ok("MAPARE_6D" in text and "NEMASURATE" in text,
+                "nodul trebuie sa foloseasca maparea canonica din nucleu")
+
+    # 8. eticheta exista si spune ce trebuie
     v += ok("sintetic" in ETICHETA and "fara pretentie" in ETICHETA, "eticheta")
 
     print("SELFTEST senzori_core OK (%d verificari)." % v)

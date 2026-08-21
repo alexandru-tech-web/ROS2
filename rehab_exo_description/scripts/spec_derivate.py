@@ -40,14 +40,19 @@ ETA_IMPLICIT = 0.80
 # pe care o aplic peste tot in rest, si a scapat pentru ca era etichetata "ipoteza" --
 # eticheta corecta, dar proveniente inexistenta. O ipoteza tot are nevoie de un DE UNDE.
 #
-# Valorile de mai jos vin din foaia de catalog TBM-6025, pe cele doua bobinaje,
-# COMUNICATE de autor pe 21 aug 2026; NU sunt in extractul SPEC pe care il am.
-# DE CONFIRMAT LA SURSA inainte de a fi folosite intr-o afirmatie publicata.
+# Valorile vin din tabelul "TBM(S) 60 Performance Data", anexa documentului, pp. ~37-38,
+# coloana "Speed at Rated Power" pentru 6025. Confirmate prin citire directa a PDF-ului
+# pe 21 aug 2026. Nu sunt in extractul SPEC_LLR_twin_din_PDF.md, care rezuma din foaia
+# TBM doar cuplu, tensiuni, poli, masa si inertie -- de aceea provenienta e data aici
+# pe pagina din anexa, nu pe extract.
 RPM_BOBINAJ = {
-    "A": 2900.0,   # bobinaj A, 48 V [foaie TBM-6025; comunicat 21 aug, NEconfirmat aici]
+    "A": 2900.0,   # bobinaj A, 48 V [PDF anexa, TBM(S) 60 Performance Data, pp. ~37-38]
     "B": 2450.0,   # bobinaj B, 24 V [idem]
 }
-BOBINAJ_IMPLICIT = "A"     # driverul e ADP-090-40 (90 V) [PDF Tabel 3.2, p.11]
+# Bobinajul implicit ramane o INFERENTA, nu un fapt: driverul de glezna e ADP-090-40,
+# la 90 V [PDF Tabel 3.2, p.11], ceea ce face plauzibil bobinajul A la 48 V. Plauzibil
+# nu inseamna documentat -- ce bobinaj e montat fizic se citeste de pe motor.
+BOBINAJ_IMPLICIT = "A"
 RPM_GLEZNA_IMPLICIT = RPM_BOBINAJ[BOBINAJ_IMPLICIT]
 
 
