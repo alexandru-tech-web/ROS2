@@ -64,6 +64,20 @@
   <xacro:property name="gle_lo"  value="${glezna_min_deg * d2r}"/>
   <xacro:property name="gle_hi"  value="${glezna_max_deg * d2r}"/>
 
+  <!-- EFORT si VITEZA: DERIVATE din documentatie, nu alese. Formula si sursele in
+       urdf/SPEC_DERIVATE.md, generat din scripts/spec_derivate.py.
+         viteza = (rpm / 60) * 2*pi / raport_total
+         efort  = min(cuplu_motor * raport * eta, cuplu_nominal_reductor)
+       Cifrele vechi (120 Nm peste tot, 2.0 rad/s peste tot) nu aveau nicio sursa.
+       ACESTEA sunt CAPABILITATEA masinii; pragul terapeutic e in
+       config/safety_limits.yaml si e deliberat mult mai mic. -->
+  <xacro:property name="ef_sold"     value="176.7"/>
+  <xacro:property name="ef_genunchi" value="141.4"/>
+  <xacro:property name="ef_glezna"   value="52.0"/>
+  <xacro:property name="vi_sold"     value="1.5786"/>
+  <xacro:property name="vi_genunchi" value="1.9732"/>
+  <xacro:property name="vi_glezna"   value="1.5708"/>
+
   <xacro:arg name="controllers"
              default="$(find rehab_exo_description)/config/controllers.yaml"/>
   <xacro:arg name="gazebo"  default="true"/>
@@ -125,7 +139,7 @@
     <parent link="base_link"/><child link="seat_link"/>
     <origin xyz="0 0 0.485" rpy="0 0 0"/>
     <axis xyz="0 0 1"/>
-    <limit lower="0.0" upper="0.15" effort="500.0" velocity="0.05"/>
+    <limit lower="0.0" upper="0.15" effort="500.0" velocity="0.05"/><!-- NEVERIFICAT: coloana de ridicare, fara date in document -->
     <dynamics damping="50.0" friction="5.0"/>
   </joint>
   <link name="seat_link">
@@ -276,7 +290,7 @@
     <parent link="seat_link"/><child link="${side}_thigh"/>
     <origin xyz="0.160 ${sy * 0.260} 0.035" rpy="0 ${pi/2} 0"/>
     <axis xyz="0 -1 0"/>
-    <limit lower="${sold_lo}" upper="${sold_hi}" effort="120.0" velocity="2.0"/>
+    <limit lower="${sold_lo}" upper="${sold_hi}" effort="${ef_sold}" velocity="${vi_sold}"/>
     <dynamics damping="2.0" friction="1.0"/>
   </joint>
   <link name="${side}_thigh">
@@ -309,7 +323,7 @@
     <parent link="${side}_thigh"/><child link="${side}_thigh_ext"/>
     <origin xyz="0.400 0 0" rpy="0 0 0"/>
     <axis xyz="1 0 0"/>
-    <limit lower="0.0" upper="0.08" effort="300.0" velocity="0.03"/>
+    <limit lower="0.0" upper="0.08" effort="300.0" velocity="0.03"/><!-- NEVERIFICAT: push rod fara date de forta sau viteza in document -->
     <dynamics damping="30.0" friction="3.0"/>
   </joint>
   <link name="${side}_thigh_ext">
@@ -337,7 +351,7 @@
     <parent link="${side}_thigh_ext"/><child link="${side}_shank"/>
     <origin xyz="0 0 0" rpy="0 ${-pi/2} 0"/>
     <axis xyz="0 1 0"/>
-    <limit lower="${gen_lo}" upper="${gen_hi}" effort="120.0" velocity="2.0"/>
+    <limit lower="${gen_lo}" upper="${gen_hi}" effort="${ef_genunchi}" velocity="${vi_genunchi}"/>
     <dynamics damping="2.0" friction="1.0"/>
   </joint>
   <link name="${side}_shank">
@@ -365,7 +379,7 @@
     <parent link="${side}_shank"/><child link="${side}_shank_ext"/>
     <origin xyz="0 0 -0.400" rpy="0 0 0"/>
     <axis xyz="0 0 -1"/>
-    <limit lower="0.0" upper="0.08" effort="300.0" velocity="0.03"/>
+    <limit lower="0.0" upper="0.08" effort="300.0" velocity="0.03"/><!-- NEVERIFICAT: push rod fara date de forta sau viteza in document -->
     <dynamics damping="30.0" friction="3.0"/>
   </joint>
   <link name="${side}_shank_ext">
@@ -388,7 +402,7 @@
     <parent link="${side}_shank_ext"/><child link="${side}_foot"/>
     <origin xyz="0 0 0" rpy="0 0 0"/>
     <axis xyz="0 -1 0"/>
-    <limit lower="${gle_lo}" upper="${gle_hi}" effort="120.0" velocity="2.0"/>
+    <limit lower="${gle_lo}" upper="${gle_hi}" effort="${ef_glezna}" velocity="${vi_glezna}"/>
     <dynamics damping="2.0" friction="1.0"/>
   </joint>
   <link name="${side}_foot">

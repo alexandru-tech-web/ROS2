@@ -9,6 +9,14 @@
 # clinic si cu fisele tehnice ale servomotoarelor — limita de aici trebuie sa
 # fie sub limita mecanica a motorului si sub pragul de siguranta al pacientului.
 
+# SEPARATIA DE URDF (M2). URDF-ul poarta CAPABILITATEA documentata a masinii,
+# derivata din motor, raport si reductor (urdf/SPEC_DERIVATE.md): sold 176.7 Nm,
+# genunchi 141.4 Nm, glezna 52.0 Nm. Fisierul de fata poarta pragul TERAPEUTIC,
+# deliberat mult mai mic, supravegheat de supervizor la runtime.
+# Cele doua NU se sincronizeaza si nu trebuie confundate: primul spune ce POATE
+# dispozitivul, al doilea ce ARE VOIE cu un pacient pe el. Etajarea reala are trei
+# straturi: mecanic (opritoare), electric (proximitati), software (acest fisier).
+
 joints:
   left_hip_joint:    { effort_max: 60.0, velocity_max: 1.2 }
   left_knee_joint:   { effort_max: 60.0, velocity_max: 1.2 }

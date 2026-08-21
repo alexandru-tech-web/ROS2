@@ -102,6 +102,33 @@ def main(argv=None):
            "%s: cursa %.3f grade, documentat %.0f [PDF Tabel 3.1]"
            % (n, cursa, ROM_DOCUMENTAT[cheie]))
 
+    # --- 3b. EFORT si VITEZA vin din SPEC_DERIVATE, nu din aer. Se recalculeaza aici
+    # din nucleul pur si se confrunta cu ce e in URDF-ul GENERAT: daca cineva schimba o
+    # cifra intr-un loc si nu in celalalt, testul o spune.
+    import importlib.machinery as _im
+    import importlib.util as _iu
+    _l = _im.SourceFileLoader("sd", os.path.join(PACHET, "scripts", "spec_derivate.py"))
+    _sp = _iu.spec_from_loader("sd", _l)
+    sd = _iu.module_from_spec(_sp)
+    _l.exec_module(sd)
+    derivat = {r["articulatie"]: r for r in sd.tabel()}
+    for n in REVOLUTE:
+        cheie = "sold" if "hip" in n else ("genunchi" if "knee" in n else "glezna")
+        j = [x for x in r.findall("joint") if x.get("name") == n][0]
+        l = j.find("limit")
+        ok(abs(float(l.get("effort")) - derivat[cheie]["efort_nm"]) < 0.05,
+           "%s: effort %s in URDF vs %.1f derivat din SPEC_DERIVATE"
+           % (n, l.get("effort"), derivat[cheie]["efort_nm"]))
+        ok(abs(float(l.get("velocity")) - derivat[cheie]["viteza_rad_s"]) < 0.001,
+           "%s: velocity %s in URDF vs %.4f derivat"
+           % (n, l.get("velocity"), derivat[cheie]["viteza_rad_s"]))
+    # cifrele VECHI fara sursa nu mai au voie sa existe pe revolute
+    for n in REVOLUTE:
+        j = [x for x in r.findall("joint") if x.get("name") == n][0]
+        l = j.find("limit")
+        ok(l.get("effort") != "120.0" and l.get("velocity") != "2.0",
+           "%s inca poarta cifrele vechi fara sursa (120.0 / 2.0)" % n)
+
     # --- 4. SIMETRIA stanga-dreapta, joint cu joint. Fara asta, un macro stricat pe
     # o singura parte ar trece neobservat -- si tocmai simetria e ce justifica macroul.
     def prop(n):
