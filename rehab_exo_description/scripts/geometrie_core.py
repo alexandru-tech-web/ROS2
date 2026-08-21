@@ -110,7 +110,12 @@ INALTIME_TALPA = 0.230           # INVARIANT (vezi test_podea.py)
 # lateral, ca la orice exoschelet cu module laterale.
 SOLD_X = 0.000                   # LAYOUT: axa soldului la marginea din fata a scaunului
 SOLD_Y = 0.260                   # LAYOUT: semidistanta intre cele doua module
-SCAUN_LUNGIME = 0.460            # LAYOUT
+# Adancimea scaunului sustine DOAR bazinul: coapsa e purtata de modulul mecanic
+# [Fig 2.4, reper 2], nu de perna. La 0.460 (valoarea de dinainte, mostenita) axa
+# soldului masinii cadea la 0.27 m in fata bazinului pacientului, adica picioarele
+# lui porneau din alt loc decat corpul -- se vedea in inspectia RViz din 22 aug.
+# Intr-un exoschelet cele doua axe TREBUIE sa coincida; asta e chiar cerinta lui.
+SCAUN_LUNGIME = 0.300            # LAYOUT
 SCAUN_GROSIME = 0.070            # LAYOUT
 SOLD_PESTE_SCAUN = 0.060         # LAYOUT: axa soldului deasupra fetei scaunului
 MARGINE_PLACA = 0.120            # LAYOUT: cat depaseste placa ansamblul, in fata si spate

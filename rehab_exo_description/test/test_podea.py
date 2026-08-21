@@ -209,6 +209,18 @@ def main(argv):
     ok(abs(T["left_shank"][0][2] - T["left_thigh"][0][2]) < 1e-9,
        "la sold zero coapsa nu e orizontala")
 
+    # --- 2b. ALINIEREA PACIENT-MASINA. Cerinta de baza a oricarui exoschelet: axa
+    # articulatiei masinii trebuie sa treaca prin articulatia omului. Pana pe 22 aug
+    # era incalcata cu 0.27 m pe x si 0.06 m pe z, si se vedea in RViz -- picioarele
+    # pacientului porneau din alt loc decat trunchiul lui. Nu era prinsa de niciun
+    # test fiindca nu incalca nici topologia, nici limitele, nici podeaua.
+    bazin = T["human_torso"][0]
+    for p_ in PARTI:
+        sold = T["%s_thigh" % p_][0]
+        ok(abs(sold[0] - bazin[0]) < 1e-9 and abs(sold[2] - bazin[2]) < 1e-9,
+           "%s: axa soldului masinii (%.4f, %.4f) nu trece prin bazinul pacientului "
+           "(%.4f, %.4f)" % (p_, sold[0], sold[2], bazin[0], bazin[2]))
+
     # --- 3. CONTROLUL NEGATIV: conventia VECHE, adica soldul rotit cu 90 de grade in
     # jos, trebuie sa pice. Asta e argumentul care a decis D1, verificat aici pe
     # geometria reala si nu pe o aritmetica facuta pe hartie.

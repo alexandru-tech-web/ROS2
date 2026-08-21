@@ -261,7 +261,7 @@
     </inertial>
     <visual>
       <origin xyz="0.0000 0.0000 0.0000" rpy="0 0 0"/>
-      <geometry><box size="0.4600 0.4600 0.0700"/></geometry>
+      <geometry><box size="${g_scaun_lungime} 0.4600 ${g_scaun_grosime}"/></geometry>
       <material name="cushion"/>
     </visual>
     <visual>
@@ -296,13 +296,13 @@
     </visual>
     <collision>
       <origin xyz="0.0000 0.0000 0.0000" rpy="0 0 0"/>
-      <geometry><box size="0.4600 0.4600 0.0700"/></geometry>
+      <geometry><box size="${g_scaun_lungime} 0.4600 ${g_scaun_grosime}"/></geometry>
     </collision>
   </link>
 
   <joint name="seat_to_back" type="fixed">
     <parent link="seat_link"/><child link="backrest_link"/>
-    <origin xyz="-0.235 0 0.02" rpy="0 -0.21 0"/>
+    <origin xyz="${-g_scaun_lungime/2} 0 0.02" rpy="0 -0.21 0"/>
   </joint>
   <link name="backrest_link">
     <inertial>
@@ -333,36 +333,41 @@
 
   <joint name="seat_to_human" type="fixed">
     <parent link="seat_link"/><child link="human_torso"/>
-    <origin xyz="-0.04 0 0.035" rpy="0 0 0"/>
+    <!-- ALINIEREA PACIENT-MASINA. Bazinul pacientului se pune EXACT pe axa soldului
+         masinii, cu acelasi offset ca articulatia de sold. E cerinta de baza a
+         oricarui exoschelet, si pana pe 22 aug era incalcata cu 0.27 m pe x si
+         0.06 m pe z: in RViz se vedea ca picioarele pacientului porneau din alt loc
+         decat trunchiul lui. -->
+    <origin xyz="${g_sold_x - g_scaun_centru_x} 0 ${g_sold_inaltime - g_scaun_centru_z}" rpy="0 0 0"/>
   </joint>
   <link name="human_torso">
     <inertial>
-      <origin xyz="0.0000 0.0000 0.2800" rpy="0 0 0"/>
+      <origin xyz="-0.1000 0.0000 0.2800" rpy="0 0 0"/>
       <mass value="32.000"/>
       <inertia ixx="1.029333" ixy="0" ixz="0" iyy="0.874667" iyz="0" izz="0.461867"/>
     </inertial>
     <visual>
-      <origin xyz="0.0000 0.0000 0.2800" rpy="0 0 0"/>
+      <origin xyz="-0.1000 0.0000 0.2800" rpy="0 0 0"/>
       <geometry><box size="0.2400 0.3400 0.5200"/></geometry>
       <material name="cloth"/>
     </visual>
     <visual>
-      <origin xyz="0.0100 0.0000 0.6650" rpy="0 0 0"/>
+      <origin xyz="-0.0900 0.0000 0.6650" rpy="0 0 0"/>
       <geometry><sphere radius="0.1050"/></geometry>
       <material name="skin"/>
     </visual>
     <visual>
-      <origin xyz="0.0100 0.0000 0.5550" rpy="0 0 0"/>
+      <origin xyz="-0.0900 0.0000 0.5550" rpy="0 0 0"/>
       <geometry><cylinder radius="0.0450" length="0.0700"/></geometry>
       <material name="skin"/>
     </visual>
     <visual>
-      <origin xyz="0.0000 0.2050 0.4000" rpy="0.15 0 0"/>
+      <origin xyz="-0.1000 0.2050 0.4000" rpy="0.15 0 0"/>
       <geometry><cylinder radius="0.0450" length="0.2600"/></geometry>
       <material name="cloth"/>
     </visual>
     <visual>
-      <origin xyz="0.0000 -0.2050 0.4000" rpy="-0.15 0 0"/>
+      <origin xyz="-0.1000 -0.2050 0.4000" rpy="-0.15 0 0"/>
       <geometry><cylinder radius="0.0450" length="0.2600"/></geometry>
       <material name="cloth"/>
     </visual>
@@ -387,7 +392,7 @@
       <material name="skin"/>
     </visual>
     <collision>
-      <origin xyz="0.0000 0.0000 0.2800" rpy="0 0 0"/>
+      <origin xyz="-0.1000 0.0000 0.2800" rpy="0 0 0"/>
       <geometry><box size="0.2400 0.3400 0.5200"/></geometry>
     </collision>
   </link>
