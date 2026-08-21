@@ -75,7 +75,23 @@ def interval_reglaj(fractie):
 #   + lungimea gambei
 #   = inaltimea axei genunchiului = inaltimea axei soldului (coapsa e orizontala)
 GROSIME_PLACA_BAZA = 0.060       # LAYOUT: placa de baza a modulului de picior
-INALTIME_TALPA = 0.100           # LAYOUT: fata superioara a suportului de talpa
+# ALES PRIN MASURARE, nu arbitrar. Prima valoare pusa aici a fost 0.100, fara niciun
+# criteriu. Baleierea din test/test_podea.py a aratat ca la ea un colt al placii de
+# talpa coboara la -0.099 m in cea mai defavorabila configuratie LEGALA (genunchi
+# 105 grade, glezna in flexie plantara maxima, gamba la reglajul maxim): cu genunchiul
+# flectat peste 90 de grade gamba trece de verticala si duce varful in jos.
+# Criteriul de acum, care e o cerinta de proiectare reala: intreaga fereastra de
+# unghiuri DOCUMENTATA trebuie sa fie utilizabila fara ca ceva sa atinga podeaua.
+# Valoarea se alege ca sa ramana o MARGINE de proiectare, nu doar ca sa nu atinga:
+# la 0.200 baleierea da +0.0007 m, adica 0.7 mm, ceea ce nu e o margine, e o
+# coincidenta. La 0.230 raman circa 0.030 m in cel mai defavorabil caz, si testul
+# aserteaza marginea, nu doar semnul.
+# Consecinta acceptata: axa soldului urca la ~0.73 m si scaunul la ~0.67 m in pozitia
+# de LUCRU. Pentru transferul pacientului, coloana 101 il COBOARA (cursa devine
+# negativa fata de pozitia de lucru); nu e o cota de scaun obisnuit, e o statie de
+# antrenament la care pacientul e adus, nu pe care se urca singur.
+MARGINE_PODEA = 0.030            # ALES: cat trebuie sa ramana sub cel mai jos punct
+INALTIME_TALPA = 0.230           # LAYOUT + ALES PRIN MASURARE (vezi test_podea.py)
 
 # Amplasarea in plan. Axa soldului MASINII sta lateral fata de scaun, fiindca modulul
 # de picior e un ansamblu propriu langa scaun [Fig 2.2: 001 baza scaun, 003 baza
@@ -129,6 +145,7 @@ def cote():
         "glezna_offset": segment(FRACTIE_INALTIME_GLEZNA),
         # LAYOUT
         "placa_grosime": GROSIME_PLACA_BAZA,
+        "margine_podea": MARGINE_PODEA,
         "talpa_inaltime": INALTIME_TALPA,
         "sold_inaltime": inaltime_sold(),
         "glezna_inaltime": inaltime_glezna(),

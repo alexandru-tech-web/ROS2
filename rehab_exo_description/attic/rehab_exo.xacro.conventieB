@@ -5,19 +5,6 @@
      Postura zero = SEZUT. Generat parametric; verificat prin FK. -->
 <robot name="rehab_exo" xmlns:xacro="http://www.ros.org/wiki/xacro">
 
-  <!-- COTELE NU SE SCRIU AICI. Vin din cote_derivate.xacro, generat la build din
-       scripts/geometrie_core.py, unde fiecare are o clasa de provenienta (FISA,
-       ANTROPO, LAYOUT) si un selftest care verifica lantul geometric. Pana pe
-       22 aug 2026 erau literali in acest fisier, inventati si nemarcati, si de
-       acolo venea bugul in care piciorul trecea prin placa. Regula de acum: niciun
-       numar de geometrie literal in corpul descrierii. -->
-  <xacro:include filename="cote_derivate.xacro"/>
-
-  <!-- Versiunea CONVENTIEI articulare. Circula in URDF si e verificata de
-       exercise_controller: o traiectorie scrisa in alta conventie e refuzata
-       zgomotos, nu rulata gresit. Vezi DECIZII.md, D1. -->
-  <xacro:property name="conventie_versiune" value="B1"/>
-
   <!-- Calea catre controllers.yaml. E parametru, nu $(find ...), fiindca xacro
        rezolva $(find) la GENERARE, iar la build pachetul nu e inca in ament_index ;
        ou si gaina. CMake paseaza calea de instalare; generarea manuala foloseste
@@ -25,76 +12,53 @@
   <xacro:arg name="postura" default="culcat"/>
   <xacro:property name="postura" value="$(arg postura)"/>
 
-  <!-- ============ CONVENTIA ARTICULARA B-PRIM (D1, 22 aug 2026) ============
-       Zeroul e ZEROUL MECANIC AL DISPOZITIVULUI, nu unul anatomic.
+  <!-- ============ CONVENTIA ARTICULARA: ZERO ANATOMIC ============
+       Decizia din registru, 18 aug, varianta B. Conventia veche (zero = SEZUT)
+       s-a pensionat; e in attic/rehab_exo.urdf.livrat.
 
-         sold     0 = coapsa ORIZONTALA (postura de lucru, sezut).
-                  POZITIV = RIDICAREA coapsei.
-         genunchi 0 = gamba in prelungirea coapsei. POZITIV = FLEXIE.
-         glezna   0 = talpa perpendiculara pe gamba. POZITIV = DORSIFLEXIE.
+       Zero pentru fiecare articulatie, in plan sagital:
+         sold     0 = coapsa colineara cu trunchiul (culcat drept). POZITIV = FLEXIE
+                  (coapsa se ridica spre piept).
+         genunchi 0 = gamba colineara cu coapsa (extensie completa). POZITIV = FLEXIE
+                  (calcaiul se apropie de sezut).
+         glezna   0 = talpa perpendiculara pe gamba (neutru). POZITIV = DORSIFLEXIE
+                  (varful piciorului urca).
+       Trunchiul e pe +Z (verificat pe geometria human_torso, cutie 0.24x0.34x0.52
+       cu rpy 0 0 0), deci coapsa la zero anatomic arata spre -Z.
 
-       DE CE NU ZERO ANATOMIC (varianta B, de la M1). Argumentul podelei: cu axa
-       soldului la inaltimea derivata si cu piciorul de coapsa plus gamba, o rotatie
-       de 90 de grade IN JOS ar duce glezna sub podea, si asta ramane adevarat pe tot
-       intervalul de reglaj al lungimilor. Un scaun nu poate fi mai inalt decat
-       piciorul care atarna din el. Deci cursa merge in SUS si zeroul e orizontala.
-       Argumentul nu mai e o amintire: e test permanent, in test/test_podea.py.
+       ATENTIE la genunchi: in conventia veche unghiul CRESTEA spre extensie
+       (verificat prin cinematica directa: gamba se rotea de la -Z spre +X). In
+       conventia noua creste spre FLEXIE. Inversarea de semn e materializata prin
+       axa (0 1 0) in loc de (0 -1 0), plus rotatia de origine. Echivalenta fizica
+       e dovedita programatic in test/test_conventie.py, nu prin citire.
 
-       Intentia lui B (comparabilitate cu literatura clinica) nu se pierde. Maparea
-       anatomica e documentata in DECIZII.md ca FUNCTIE DE SPATAR, fiindca pe un
-       dispozitiv cu spatar mobil unghiul anatomic de sold nu e definit fara starea
-       scaunului.
-
-       MAPAREA veche spre noua NU e presupusa aici. Se DERIVA prin cinematica directa
-       in test/test_conventie.py, care genereaza si descrierea veche
-       (attic/rehab_exo.xacro.conventieB) si dovedeste ca talpa ajunge in acelasi loc
-       fizic. Rezultatul acelei derivari: la sold se scad 90 de grade; genunchiul si
-       glezna raman neschimbate.
-
-       CURSELE TOTALE sunt cele documentate [PDF Tabel 3.1, p.10-11]: sold 90 grade,
-       genunchi 140 grade, glezna 70 grade. PLASAREA ferestrei in jurul zeroului NU e
-       in document (GAP 4) si a fost mereu IPOTEZA. Transportul mecanic al plasarii
-       vechi prin maparea de mai sus da pentru sold fereastra de la minus 90 la zero,
-       adica integral sub orizontala, deci imposibila geometric. Asta confirma
-       independent ca plasarea veche era gresita; latimea documentata se pastreaza,
-       plasarea se re-deriva.
+       CURSELE TOTALE sunt cele documentate [PDF Tabel 3.1, p.10-11]:
+         sold 90 grade, genunchi 140 grade, glezna 70 grade.
+       IMPARTIREA min/max NU e in document (GAP 4): valorile de mai jos sunt
+       IPOTEZE LOCALE, motivate in urdf/IPOTEZE_LIMITE.md. Suma lor e asertata
+       egala cu cursa documentata, deci ipoteza poate fi schimbata fara sa se
+       piarda fidelitatea fata de document.
        ============================================================ -->
   <xacro:property name="rom_sold_deg"      value="90"/>
   <xacro:property name="rom_genunchi_deg"  value="140"/>
   <xacro:property name="rom_glezna_deg"    value="70"/>
 
-  <!-- FEREASTRA COMPLETA A SOLDULUI, in conventia B-prim. Latimea de 90 de grade e
-       DOCUMENTATA [PDF Tabel 3.1]; PLASAREA ei in jurul zeroului a fost mereu
-       IPOTEZA (GAP 4) si a fost RE-DERIVATA la D1: repausul e coapsa orizontala si
-       cursa merge in sus, fiindca in jos piciorul ar trece prin podea. -->
   <xacro:property name="sold_min_deg"      value="0"/>
   <xacro:property name="sold_max_deg"      value="90"/>
-
-  <!-- BANDA DE SEZUT: TRANSPORTATA mecanic din conventia veche prin aceeasi mapare
-       ca restul (se scad 90 de grade din 25..90), NU validata. Rezultatul cade
-       integral SUB orizontala, deci e geometric imposibil, si tocmai asta e dovada
-       ca plasarea veche era gresita. Se pastreaza in forma transportata ca sa nu
-       ramana nimic in doua conventii, si se REJUDECA separat (punctul 5), impreuna
-       cu fraza din document: "in sitting position, the motion space of the hip joint
-       is small". Pana atunci: postura sezut produce deliberat un model care PICA
-       invariantul podelei, iar test/test_podea.py aserteaza exact acest lucru.
-       Implicitul ramane culcat. -->
-  <xacro:property name="sold_sezut_min_deg" value="-65"/>
-  <xacro:property name="sold_sezut_max_deg" value="0"/>
-
+  <xacro:property name="sold_sezut_min_deg" value="25"/>
   <xacro:property name="genunchi_min_deg"  value="0"/>
   <xacro:property name="genunchi_max_deg"  value="140"/>
   <xacro:property name="glezna_min_deg"    value="-35"/>
   <xacro:property name="glezna_max_deg"    value="35"/>
 
+  <!-- Postura schimba DOAR limita inferioara a soldului: in sezut, inelul de
+       oprire (reper 208, PDF p.7) reduce mecanic cursa. IPOTEZA LOCALA. -->
   <xacro:property name="sold_lo_deg"
                   value="${sold_sezut_min_deg if postura == 'sezut' else sold_min_deg}"/>
-  <xacro:property name="sold_hi_deg"
-                  value="${sold_sezut_max_deg if postura == 'sezut' else sold_max_deg}"/>
 
   <xacro:property name="d2r" value="${pi / 180.0}"/>
   <xacro:property name="sold_lo" value="${sold_lo_deg * d2r}"/>
-  <xacro:property name="sold_hi" value="${sold_hi_deg * d2r}"/>
+  <xacro:property name="sold_hi" value="${sold_max_deg * d2r}"/>
   <xacro:property name="gen_lo"  value="${genunchi_min_deg * d2r}"/>
   <xacro:property name="gen_hi"  value="${genunchi_max_deg * d2r}"/>
   <xacro:property name="gle_lo"  value="${glezna_min_deg * d2r}"/>
@@ -201,56 +165,28 @@
       <mass value="22.000"/>
       <inertia ixx="0.678333" ixy="0" ixz="0" iyy="0.916667" iyz="0" izz="1.558333"/>
     </inertial>
-    <!-- Placa de baza. LAYOUT: lungimea si centrul ies din intinderea ansamblului
-         in postura de lucru, cu talpile incluse; latimea, din distanta dintre
-         module. Cea veche era 0.7 x 0.6 centrata in origine si talpile cadeau in
-         afara ei. -->
     <visual>
-      <origin xyz="${g_placa_centru_x} 0 ${g_placa_grosime/2}" rpy="0 0 0"/>
-      <geometry><box size="${g_placa_lungime} ${g_placa_latime} ${g_placa_grosime}"/></geometry>
+      <origin xyz="0.0000 0.0000 0.0500" rpy="0 0 0"/>
+      <geometry><box size="0.7000 0.6000 0.1000"/></geometry>
+      <material name="frame_gri"/>
+    </visual>
+    <visual>
+      <origin xyz="-0.1000 0.0000 0.3000" rpy="0 0 0"/>
+      <geometry><box size="0.1600 0.1600 0.4000"/></geometry>
       <material name="frame_gri"/>
     </visual>
     <collision>
-      <origin xyz="${g_placa_centru_x} 0 ${g_placa_grosime/2}" rpy="0 0 0"/>
-      <geometry><box size="${g_placa_lungime} ${g_placa_latime} ${g_placa_grosime}"/></geometry>
+      <origin xyz="0.0000 0.0000 0.0500" rpy="0 0 0"/>
+      <geometry><box size="0.7000 0.6000 0.1000"/></geometry>
     </collision>
-
-    <!-- Coloana de ridicare a scaunului (reper 101). LAYOUT. -->
-    <visual>
-      <origin xyz="${g_scaun_centru_x} 0 ${(g_placa_grosime + g_scaun_sus)/2}" rpy="0 0 0"/>
-      <geometry><box size="0.1600 0.1600 ${g_scaun_sus - g_placa_grosime}"/></geometry>
-      <material name="frame_gri"/>
-    </visual>
-
-    <!-- CADRUL VERTICAL AL SOLDULUI, cate unul per modul de picior. Lipsea complet
-         din model: coapsa pleca direct din scaun. In dispozitivul real e structura
-         inalta din Fig 2.4, reper 1, care duce axa soldului la inaltimea ei. -->
-    <xacro:macro name="coloana_sold" params="sy">
-      <visual>
-        <origin xyz="${g_sold_x} ${sy * g_sold_y} ${(g_placa_grosime + g_sold_inaltime)/2}"
-                rpy="0 0 0"/>
-        <geometry><box size="0.1400 0.1000 ${g_sold_inaltime - g_placa_grosime}"/></geometry>
-        <material name="frame_gri"/>
-      </visual>
-      <collision>
-        <origin xyz="${g_sold_x} ${sy * g_sold_y} ${(g_placa_grosime + g_sold_inaltime)/2}"
-                rpy="0 0 0"/>
-        <geometry><box size="0.1400 0.1000 ${g_sold_inaltime - g_placa_grosime}"/></geometry>
-      </collision>
-    </xacro:macro>
-    <xacro:coloana_sold sy="1"/>
-    <xacro:coloana_sold sy="-1"/>
   </link>
 
   <!-- v3: ridicarea/coborarea scaunului fata de baza (ajustare pacient) -->
   <joint name="seat_lift_joint" type="prismatic">
     <parent link="base_link"/><child link="seat_link"/>
-    <origin xyz="${g_scaun_centru_x} 0 ${g_scaun_centru_z}" rpy="0 0 0"/>
+    <origin xyz="0 0 0.485" rpy="0 0 0"/>
     <axis xyz="0 0 1"/>
-    <!-- Cursa e NEGATIVA fata de zero, si asta e deliberat: cota derivata a
-         scaunului e pozitia de LUCRU, cea in care lantul geometric se inchide.
-         Coloana 101 il COBOARA pentru transferul pacientului, nu il urca. -->
-    <limit lower="-0.15" upper="0.0" effort="500.0" velocity="0.05"/><!-- NEVERIFICAT: coloana de ridicare, fara date in document -->
+    <limit lower="0.0" upper="0.15" effort="500.0" velocity="0.05"/><!-- NEVERIFICAT: coloana de ridicare, fara date in document -->
     <dynamics damping="50.0" friction="5.0"/>
   </joint>
   <link name="seat_link">
@@ -399,49 +335,42 @@
   <xacro:macro name="picior" params="side sy material">
   <joint name="${side}_hip_joint" type="revolute">
     <parent link="seat_link"/><child link="${side}_thigh"/>
-    <!-- CONVENTIA B-PRIM: fara rotatie de origine, deci la unghi zero coapsa
-         e ORIZONTALA, pe +X. Axa 0 -1 0 face ca unghiul POZITIV sa RIDICE coapsa.
-         Vechea forma avea rpy 0 pi/2 0, care punea coapsa in jos la zero, si de
-         acolo venea piciorul care trecea prin placa. -->
-    <origin xyz="${g_sold_x - g_scaun_centru_x} ${sy * g_sold_y} ${g_sold_inaltime - g_scaun_centru_z}" rpy="0 0 0"/>
+    <origin xyz="0.160 ${sy * 0.260} 0.035" rpy="0 ${pi/2} 0"/>
     <axis xyz="0 -1 0"/>
     <limit lower="${sold_lo}" upper="${sold_hi}" effort="${ef_sold}" velocity="${vi_sold}"/>
     <dynamics damping="${amort_sold}" friction="${frec_sold}"/>
   </joint>
   <link name="${side}_thigh">
     <inertial>
-      <origin xyz="${g_coapsa_nom/2} ${sy * -0.0575} 0.0000" rpy="0 0 0"/>
+      <origin xyz="0.2000 ${sy * -0.0575} 0.0000" rpy="0 0 0"/>
       <mass value="6.500"/>
       <inertia ixx="0.019283" ixy="0" ixz="0" iyy="0.092083" iyz="0" izz="0.100533"/>
     </inertial>
     <visual>
-      <!-- ANCORA DE SCARA: reductorul de sold SHG-40-100-2UH, diametru exterior
-           documentat in fisa anexata. Proportiile modelului se pot verifica cu
-           ochiul fata de el. -->
       <origin xyz="0.0000 ${sy * 0.0550} 0.0000" rpy="1.5708 0 0"/>
-      <geometry><cylinder radius="${g_d_sold/2}" length="0.1000"/></geometry>
+      <geometry><cylinder radius="0.0850" length="0.1000"/></geometry>
       <material name="frame_gri"/>
     </visual>
     <visual>
-      <origin xyz="${g_coapsa_nom/2} 0.0000 0.0000" rpy="0 0 0"/>
-      <geometry><box size="${g_coapsa_nom} 0.0500 0.0700"/></geometry>
+      <origin xyz="0.2000 0.0000 0.0000" rpy="0 0 0"/>
+      <geometry><box size="0.4000 0.0500 0.0700"/></geometry>
       <material name="${material}"/>
     </visual>
     <visual>
-      <origin xyz="${g_coapsa_nom/2} ${sy * -0.1150} 0.0000" rpy="0 1.5708 0"/>
-      <geometry><cylinder radius="0.0720" length="${g_coapsa_nom - 0.05}"/></geometry>
+      <origin xyz="0.2000 ${sy * -0.1150} 0.0000" rpy="0 1.5708 0"/>
+      <geometry><cylinder radius="0.0720" length="0.3800"/></geometry>
       <material name="pants"/>
     </visual>
     <collision>
-      <origin xyz="${g_coapsa_nom/2} 0.0000 0.0000" rpy="0 0 0"/>
-      <geometry><box size="${g_coapsa_nom} 0.0600 0.0800"/></geometry>
+      <origin xyz="0.2000 0.0000 0.0000" rpy="0 0 0"/>
+      <geometry><box size="0.4000 0.0600 0.0800"/></geometry>
     </collision>
   </link>
   <joint name="${side}_thigh_ext_joint" type="prismatic">
     <parent link="${side}_thigh"/><child link="${side}_thigh_ext"/>
-    <origin xyz="${g_coapsa_nom} 0 0" rpy="0 0 0"/>
+    <origin xyz="0.400 0 0" rpy="0 0 0"/>
     <axis xyz="1 0 0"/>
-    <limit lower="0.0" upper="${g_coapsa_cursa}" effort="300.0" velocity="0.03"/><!-- NEVERIFICAT: push rod fara date de forta sau viteza in document -->
+    <limit lower="0.0" upper="0.08" effort="300.0" velocity="0.03"/><!-- NEVERIFICAT: push rod fara date de forta sau viteza in document -->
     <dynamics damping="30.0" friction="3.0"/>
   </joint>
   <link name="${side}_thigh_ext">
@@ -456,10 +385,8 @@
       <material name="frame_gri"/>
     </visual>
     <visual>
-      <!-- ANCORA DE SCARA: reductorul de genunchi SHG-32-100-2UH, diametru
-           exterior din fisa anexata. -->
       <origin xyz="0.0000 ${sy * 0.0400} 0.0000" rpy="1.5708 0 0"/>
-      <geometry><cylinder radius="${g_d_genunchi/2}" length="0.0800"/></geometry>
+      <geometry><cylinder radius="0.0600" length="0.0800"/></geometry>
       <material name="frame_gri"/>
     </visual>
     <collision>
@@ -469,55 +396,53 @@
   </link>
   <joint name="${side}_knee_joint" type="revolute">
     <parent link="${side}_thigh_ext"/><child link="${side}_shank"/>
-    <!-- Fara rotatie: la genunchi zero gamba continua coapsa, tot pe +X.
-         Axa 0 1 0 duce flexia POZITIVA in jos, adica gamba coboara. -->
-    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <origin xyz="0 0 0" rpy="0 ${-pi/2} 0"/>
     <axis xyz="0 1 0"/>
     <limit lower="${gen_lo}" upper="${gen_hi}" effort="${ef_genunchi}" velocity="${vi_genunchi}"/>
     <dynamics damping="${amort_genunchi}" friction="${frec_genunchi}"/>
   </joint>
   <link name="${side}_shank">
     <inertial>
-      <origin xyz="${g_gamba_nom/2} ${sy * -0.0575} 0.0000" rpy="0 0 0"/>
+      <origin xyz="0.0000 ${sy * -0.0575} -0.2000" rpy="0 0 0"/>
       <mass value="4.000"/>
       <inertia ixx="0.059867" ixy="0" ixz="0" iyy="0.054967" iyz="0" izz="0.008167"/>
     </inertial>
     <visual>
-      <origin xyz="${g_gamba_nom/2} 0.0000 0.0000" rpy="0 0 0"/>
-      <geometry><box size="${g_gamba_nom} 0.0450 0.0500"/></geometry>
+      <origin xyz="0.0000 0.0000 -0.2000" rpy="0 0 0"/>
+      <geometry><box size="0.0500 0.0450 0.4000"/></geometry>
       <material name="${material}"/>
     </visual>
     <visual>
-      <origin xyz="${g_gamba_nom/2} ${sy * -0.1150} 0.0000" rpy="0 1.5708 0"/>
-      <geometry><cylinder radius="0.0580" length="${g_gamba_nom - 0.05}"/></geometry>
+      <origin xyz="0.0000 ${sy * -0.1150} -0.2000" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.0580" length="0.3800"/></geometry>
       <material name="pants"/>
     </visual>
     <collision>
-      <origin xyz="${g_gamba_nom/2} 0.0000 0.0000" rpy="0 0 0"/>
-      <geometry><box size="${g_gamba_nom} 0.0500 0.0600"/></geometry>
+      <origin xyz="0.0000 0.0000 -0.2000" rpy="0 0 0"/>
+      <geometry><box size="0.0600 0.0500 0.4000"/></geometry>
     </collision>
   </link>
   <joint name="${side}_shank_ext_joint" type="prismatic">
     <parent link="${side}_shank"/><child link="${side}_shank_ext"/>
-    <origin xyz="${g_gamba_nom} 0 0" rpy="0 0 0"/>
-    <axis xyz="1 0 0"/>
-    <limit lower="0.0" upper="${g_gamba_cursa}" effort="300.0" velocity="0.03"/><!-- NEVERIFICAT: push rod fara date de forta sau viteza in document -->
+    <origin xyz="0 0 -0.400" rpy="0 0 0"/>
+    <axis xyz="0 0 -1"/>
+    <limit lower="0.0" upper="0.08" effort="300.0" velocity="0.03"/><!-- NEVERIFICAT: push rod fara date de forta sau viteza in document -->
     <dynamics damping="30.0" friction="3.0"/>
   </joint>
   <link name="${side}_shank_ext">
     <inertial>
-      <origin xyz="0.0500 0.0000 0.0000" rpy="0 0 0"/>
+      <origin xyz="0.0000 0.0000 0.0500" rpy="0 0 0"/>
       <mass value="0.600"/>
       <inertia ixx="0.001060" ixy="0" ixz="0" iyy="0.001060" iyz="0" izz="0.000160"/>
     </inertial>
     <visual>
-      <origin xyz="0.0500 0.0000 0.0000" rpy="0 0 0"/>
-      <geometry><box size="0.1400 0.0340 0.0380"/></geometry>
+      <origin xyz="0.0000 0.0000 0.0500" rpy="0 0 0"/>
+      <geometry><box size="0.0380 0.0340 0.1400"/></geometry>
       <material name="frame_gri"/>
     </visual>
     <collision>
-      <origin xyz="0.0500 0.0000 0.0000" rpy="0 0 0"/>
-      <geometry><box size="0.1400 0.0400 0.0400"/></geometry>
+      <origin xyz="0.0000 0.0000 0.0500" rpy="0 0 0"/>
+      <geometry><box size="0.0400 0.0400 0.1400"/></geometry>
     </collision>
   </link>
   <joint name="${side}_ankle_joint" type="revolute">
@@ -529,25 +454,23 @@
   </joint>
   <link name="${side}_foot">
     <inertial>
-      <origin xyz="${g_glezna_offset} ${sy * -0.0575} ${g_talpa_lungime/4}" rpy="0 0 0"/>
+      <origin xyz="0.0700 ${sy * -0.0575} -0.0400" rpy="0 0 0"/>
       <mass value="1.200"/>
       <inertia ixx="0.002050" ixy="0" ixz="0" iyy="0.005850" iyz="0" izz="0.007720"/>
     </inertial>
     <visual>
-      <!-- Placa de talpa: perpendiculara pe gamba, la offsetul de glezna sub axa,
-           intinsa inainte. Glezna cade la circa un sfert din lungime de la calcai. -->
-      <origin xyz="${g_glezna_offset} 0.0000 ${g_talpa_lungime/4}" rpy="0 0 0"/>
-      <geometry><box size="0.0250 0.1300 ${g_talpa_lungime}"/></geometry>
+      <origin xyz="0.0700 0.0000 -0.0550" rpy="0 0 0"/>
+      <geometry><box size="0.2400 0.1300 0.0250"/></geometry>
       <material name="frame_gri"/>
     </visual>
     <visual>
-      <origin xyz="${g_glezna_offset - 0.035} ${sy * -0.1150} ${g_talpa_lungime/4}" rpy="0 0 0"/>
-      <geometry><box size="0.0550 0.0850 ${g_talpa_lungime - 0.02}"/></geometry>
+      <origin xyz="0.0750 ${sy * -0.1150} -0.0200" rpy="0 0 0"/>
+      <geometry><box size="0.2300 0.0850 0.0550"/></geometry>
       <material name="shoe"/>
     </visual>
     <collision>
-      <origin xyz="${g_glezna_offset} 0.0000 ${g_talpa_lungime/4}" rpy="0 0 0"/>
-      <geometry><box size="0.0300 0.1400 ${g_talpa_lungime}"/></geometry>
+      <origin xyz="0.0700 0.0000 -0.0550" rpy="0 0 0"/>
+      <geometry><box size="0.2400 0.1400 0.0300"/></geometry>
     </collision>
   </link>
   </xacro:macro>
@@ -623,12 +546,6 @@
   <ros2_control name="RehabExoSystem" type="system">
     <hardware>
       <plugin>gz_ros2_control/GazeboSimSystem</plugin>
-    <!-- Versiunea conventiei articulare, purtata de model pana la consumatori.
-         exercise_controller o compara cu versiunea traiectoriei si REFUZA rularea la
-         nepotrivire: o traiectorie scrisa in alta conventie ar misca robotul in alta
-         parte decat scrie pe ea. Aici, si nu intr-un comentariu, fiindca un
-         comentariu nu ajunge in /robot_description. -->
-    <param name="conventie_versiune">${conventie_versiune}</param>
       <!-- position_proportional_gain NU se pune aici. In gz_ros2_control 1.2.17 e
            un PARAMETRU ROS al nodului controller_manager, nu un param de hardware
            din URDF; pus aici e citit de nimeni si tace. Dovedit prin masurare: la

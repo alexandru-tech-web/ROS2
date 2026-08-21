@@ -28,3 +28,11 @@ fara scaun si fara extensii, cu 0..pi pe toate articulatiile revolute. README-ul
 pachetului il documenta pe ACESTA ("0-180 grade"), nu URDF-ul livrat -- de aici
 enigma care a dus la audit. Nu are continut recuperabil: structura-tinta e cea
 din URDF-ul livrat.
+
+## rehab_exo.xacro.conventieB (retras 22 aug 2026)
+
+Descrierea in conventia B (zero anatomic), asa cum a iesit din M1. NU e o copie
+moarta: `test/test_conventie.py` o GENEREAZA la fiecare rulare si dovedeste prin FK
+ca modelul nou (conventia B', decizia D1) descrie acelasi lant fizic. Fara ea,
+echivalenta ar fi o afirmatie in loc de o masuratoare. Se sterge doar impreuna cu
+testul.
