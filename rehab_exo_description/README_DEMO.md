@@ -15,6 +15,9 @@ Cu optiuni:
 | `viteza:=` | `1.0` | factor pe axa TIMPULUI (0.1 .. 3.0). NU schimba amplitudinea |
 | `repetari:=` | `3` | numarul de repetari |
 | `inaltime:=` | `1.2` | inaltimea de aparitie [m]; tine talpile deasupra solului |
+| `supervizor:=` | `true` | stratul electric de siguranta (M5) |
+| `marja_deg:=` | `5.0` | cat sub opritorul mecanic sta pragul electric; IPOTEZA |
+| `postura:=` | `culcat` | setul de limite supravegheat: `culcat` sau `sezut` |
 | `gui:=` | `false` | porneste si GUI-ul Gazebo (vezi *De ce headless*) |
 | `rmw:=` | `cyclonedds` | implementarea RMW, pinuita pe TOATE nodurile |
 
@@ -63,6 +66,24 @@ ar arata ca o masuratoare valida de valoare zero -- e cea mai proasta varianta.
 Eticheta senzorilor circula pe `/rehab/senzori/eticheta` si apare in fiecare cadru
 al tabloului. Nu e scrisa a doua oara in monitor, tocmai ca sa nu poata ajunge sa
 spuna altceva decat sursa.
+
+## Supervizorul de siguranta
+
+Porneste implicit. Praguri de POZITIE la 5 grade sub opritorul mecanic, cu armare per
+articulatie (la boot toate articulatiile sunt pe marginea inferioara, deci un
+supervizor fara armare ar declansa la fiecare pornire).
+
+    ros2 topic echo /rehab/supervizor/stare        # armat / nearmat / declansat
+    ros2 topic echo /rehab/supervizor/eveniment    # declansarile, cu numere
+    ros2 service call /rehab/supervizor/postura std_srvs/srv/SetBool "{data: true}"
+
+Ultima comanda trece pe setul de limite SEZUT. Se refuza cu motiv daca pozitia
+curenta ar cadea in afara noii ferestre.
+
+De aratat la o demonstratie: comanda o flexie de sold peste 85 de grade si
+supervizorul opreste miscarea sub cele 90 mecanice. ATENTIE la ordine -- cu piciorul
+INTINS flexia de sold e blocata de geometria proprie a modelului (referinta urca,
+pozitia ramane la 0); indoaie intai genunchiul.
 
 ## Ce NU e in regula, si se vede in tablou
 

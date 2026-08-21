@@ -46,6 +46,8 @@ install(
     scripts/senzori_core.py
     scripts/senzori_node.py
     scripts/monitor_senzori.py
+    scripts/supervizor_electric.py
+    scripts/supervizor_core.py
     scripts/monitor_core.py
   DESTINATION lib/${PROJECT_NAME}
 )
@@ -82,6 +84,20 @@ if(BUILD_TESTING)
     OUTPUT_FILE "${CMAKE_BINARY_DIR}/test_rmw_mutant.log"
     RESULT_FILE "${CMAKE_BINARY_DIR}/test_rmw_mutant.xunit.xml"
     TIMEOUT 300)
+
+  ament_add_test(test_supervizor_core
+    GENERATE_RESULT_FOR_RETURN_CODE_ZERO
+    COMMAND "/usr/bin/python3" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/supervizor_core.py" "--selftest"
+    OUTPUT_FILE "${CMAKE_BINARY_DIR}/test_supervizor_core.log"
+    RESULT_FILE "${CMAKE_BINARY_DIR}/test_supervizor_core.xunit.xml"
+    TIMEOUT 60)
+
+  ament_add_test(test_supervizor
+    GENERATE_RESULT_FOR_RETURN_CODE_ZERO
+    COMMAND "/usr/bin/python3" "${CMAKE_CURRENT_SOURCE_DIR}/test/test_supervizor.py"
+    OUTPUT_FILE "${CMAKE_BINARY_DIR}/test_supervizor.log"
+    RESULT_FILE "${CMAKE_BINARY_DIR}/test_supervizor.xunit.xml"
+    TIMEOUT 120)
 
   ament_add_test(test_monitor
     GENERATE_RESULT_FOR_RETURN_CODE_ZERO

@@ -30,6 +30,7 @@ from launch.actions import (DeclareLaunchArgument, IncludeLaunchDescription,
                             RegisterEventHandler)
 from launch.event_handlers import OnProcessExit
 from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.conditions import IfCondition
 from launch.substitutions import (Command, LaunchConfiguration,
                                   PathJoinSubstitution, PythonExpression)
 from launch_ros.actions import Node
@@ -96,6 +97,16 @@ def generate_launch_description():
                      "reps": LaunchConfiguration("repetari"),
                      "use_sim_time": True}])
 
+    # Stratul ELECTRIC de siguranta: praguri de POZITIE sub cele mecanice, cu armare
+    # per articulatie. Porneste implicit; supervizor:=false doar pentru a ARATA ce se
+    # intampla fara el (controlul negativ din raportul zilei 3).
+    supervizor = Node(
+        package="rehab_exo_description", executable="supervizor_electric.py",
+        output="screen", condition=IfCondition(LaunchConfiguration("supervizor")),
+        parameters=[{"marja_deg": LaunchConfiguration("marja_deg"),
+                     "postura": LaunchConfiguration("postura"),
+                     "use_sim_time": True}])
+
     # Tabloul iese pe ecran; are nevoie de terminalul curat, deci porneste ultimul.
     monitor = Node(package="rehab_exo_description", executable="monitor_senzori.py",
                    output="screen", parameters=[{"hz": 2.0, "use_sim_time": True}])
@@ -114,7 +125,8 @@ def generate_launch_description():
         RegisterEventHandler(OnProcessExit(target_action=homing, on_exit=[traj])),
         RegisterEventHandler(OnProcessExit(target_action=traj, on_exit=[adjust])),
         RegisterEventHandler(OnProcessExit(target_action=adjust,
-                                           on_exit=[senzori, exercitiu, monitor])),
+                                           on_exit=[senzori, supervizor,
+                                                    exercitiu, monitor])),
     ]
 
     argumente = [
@@ -127,6 +139,13 @@ def generate_launch_description():
         DeclareLaunchArgument("inaltime", default_value="1.2",
                               description="inaltimea de aparitie [m]; tine talpile "
                                           "deasupra solului"),
+        DeclareLaunchArgument("supervizor", default_value="true",
+                              description="stratul electric de siguranta (M5)"),
+        DeclareLaunchArgument("marja_deg", default_value="5.0",
+                              description="cat sub opritorul mecanic sta pragul "
+                                          "electric [grade]; IPOTEZA, nu masuratoare"),
+        DeclareLaunchArgument("postura", default_value="culcat",
+                              description="setul de limite supravegheat: culcat|sezut"),
         DeclareLaunchArgument("gui", default_value="false",
                               description="porneste si GUI-ul Gazebo (vezi antetul)"),
     ]

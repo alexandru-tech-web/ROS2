@@ -207,6 +207,44 @@ Consecinta de stiut: cu comanda cinematica NU exista rejectie de perturbatie. Ca
 modelul de pacient va aplica forte reale, e nevoie de comanda in EFORT, si atunci
 acordarea se reia de la zero.
 
+## Siguranta: cele TREI straturi
+
+Nu se inlocuiesc si nu se sincronizeaza. Fiecare prinde alta clasa de esec.
+
+| strat | ce vede | unde traieste | statutul cifrelor |
+|---|---|---|---|
+| 1. MECANIC | opritoarele fizice | `<limit>` din URDF (`urdf/IPOTEZE_LIMITE.md`) | cursele TOTALE sunt din [PDF Tabel 3.1]; impartirea min/max e IPOTEZA |
+| 2. ELECTRIC | POZITIA | `scripts/supervizor_electric.py` + `supervizor_core.py` | marja de 5 grade sub opritor e IPOTEZA; proximitatile reale nu au fost masurate |
+| 3. SOFTWARE | cuplu, viteza, heartbeat | `config/safety_limits.yaml` + `scripts/safety_supervisor.py` | praguri terapeutice, de stabilit cu personal clinic |
+
+Stratul electric emuleaza proximitatile [PDF p.7]. Praguri de pozitie strict
+inauntrul celor mecanice, cu **armare per articulatie**: la pornire toate
+articulatiile sunt la 0.0 rad, iar `sold_min` si `genunchi_min` sunt tot 0.0 -- deci
+pornirea E pe margine si un supervizor naiv ar declansa la fiecare boot. O
+articulatie se armeaza abia dupa ce a fost vazuta o data bine inauntru; pana atunci
+e observata, nu supravegheata. Starea fiecarei articulatii se publica pe
+`/rehab/supervizor/stare`, tocmai fiindca "nearmat" inseamna "nu poate declansa".
+
+Comutarea `culcat <-> sezut` se face prin serviciul `/rehab/supervizor/postura`
+(`std_srvs/SetBool`, true = sezut) si e REFUZATA cu motiv daca pozitia curenta ar
+cadea in afara noului set -- altfel dispozitivul ar deveni ilegal fara sa se fi
+miscat, iar articulatia nu s-ar mai arma niciodata in noul set.
+
+La declansare se publica o traiectorie de un punct la pozitia curenta, care
+inlocuieste traiectoria in curs. Nu e o oprire de siguranta certificata si nu
+pretinde sa fie.
+
+### Masurat pe 22 aug 2026
+
+| verificare | rezultat |
+|---|---|
+| pornire pe margine | sold si genunchi NEARMAT, glezna ARMAT; 0 declansari |
+| exercitiu normal (genunchi 1.2 rad) | 0 declansari false |
+| traiectorie peste pragul electric (comandat 1.5500) | oprit la **1.4956 rad**, prag 1.4835, limita mecanica 1.5708 |
+| comutare la sezut din 0.80 rad | permisa; praguri sold 0.5236..1.4835 |
+| comutare din pozitie ilegala | refuzata, cu articulatia si valoarea in mesaj |
+| 0.30 rad dupa comutare (legal in culcat) | declansare pe capatul **min**, la 0.5235 vs prag 0.5236 |
+
 ### Ce ramane deschis
 
 Masele, inertiile, amortizarile si frecarile sunt placeholder -- nicio concluzie
