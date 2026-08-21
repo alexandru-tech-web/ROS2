@@ -30,8 +30,12 @@ REVOLUTE = ("left_hip_joint", "left_knee_joint", "left_ankle_joint",
             "right_hip_joint", "right_knee_joint", "right_ankle_joint")
 PRISMATICE = ("seat_lift_joint", "left_thigh_ext_joint", "right_thigh_ext_joint",
               "left_shank_ext_joint", "right_shank_ext_joint")
-# IPOTEZE LOCALE (GAP 4) -- se redefinesc la F1b
-LIMITE = {"hip": (-0.45, 0.7), "knee": (0.0, 1.75), "ankle": (-0.6, 0.6)}
+# Conventie ANATOMICA (M1). Cursele TOTALE sunt documentate [PDF Tabel 3.1];
+# impartirea min/max ramane IPOTEZA LOCALA (GAP 4), motivata in urdf/IPOTEZE_LIMITE.md.
+import math as _m
+LIMITE = {"hip": (0.0, _m.radians(90)), "knee": (0.0, _m.radians(140)),
+          "ankle": (_m.radians(-35), _m.radians(35))}
+ROM_DOCUMENTAT = {"hip": 90.0, "knee": 140.0, "ankle": 70.0}
 
 _V = [0]
 
@@ -90,8 +94,13 @@ def main(argv=None):
         ok(lim is not None, "%s fara <limit>" % n)
         ok(abs(float(lim.get("lower")) - lo) < 1e-9
            and abs(float(lim.get("upper")) - hi) < 1e-9,
-           "%s: limite %s..%s, se cer %s..%s (ipoteza locala GAP 4)"
+           "%s: limite %s..%s, se cer %.5f..%.5f (ipoteza locala GAP 4)"
            % (n, lim.get("lower"), lim.get("upper"), lo, hi))
+        # cursa TOTALA trebuie sa fie cea DOCUMENTATA, oricare ar fi impartirea
+        cursa = math.degrees(float(lim.get("upper")) - float(lim.get("lower")))
+        ok(abs(cursa - ROM_DOCUMENTAT[cheie]) < 1e-6,
+           "%s: cursa %.3f grade, documentat %.0f [PDF Tabel 3.1]"
+           % (n, cursa, ROM_DOCUMENTAT[cheie]))
 
     # --- 4. SIMETRIA stanga-dreapta, joint cu joint. Fara asta, un macro stricat pe
     # o singura parte ar trece neobservat -- si tocmai simetria e ce justifica macroul.
@@ -142,8 +151,8 @@ def main(argv=None):
     for n, cheie in (("left_hip_joint", "hip"), ("left_knee_joint", "knee"),
                      ("left_ankle_joint", "ankle")):
         lo, hi = LIMITE[cheie]
-        print("   %-18s cursa %6.2f grade (ipoteza locala, GAP 4)"
-              % (n, math.degrees(hi - lo)))
+        print("   %-18s %7.1f .. %7.1f grade  (cursa %.0f, DOCUMENTATA; split GAP 4)"
+              % (n, math.degrees(lo), math.degrees(hi), math.degrees(hi - lo)))
 
     print("SELFTEST descriere OK (%d verificari)." % _V[0])
     return 0

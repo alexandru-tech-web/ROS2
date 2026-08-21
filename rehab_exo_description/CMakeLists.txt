@@ -55,6 +55,20 @@ if(BUILD_TESTING)
   find_package(ament_cmake_test REQUIRED)
   # GENERATE_RESULT_FOR_RETURN_CODE_ZERO: testul e un script obisnuit, nu pytest -- nu scrie el
   # xunit-ul, deci il genereaza wrapper-ul din codul de iesire.
+  # Echivalenta conventiei (M1): schimbarea de zero nu a schimbat robotul.
+  ament_add_test(test_conventie
+    GENERATE_RESULT_FOR_RETURN_CODE_ZERO
+    COMMAND "/usr/bin/python3" "${CMAKE_CURRENT_SOURCE_DIR}/test/test_conventie.py"
+    OUTPUT_FILE "${CMAKE_BINARY_DIR}/test_conventie.log"
+    RESULT_FILE "${CMAKE_BINARY_DIR}/test_conventie.xunit.xml"
+    TIMEOUT 180)
+  # Traiectoriile convertite: genunchi/glezna identice fizic, sold re-derivat pe fractie.
+  ament_add_test(test_traiectorii
+    GENERATE_RESULT_FOR_RETURN_CODE_ZERO
+    COMMAND "/usr/bin/python3" "${CMAKE_CURRENT_SOURCE_DIR}/test/test_traiectorii.py"
+    OUTPUT_FILE "${CMAKE_BINARY_DIR}/test_traiectorii.log"
+    RESULT_FILE "${CMAKE_BINARY_DIR}/test_traiectorii.xunit.xml"
+    TIMEOUT 120)
   ament_add_test(test_descriere
     GENERATE_RESULT_FOR_RETURN_CODE_ZERO
     COMMAND "/usr/bin/python3" "${CMAKE_CURRENT_SOURCE_DIR}/test/test_descriere.py"

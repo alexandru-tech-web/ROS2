@@ -44,17 +44,42 @@ instalat, rclpy cade linistit pe implicit.
     ros2 launch rehab_exo_description display.launch.py
     ros2 launch rehab_exo_description display.launch.py rmw:=zenoh
 
-## Conventia de zero (se schimba la F1b)
+## Conventia articulara: ZERO ANATOMIC
 
-Zeroul articular actual este **zero = SEZUT**, mostenit de la autorul initial
-(declarat in antetul URDF-ului livrat: "Postura zero = SEZUT"). Cursele actuale --
-sold 65,89 grade, genunchi 100,27, glezna 68,75 -- sunt IPOTEZE LOCALE (GAP 4 din
-`SPEC_LLR_twin_din_PDF.md`), nu valori din documentatia tehnica, care cere
-90 / 140 / 70 grade.
+Plan sagital, pentru fiecare articulatie:
 
-La F1b (Valul 2) zeroul se redefineste ANATOMIC conform documentului-sursa, cursele
-se aliniaza la 90/140/70, si apare al doilea set de limite (`postura:=sezut|culcat`,
-mecanismul inelului de oprire din documentatie).
+| articulatie | zero | pozitiv | cursa (documentata) | split (ipoteza, GAP 4) |
+|---|---|---|---|---|
+| sold | coapsa colineara cu trunchiul | FLEXIE | 90 grade | 0 .. +90 |
+| genunchi | gamba colineara cu coapsa | FLEXIE | 140 grade | 0 .. +140 |
+| glezna | talpa perpendiculara pe gamba | DORSIFLEXIE | 70 grade | -35 .. +35 |
+
+Cursele TOTALE sunt din [PDF Tabel 3.1, p.10-11]. Impartirea min/max NU e in document
+si e ipoteza locala, motivata in `urdf/IPOTEZE_LIMITE.md`; sunt parametri xacro, cu
+suma asertata egala cu cursa documentata.
+
+`postura:=culcat|sezut` schimba DOAR limita inferioara a soldului: in sezut, inelul de
+oprire (reper 208, PDF p.7) reduce mecanic cursa la 25..90 grade. Restul articulatiilor
+raman neatinse (verificat in test).
+
+### Conventia veche, si de ce s-a pensionat
+
+Pana la M1, zeroul era postura SEZUT (coapsa orizontala, gamba verticala), declarata in
+antetul URDF-ului livrat. Se pastreaza in `attic/rehab_exo.urdf.livrat`. Echivalenta
+fizica dintre cele doua conventii e dovedita programatic, nu prin citire
+(`test/test_conventie.py`: 62 de configuratii x 2 picioare, abatere maxima 2.5e-16 m,
+plus control negativ cu o mapare gresita).
+
+ATENTIE la genunchi: in conventia veche unghiul crestea spre EXTENSIE; acum creste spre
+FLEXIE. Inversarea de semn e reala si e materializata in axa jointului.
+
+### Traiectoriile: doua invariante diferite
+
+Genunchi si glezna au fost CONVERTITE (unghi fizic identic). Soldul a fost RE-DERIVAT:
+cursa lui veche, exprimata anatomic, era 64.22..130.11 grade -- sold permanent flectat,
+peste flexia umana normala -- si nu incape in cei 90 documentati. Punctele pastreaza
+FRACTIA din cursa disponibila, adica forma exercitiului, nu unghiul absolut.
+Verificat in `test/test_traiectorii.py` (1908 valori, cele doua invariante separate).
 
 ## Mase si inertii: NEVERIFICATE
 

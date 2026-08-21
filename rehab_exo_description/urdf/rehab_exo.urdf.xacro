@@ -9,6 +9,61 @@
        rezolva $(find) la GENERARE, iar la build pachetul nu e inca in ament_index ;
        ou si gaina. CMake paseaza calea de instalare; generarea manuala foloseste
        implicitul, care merge dupa ce pachetul a fost instalat macar o data. -->
+  <xacro:arg name="postura" default="culcat"/>
+  <xacro:property name="postura" value="$(arg postura)"/>
+
+  <!-- ============ CONVENTIA ARTICULARA: ZERO ANATOMIC ============
+       Decizia din registru, 18 aug, varianta B. Conventia veche (zero = SEZUT)
+       s-a pensionat; e in attic/rehab_exo.urdf.livrat.
+
+       Zero pentru fiecare articulatie, in plan sagital:
+         sold     0 = coapsa colineara cu trunchiul (culcat drept). POZITIV = FLEXIE
+                  (coapsa se ridica spre piept).
+         genunchi 0 = gamba colineara cu coapsa (extensie completa). POZITIV = FLEXIE
+                  (calcaiul se apropie de sezut).
+         glezna   0 = talpa perpendiculara pe gamba (neutru). POZITIV = DORSIFLEXIE
+                  (varful piciorului urca).
+       Trunchiul e pe +Z (verificat pe geometria human_torso, cutie 0.24x0.34x0.52
+       cu rpy 0 0 0), deci coapsa la zero anatomic arata spre -Z.
+
+       ATENTIE la genunchi: in conventia veche unghiul CRESTEA spre extensie
+       (verificat prin cinematica directa: gamba se rotea de la -Z spre +X). In
+       conventia noua creste spre FLEXIE. Inversarea de semn e materializata prin
+       axa (0 1 0) in loc de (0 -1 0), plus rotatia de origine. Echivalenta fizica
+       e dovedita programatic in test/test_conventie.py, nu prin citire.
+
+       CURSELE TOTALE sunt cele documentate [PDF Tabel 3.1, p.10-11]:
+         sold 90 grade, genunchi 140 grade, glezna 70 grade.
+       IMPARTIREA min/max NU e in document (GAP 4): valorile de mai jos sunt
+       IPOTEZE LOCALE, motivate in urdf/IPOTEZE_LIMITE.md. Suma lor e asertata
+       egala cu cursa documentata, deci ipoteza poate fi schimbata fara sa se
+       piarda fidelitatea fata de document.
+       ============================================================ -->
+  <xacro:property name="rom_sold_deg"      value="90"/>
+  <xacro:property name="rom_genunchi_deg"  value="140"/>
+  <xacro:property name="rom_glezna_deg"    value="70"/>
+
+  <xacro:property name="sold_min_deg"      value="0"/>
+  <xacro:property name="sold_max_deg"      value="90"/>
+  <xacro:property name="sold_sezut_min_deg" value="25"/>
+  <xacro:property name="genunchi_min_deg"  value="0"/>
+  <xacro:property name="genunchi_max_deg"  value="140"/>
+  <xacro:property name="glezna_min_deg"    value="-35"/>
+  <xacro:property name="glezna_max_deg"    value="35"/>
+
+  <!-- Postura schimba DOAR limita inferioara a soldului: in sezut, inelul de
+       oprire (reper 208, PDF p.7) reduce mecanic cursa. IPOTEZA LOCALA. -->
+  <xacro:property name="sold_lo_deg"
+                  value="${sold_sezut_min_deg if postura == 'sezut' else sold_min_deg}"/>
+
+  <xacro:property name="d2r" value="${pi / 180.0}"/>
+  <xacro:property name="sold_lo" value="${sold_lo_deg * d2r}"/>
+  <xacro:property name="sold_hi" value="${sold_max_deg * d2r}"/>
+  <xacro:property name="gen_lo"  value="${genunchi_min_deg * d2r}"/>
+  <xacro:property name="gen_hi"  value="${genunchi_max_deg * d2r}"/>
+  <xacro:property name="gle_lo"  value="${glezna_min_deg * d2r}"/>
+  <xacro:property name="gle_hi"  value="${glezna_max_deg * d2r}"/>
+
   <xacro:arg name="controllers"
              default="$(find rehab_exo_description)/config/controllers.yaml"/>
   <xacro:arg name="gazebo"  default="true"/>
@@ -219,9 +274,9 @@
   <xacro:macro name="picior" params="side sy material">
   <joint name="${side}_hip_joint" type="revolute">
     <parent link="seat_link"/><child link="${side}_thigh"/>
-    <origin xyz="0.160 ${sy * 0.260} 0.035" rpy="0 0 0"/>
+    <origin xyz="0.160 ${sy * 0.260} 0.035" rpy="0 ${pi/2} 0"/>
     <axis xyz="0 -1 0"/>
-    <limit lower="-0.45" upper="0.7" effort="120.0" velocity="2.0"/>
+    <limit lower="${sold_lo}" upper="${sold_hi}" effort="120.0" velocity="2.0"/>
     <dynamics damping="2.0" friction="1.0"/>
   </joint>
   <link name="${side}_thigh">
@@ -280,9 +335,9 @@
   </link>
   <joint name="${side}_knee_joint" type="revolute">
     <parent link="${side}_thigh_ext"/><child link="${side}_shank"/>
-    <origin xyz="0 0 0" rpy="0 0 0"/>
-    <axis xyz="0 -1 0"/>
-    <limit lower="0.0" upper="1.75" effort="120.0" velocity="2.0"/>
+    <origin xyz="0 0 0" rpy="0 ${-pi/2} 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="${gen_lo}" upper="${gen_hi}" effort="120.0" velocity="2.0"/>
     <dynamics damping="2.0" friction="1.0"/>
   </joint>
   <link name="${side}_shank">
@@ -333,7 +388,7 @@
     <parent link="${side}_shank_ext"/><child link="${side}_foot"/>
     <origin xyz="0 0 0" rpy="0 0 0"/>
     <axis xyz="0 -1 0"/>
-    <limit lower="-0.6" upper="0.6" effort="120.0" velocity="2.0"/>
+    <limit lower="${gle_lo}" upper="${gle_hi}" effort="120.0" velocity="2.0"/>
     <dynamics damping="2.0" friction="1.0"/>
   </joint>
   <link name="${side}_foot">
