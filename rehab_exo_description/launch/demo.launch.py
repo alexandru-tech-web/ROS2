@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-demo.launch.py — Demonstratia controlului: robot_state_publisher + RViz,
+demo.launch.py -- Demonstratia controlului: robot_state_publisher + RViz,
 FARA joint_state_publisher_gui (glisierele ar intra in conflict cu
-exercise_controller pe /joint_states — un singur emitator de pozitii!).
+exercise_controller pe /joint_states -- un singur emitator de pozitii!).
 
 Terminal 1:  $ ros2 launch rehab_exo_description demo.launch.py
 Terminal 2:  $ python3 ~/ros2_ws/src/rehab_exo_description/scripts/exercise_controller.py \
@@ -13,6 +13,12 @@ import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch_ros.actions import Node
+
+
+# --- pinuirea RMW (F0): o singura sursa, launch/rmw_common.py ---
+import sys as _sys
+_sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from rmw_common import argument_rmw, cu_rmw          # noqa: E402
 
 
 def generate_launch_description():
@@ -34,4 +40,5 @@ def generate_launch_description():
         arguments=["-d", rviz_cfg],
         output="screen",
     )
-    return LaunchDescription([rsp, rviz])
+    return LaunchDescription([argument_rmw(),
+                              cu_rmw([rsp, rviz], "demo")])

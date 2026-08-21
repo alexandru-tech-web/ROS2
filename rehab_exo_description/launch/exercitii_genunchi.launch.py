@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-exercitii_genunchi.launch.py — Sesiunea de GENUNCHI: extensii + alternat + pulsuri (55 s)
+exercitii_genunchi.launch.py -- Sesiunea de GENUNCHI: extensii + alternat + pulsuri (55 s)
 Ruleaza intreaga sesiune (RViz + controler) dintr-o singura comanda:
     $ ros2 launch rehab_exo_description exercitii_genunchi.launch.py
     $ ros2 launch rehab_exo_description exercitii_genunchi.launch.py reps:=2   # repeta sesiunea de 2 ori
@@ -14,18 +14,26 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 
 
+# --- pinuirea RMW (F0): o singura sursa, launch/rmw_common.py ---
+import sys as _sys
+_sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from rmw_common import argument_rmw          # noqa: E402
+
+
 def generate_launch_description():
     pkg = get_package_share_directory("rehab_exo_description")
     demo = os.path.join(pkg, "launch", "demo_all.launch.py")
     reps_arg = DeclareLaunchArgument("reps", default_value="1",
                                      description="De cate ori se repeta sesiunea")
     return LaunchDescription([
+        argument_rmw(),
         reps_arg,
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(demo),
             launch_arguments={
                 "exercise": "knee_session",
                 "reps": LaunchConfiguration("reps"),
+                "rmw": LaunchConfiguration("rmw"),
             }.items(),
         ),
     ])

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-display.launch.py — Vizualizeaza robotul de recuperare in RViz (fara fizica).
+display.launch.py -- Vizualizeaza robotul de recuperare in RViz (fara fizica).
 
 Porneste:
   - robot_state_publisher  (incarca URDF-ul)
@@ -18,6 +18,12 @@ from launch import LaunchDescription
 from launch_ros.actions import Node
 
 
+# --- pinuirea RMW (F0): o singura sursa, launch/rmw_common.py ---
+import sys as _sys
+_sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from rmw_common import argument_rmw, cu_rmw          # noqa: E402
+
+
 def generate_launch_description():
     pkg = get_package_share_directory("rehab_exo_description")
     urdf_path = os.path.join(pkg, "urdf", "rehab_exo.urdf")
@@ -26,7 +32,7 @@ def generate_launch_description():
     with open(urdf_path, "r") as f:
         robot_description = f.read()
 
-    return LaunchDescription([
+    return LaunchDescription([argument_rmw(), cu_rmw([
         Node(
             package="robot_state_publisher",
             executable="robot_state_publisher",
@@ -47,4 +53,4 @@ def generate_launch_description():
             output="screen",
             arguments=["-d", rviz_path],
         ),
-    ])
+    ], "display")])

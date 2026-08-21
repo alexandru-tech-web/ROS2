@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-demo_all.launch.py — Demonstratia completa dintr-o singura comanda:
+demo_all.launch.py -- Demonstratia completa dintr-o singura comanda:
 robot_state_publisher + RViz + exercise_controller pornesc impreuna,
 deci robotul apare direct in postura sezut si incepe exercitiul
 (fara faza de link-uri albe care asteapta /joint_states).
@@ -19,6 +19,12 @@ from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
+
+
+# --- pinuirea RMW (F0): o singura sursa, launch/rmw_common.py ---
+import sys as _sys
+_sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from rmw_common import argument_rmw, cu_rmw          # noqa: E402
 
 
 def generate_launch_description():
@@ -53,4 +59,5 @@ def generate_launch_description():
             "reps": ParameterValue(LaunchConfiguration("reps"), value_type=int),
         }],
     )
-    return LaunchDescription([exercise_arg, reps_arg, rsp, rviz, controller])
+    return LaunchDescription([argument_rmw(), exercise_arg, reps_arg,
+                              cu_rmw([rsp, rviz, controller], "demo_all")])

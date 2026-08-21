@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-gazebo.launch.py — Simuleaza robotul de recuperare in Gazebo (gz) cu ros2_control.
+gazebo.launch.py -- Simuleaza robotul de recuperare in Gazebo (gz) cu ros2_control.
 
 Porneste:
   - Gazebo (gz sim) cu o lume goala
@@ -25,6 +25,12 @@ from launch.substitutions import Command, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
+
+
+# --- pinuirea RMW (F0): o singura sursa, launch/rmw_common.py ---
+import sys as _sys
+_sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from rmw_common import argument_rmw, cu_rmw          # noqa: E402
 
 
 def generate_launch_description():
@@ -69,15 +75,18 @@ def generate_launch_description():
 
     jsb = Node(
         package="controller_manager", executable="spawner",
-        arguments=["joint_state_broadcaster"], output="screen",
+        arguments=["joint_state_broadcaster",
+                   "--controller-manager-timeout", "60"], output="screen",
     )
     traj = Node(
         package="controller_manager", executable="spawner",
-        arguments=["leg_trajectory_controller"], output="screen",
+        arguments=["leg_trajectory_controller",
+                   "--controller-manager-timeout", "60"], output="screen",
     )
     adjust = Node(
         package="controller_manager", executable="spawner",
-        arguments=["adjust_position_controller"], output="screen",
+        arguments=["adjust_position_controller",
+                   "--controller-manager-timeout", "60"], output="screen",
     )
 
     # v3: controlerul de exercitii (backend trajectory) + inregistratorul de senzori
@@ -103,5 +112,6 @@ def generate_launch_description():
     after_adjust = RegisterEventHandler(
         OnProcessExit(target_action=adjust, on_exit=[exercise, recorder]))
 
-    return LaunchDescription([gz_sim, rsp, clock_bridge, spawn,
-                              after_spawn, after_jsb, after_traj, after_adjust])
+    return LaunchDescription([argument_rmw(), cu_rmw(
+        [gz_sim, rsp, clock_bridge, spawn,
+         after_spawn, after_jsb, after_traj, after_adjust], "gazebo")])

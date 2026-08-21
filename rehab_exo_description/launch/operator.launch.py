@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-operator.launch.py — Statia de OPERATOR pe RViz (fara Gazebo):
+operator.launch.py -- Statia de OPERATOR pe RViz (fara Gazebo):
 robot + RViz + controlerul exercitiilor + inregistratorul de senzori +
 panoul grafic de operator. Totul dintr-o singura comanda:
 
@@ -14,6 +14,12 @@ import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch_ros.actions import Node
+
+
+# --- pinuirea RMW (F0): o singura sursa, launch/rmw_common.py ---
+import sys as _sys
+_sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from rmw_common import argument_rmw, cu_rmw          # noqa: E402
 
 
 def generate_launch_description():
@@ -34,4 +40,6 @@ def generate_launch_description():
                     executable="sensor_recorder.py", output="screen")
     panel = Node(package="rehab_exo_description",
                  executable="operator_panel.py", output="screen")
-    return LaunchDescription([rsp, rviz, controller, recorder, panel])
+    return LaunchDescription([argument_rmw(),
+                              cu_rmw([rsp, rviz, controller, recorder, panel],
+                                     "operator")])

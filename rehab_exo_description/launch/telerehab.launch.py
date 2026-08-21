@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-telerehab.launch.py — Porneste extensiile peste simularea existenta (rehab_exo).
+telerehab.launch.py -- Porneste extensiile peste simularea existenta (rehab_exo).
 
 NU porneste Gazebo: rulati intai gazebo.launch.py (neschimbat), apoi:
 
@@ -13,7 +13,7 @@ Argumente (toate optionale):
                        (necesita URDF-ul patch-uit cu ApplyJointForce)
   profile:=<cale.yaml> profilul de pacient (implicit config/patient_demo.yaml)
   stop_command:=<txt>  comanda publicata pe /exercise_cmd la failsafe
-                       (implicit "neutral" — calea STOP existenta)
+                       (implicit "neutral" -- calea STOP existenta)
 
 Exemple:
   # doar supervizorul de siguranta, mod local:
@@ -33,6 +33,12 @@ from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
+
+
+# --- pinuirea RMW (F0): o singura sursa, launch/rmw_common.py ---
+import sys as _sys
+_sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from rmw_common import argument_rmw, cu_rmw          # noqa: E402
 
 
 def generate_launch_description():
@@ -84,4 +90,5 @@ def generate_launch_description():
         parameters=[{"config_file": bridge_cfg}],
     )
 
-    return LaunchDescription(args + [supervisor, patient, bridge])
+    return LaunchDescription([argument_rmw()] + args + [
+        cu_rmw([supervisor, patient, bridge], "telerehab")])
