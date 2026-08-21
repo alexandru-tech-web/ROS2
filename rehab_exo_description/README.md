@@ -26,7 +26,7 @@ Generare manuala:
 
 | flag | implicit | efect |
 |---|---|---|
-| `gazebo:=` | true | cele 6 plugin-uri `ApplyJointForce` (canalul prin care `patient_model.py` aplica cupluri) |
+| `gazebo:=` | **false** | cele 6 plugin-uri `ApplyJointForce` (canalul prin care `patient_model.py` aplica cupluri). Implicitul s-a schimbat pe 21 aug 2026: plugin-urile scriu `JointForceCmd` la fiecare pas si suprascriu comanda de pozitie a lui `gz_ros2_control`, deci se exclud reciproc cu controlul de pozitie |
 | `senzori:=` | true | cei 3 senzori IMU la 100 Hz (base_link + ambele talpi) |
 | `rmw:=` | cyclonedds | implementarea RMW, pinuita in toate lansarile |
 
@@ -125,9 +125,44 @@ concluzii dinamice. Lista completa cu statut: `urdf/MASE_NEVERIFICATE.md`.
 14 jointuri, 11 DOF active), limitele, simetria stanga-dreapta joint cu joint, si
 flagurile cu CONTROL NEGATIV (prezenta cand sunt active, absenta cand nu sunt).
 
-## Limita cunoscuta
+## Simularea Gazebo: ce a fost reparat pe 21 aug 2026
 
-`adjust_position_controller` nu urca sub `gazebo.launch.py`. Serviciul
-`/controller_manager/list_controllers` exista dar nu raspunde; un timeout de 60 s nu
-ajuta. Prezent sub ambele RMW-uri testate, cu variabilitate intre rulari. Cauza NU e
-stabilita -- item deschis, vezi raportul F0b.
+`adjust_position_controller` nu urca, iar `/controller_manager/list_controllers`
+raspundea la apel niciodata. Nu era un defect de `ros2_control`. Erau TREI cauze
+independente, toate de mediu sau de configurare, gasite prin eliminare o variabila
+pe rand:
+
+1. **GUI-ul Gazebo omora serverul.** `gz sim gui` moare instant cu
+   `symbol lookup error: /snap/core20/.../libpthread.so.0: __libc_pthread_init`,
+   fiindca terminalul vine din snap-ul VSCode, care scurge biblioteci core20 in
+   mediul copiilor. Cand GUI-ul moare, `gz sim` escaladeaza la SIGKILL pe SERVER;
+   lumea nu mai paseste, `/clock` tace, si `controller_manager`-ul, care ruleaza IN
+   bucla de update a Gazebo, nu mai e actualizat.
+   Masurat: cu GUI 0 mesaje `/clock` in 8 s; server-only 667 Hz.
+   Lansarea e acum implicit headless; `gui:=true` ramane, dintr-un terminal normal.
+
+2. **Jumatate din noduri porneau pe alt RMW.** `SetEnvironmentVariable` statea
+   intr-un `GroupAction` scoped, care isi scoate mediul la iesirea din grup, iar
+   actiunile amanate prin `RegisterEventHandler` se executa dupa acel moment. Deci
+   simulatorul pe `rmw_cyclonedds_cpp`, spawnerele pe `rmw_fastrtps_cpp`. Cele doua
+   interopereaza la nivel RTPS pe pub/sub dar NU pe servicii -- de aceea topicurile
+   se vedeau si doar apelurile de serviciu nu se intorceau.
+   Regresie numita: `test/test_rmw_scope.py`.
+
+3. **Comenzile de pozitie nu ajungeau in fizica.** Doua greseli suprapuse:
+   `position_proportional_gain` traieste pe nodul `/gz_ros_control`, nu pe
+   `/controller_manager` si nu in URDF sub `<hardware>` (pus in celelalte doua
+   locuri se accepta fara eroare si nu face nimic), iar `hold_joints` era `true`.
+   Ambele se seteaza acum din `config/controllers.yaml`, sectiunea `gz_ros_control`.
+
+Rezultat, cu `ros2 launch rehab_exo_description gazebo.launch.py` nemodificat:
+toate cele trei controlere `active`, `/joint_states` la ~57 Hz, homing curat pe 4
+encodere absolute, si un pas comandat de +0.30 rad pe genunchi urmarit cu eroare
+de 0.002 .. 0.042 rad.
+
+### Ce ramane deschis
+
+Articulatiile necomandate cedeaza gravitational cateva sutimi de radian pe
+fereastra de masurare: castigul de 15.0 da autoritate suficienta pentru urmarire,
+nu si rigiditate de mentinere. Se acorda cand modelul va avea mase reale -- pana
+atunci masele sunt placeholder (vezi mai sus), deci acordarea nu ar insemna nimic.

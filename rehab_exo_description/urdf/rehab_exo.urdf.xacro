@@ -80,7 +80,19 @@
 
   <xacro:arg name="controllers"
              default="$(find rehab_exo_description)/config/controllers.yaml"/>
-  <xacro:arg name="gazebo"  default="true"/>
+  <!-- gazebo: cele 6 plugin-uri ApplyJointForce, canalul prin care patient_model.py
+       aplica cupluri. IMPLICIT FALSE de pe 21 aug 2026, si motivul e o masuratoare,
+       nu o preferinta: ApplyJointForce scrie JointForceCmd la FIECARE pas de
+       simulare, chiar si cand nu a primit niciun mesaj, iar asta suprascrie
+       JointVelocityCmd-ul prin care gz_ros2_control aplica comanda de pozitie.
+       Cele doua se exclud reciproc. Masurat, acelasi pas de +0.30 rad pe genunchi:
+         fara plugin-uri: eroare de urmarire 0.0022 rad (0.13 grade)
+         cu  plugin-uri: eroare de urmarire 0.2693 rad, articulatiile doar cedeaza
+                         gravitational cu viteza constanta
+       Cand modelul de pacient chiar va fi condus, are nevoie de comanda in EFORT,
+       nu in pozitie; atunci gazebo:=true redevine corect. Pana atunci plugin-urile
+       nu aduc nimic si strica tot. -->
+  <xacro:arg name="gazebo"  default="false"/>
   <xacro:arg name="senzori" default="true"/>
   <xacro:property name="gazebo"  value="$(arg gazebo)"/>
   <xacro:property name="senzori" value="$(arg senzori)"/>
@@ -499,8 +511,11 @@
   <ros2_control name="RehabExoSystem" type="system">
     <hardware>
       <plugin>gz_ros2_control/GazeboSimSystem</plugin>
-      <!-- comanda de pozitie aplicata ca viteza = k * eroare; implicitul e prea mic -->
-      <param name="position_proportional_gain">15.0</param>
+      <!-- position_proportional_gain NU se pune aici. In gz_ros2_control 1.2.17 e
+           un PARAMETRU ROS al nodului controller_manager, nu un param de hardware
+           din URDF; pus aici e citit de nimeni si tace. Dovedit prin masurare: la
+           15.0 si la 300.0 raspunsul la treapta e identic pana la a treia zecimala.
+           Locul lui real e config/controllers.yaml, sub controller_manager. -->
     </hardware>
     <!-- left_hip: encoder absolut (position) + torque (effort); comanda pozitie+viteza -->
     <xacro:picior_control side="left"/>

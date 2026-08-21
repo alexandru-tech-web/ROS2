@@ -156,9 +156,16 @@ def main(argv=None):
 
     # --- 5. FLAGURI, cu CONTROL NEGATIV. Un test care verifica doar prezenta ar trece
     # si daca flagul nu ar functiona deloc.
+    # IMPLICITUL LUI gazebo S-A SCHIMBAT la 21 aug 2026: true -> false. Nu e o
+    # relaxare a testului, e o schimbare deliberata de model. ApplyJointForce scrie
+    # JointForceCmd la fiecare pas si suprascrie comanda de pozitie a lui
+    # gz_ros2_control; cu plugin-urile pornite, eroarea de urmarire pe un pas de
+    # 0.30 rad e 0.2693 rad (adica robotul doar cade), fara ele 0.0022 rad.
+    # Motivarea completa e in antetul argumentului, in xacro.
     ajf, imu = _plugin_si_senzori(r)
-    ok(ajf == 6 and imu == 3, "implicit: ApplyJointForce=%d IMU=%d, se cer 6 si 3" % (ajf, imu))
-    for arg, a_ajf, a_imu in (("gazebo:=false", 0, 3), ("senzori:=false", 6, 0)):
+    ok(ajf == 0 and imu == 3, "implicit: ApplyJointForce=%d IMU=%d, se cer 0 si 3" % (ajf, imu))
+    for arg, a_ajf, a_imu in (("gazebo:=true", 6, 3), ("gazebo:=false", 0, 3),
+                              ("senzori:=false", 0, 0)):
         r2 = ET.parse(genereaza(arg)).getroot()
         g, i = _plugin_si_senzori(r2)
         ok(g == a_ajf and i == a_imu,

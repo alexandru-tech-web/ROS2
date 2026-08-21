@@ -6,6 +6,7 @@ controller_manager:
   ros__parameters:
     update_rate: 100  # Hz
 
+
     joint_state_broadcaster:
       type: joint_state_broadcaster/JointStateBroadcaster
 
@@ -52,3 +53,12 @@ adjust_position_controller:
       - right_thigh_ext_joint
       - left_shank_ext_joint
       - right_shank_ext_joint
+
+# Nodul plugin-ului gz_ros2_control. MASURAT pe 21 aug 2026 cu 'ros2 param get':
+# position_proportional_gain traieste AICI, pe /gz_ros_control (implicit 0.1), NU pe
+# /controller_manager si NU in URDF sub <hardware>. Puse in celelalte doua locuri,
+# valorile se accepta fara eroare si nu fac nimic.
+gz_ros_control:
+  ros__parameters:
+    position_proportional_gain: 15.0
+    hold_joints: false
