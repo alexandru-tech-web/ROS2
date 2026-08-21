@@ -76,7 +76,7 @@
   <xacro:property name="ef_glezna"   value="52.0"/>
   <xacro:property name="vi_sold"     value="1.5786"/>
   <xacro:property name="vi_genunchi" value="1.9732"/>
-  <xacro:property name="vi_glezna"   value="1.5708"/>
+  <xacro:property name="vi_glezna"   value="3.0369"/>
 
   <xacro:arg name="controllers"
              default="$(find rehab_exo_description)/config/controllers.yaml"/>

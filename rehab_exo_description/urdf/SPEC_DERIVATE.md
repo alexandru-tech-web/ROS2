@@ -24,7 +24,7 @@ fara nicio sursa; acelea au disparut.
 | ipoteza | valoare | de ce si ce risca |
 |---|---|---|
 | randament lant (eta) | 0.80 | curea + reductor armonic. La glezna exista un PRAG: eta = 52/(0.706x100) = 0.7365. Peste el limiteaza reductorul, sub el motorul. Ipoteza de 0.80 e PESTE prag, deci daca randamentul real e mai mic, efortul gleznei scade sub 52 Nm. |
-| turatie TBM(S)-6025 | 1500 rpm | nu apare in partea citita a foii. Afecteaza DOAR viteza gleznei, nu efortul. |
+| turatie TBM(S)-6025 | **2900 rpm** (bobinaj A, 48 V) sau 2450 (B, 24 V) | NU e in SPEC_LLR_twin_din_PDF.md. Cifrele vin din foaia de catalog TBM-6025, **comunicate de autor pe 21 aug 2026, NEconfirmate din documentul pe care il am**. Implicit A, fiindca driverul e ADP-090-40 la 90 V [PDF Tabel 3.2, p.11]. Afecteaza DOAR viteza gleznei, nu efortul. ISTORIC: prima versiune folosea 1500 rpm, cifra ALEASA de mine fara nicio sursa -- eticheta 'ipoteza' era corecta, provenienta lipsea. |
 | motor sold/genunchi | SMP8048 | lista de componente [PDF Tabel 3.2, p.11] numeste SMP802**4B**, dar foaia anexata e pentru 80**48**. Se folosesc cifrele foii, si discrepanta ramane vizibila in cod (campurile `nume` si `foaie` difera). DE CONFIRMAT PE MOTORUL FIZIC. |
 
 ## Valori derivate
@@ -38,7 +38,12 @@ Formule:
 |---|---|---|---|---|---|---|
 | sold | 245.45 | 3700 | 1.5786 | 90.4 | 176.7 | motorul |
 | genunchi | 196.36 | 3700 | 1.9732 | 113.1 | 141.4 | motorul |
-| glezna | 100.00 | 1500 | 1.5708 | 90.0 | 52.0 | reductorul |
+| glezna | 100.00 | 2900 | 3.0369 | 174.0 | 52.0 | reductorul |
+
+COMPLETITUDINEA analizei de prag: glezna e SINGURA articulatie cu prag de randament
+in intervalul fizic (0,1). La sold eta* = 345/(0.9*245.45) = 1.5617; la genunchi
+eta* = 178/(0.9*196.36) = 1.0072 -- ambele peste 1, deci motorul limiteaza acolo
+pentru orice randament posibil. Genunchiul e insa la 0.7% de basculare.
 
 Observatie de proiectare, nu detaliu: la sold si genunchi MOTORUL limiteaza
 (176.7 din 345 disponibili, respectiv 141.4 din 178), la glezna REDUCTORUL.
