@@ -1,4 +1,4 @@
-# controllers.yaml — Configurare ros2_control pentru robotul de recuperare (6 GDL).
+# controllers.yaml  -- Configurare ros2_control pentru robotul de recuperare (6 GDL).
 # Plasati in:  rehab_exo_description/config/controllers.yaml
 # Referit din plugin-ul gz_ros2_control din URDF.
 
