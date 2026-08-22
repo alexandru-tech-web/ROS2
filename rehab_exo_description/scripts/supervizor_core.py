@@ -77,8 +77,18 @@ def praguri_electrice(limite, marja=MARJA_IMPLICITA_RAD):
     return out
 
 
-def verdict_comutare(praguri_noi, q, banda=BANDA_ARMARE_RAD):
+def verdict_comutare(limite_noi, q, banda=BANDA_ARMARE_RAD):
     """Se poate trece la noul set de limite din pozitia curenta?
+
+    `limite_noi` sunt limitele MECANICE ale posturii-tinta, nu pragurile electrice.
+    Distinctia a fost gasita printr-o proba numerica pe 22 aug si conteaza: intrebarea
+    "pot trece la postura asta" e despre LEGALITATEA pozitiei curente in noul set, nu
+    despre marja de siguranta. Cu praguri electrice, comutarea era refuzata chiar din
+    POSTURA_INITIALA (sold 0, adica exact capatul benzii de sezut), fiindca zero e sub
+    pragul electric de 5 grade -- adica serviciul devenea inutilizabil taman din
+    pozitia in care dispozitivul chiar sta.
+    Dupa comutare, o articulatie aflata intre limita mecanica si pragul electric ramane
+    pur si simplu NEARMATA, ceea ce e comportamentul deja proiectat pentru pornire.
 
     Se REFUZA daca vreo articulatie ar ajunge, prin simpla comutare, in afara noii
     ferestre. Motivul e ca altfel comutarea ar fi ea insasi o incalcare: dispozitivul
@@ -88,7 +98,7 @@ def verdict_comutare(praguri_noi, q, banda=BANDA_ARMARE_RAD):
 
     Intoarce (permis, motiv). Motivul e text pentru om, cu numere in el."""
     rele = []
-    for j, (lo, hi) in sorted(praguri_noi.items()):
+    for j, (lo, hi) in sorted(limite_noi.items()):
         v = q.get(j)
         if v is None:
             rele.append("%s: pozitie necunoscuta" % j)
@@ -223,13 +233,23 @@ def _selftest():
     LIM_SEZUT = dict(LIM); LIM_SEZUT["hip"] = (math.radians(25.0), 1.5708)
     P_SEZUT = praguri_electrice(LIM_SEZUT)
     ok(P_SEZUT["hip"][0] > P["hip"][0], "sezut trebuie sa ridice pragul inferior")
-    permis, motiv = verdict_comutare(P_SEZUT, {"hip": 0.8, "knee": 1.0, "ankle": 0.0})
+    permis, motiv = verdict_comutare(LIM_SEZUT, {"hip": 0.8, "knee": 1.0, "ankle": 0.0})
     ok(permis, "din 0.8 rad comutarea la sezut e permisa")
-    permis, motiv = verdict_comutare(P_SEZUT, {"hip": 0.2, "knee": 1.0, "ankle": 0.0})
-    ok(not permis, "din 0.2 rad (sub minimul de sezut) comutarea trebuie REFUZATA")
+    permis, motiv = verdict_comutare(LIM_SEZUT, {"hip": 0.2, "knee": 1.0, "ankle": 0.0})
+    ok(not permis, "din 0.2 rad (sub minimul mecanic de sezut) comutarea trebuie REFUZATA")
+
+    # Verificarea se face pe limitele MECANICE, nu pe praguri: o pozitie aflata intre
+    # limita mecanica si pragul electric e LEGALA, doar nearmata. Daca s-ar verifica
+    # pe praguri, comutarea ar fi refuzata chiar din pozitia de repaus.
+    chiar_pe_limita = {"hip": LIM_SEZUT["hip"][0], "knee": 1.0, "ankle": 0.0}
+    ok(verdict_comutare(LIM_SEZUT, chiar_pe_limita)[0],
+       "exact pe limita mecanica inferioara comutarea trebuie PERMISA")
+    ok(not verdict_comutare(P_SEZUT, chiar_pe_limita)[0],
+       "control: pe PRAGURI aceeasi pozitie ar fi refuzata; de aceea nu se folosesc")
+    permis, motiv = verdict_comutare(LIM_SEZUT, {"hip": 0.2, "knee": 1.0, "ankle": 0.0})
     ok("0.2" in motiv and "hip" in motiv,
        "refuzul trebuie sa spuna CARE articulatie si LA CE valoare, nu doar 'nu'")
-    permis, _ = verdict_comutare(P_SEZUT, {"knee": 1.0, "ankle": 0.0})
+    permis, _ = verdict_comutare(LIM_SEZUT, {"knee": 1.0, "ankle": 0.0})
     ok(not permis, "pozitie necunoscuta = refuz, nu presupunere optimista")
 
     # 6b. CONTROLUL NEGATIV AL COMUTARII: comutarea fara verificare lasa o

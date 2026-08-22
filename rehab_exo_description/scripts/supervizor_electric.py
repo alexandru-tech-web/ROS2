@@ -83,12 +83,10 @@ def main(argv=None):
         def __init__(self):
             Node.__init__(self, "rehab_supervizor_electric")
             self.declare_parameter("marja_deg", math.degrees(sc.MARJA_IMPLICITA_RAD))
-            # TRANSPORTATE prin maparea B -> B-prim (se scad 90 de grade din
-            # 25..90). Banda cade sub orizontala si e deci imposibila; se pastreaza
-            # asa pana la rejustificarea de la punctul 5, ca nimic sa nu ramana in
-            # doua conventii. Vezi DECIZII.md, corectia 3.
-            self.declare_parameter("sold_sezut_min_deg", -65.0)
-            self.declare_parameter("sold_sezut_max_deg", 0.0)
+            # RE-JUSTIFICATA (nu convertita) pe 22 aug: 0..25 grade in B-prim.
+            # Derivarea in urdf/IPOTEZE_LIMITE.md; clasa IPOTEZA-ANTROPO.
+            self.declare_parameter("sold_sezut_min_deg", 0.0)
+            self.declare_parameter("sold_sezut_max_deg", 25.0)
             self.declare_parameter("postura", "culcat")
             self.declare_parameter("hz", 20.0)
 
@@ -163,7 +161,10 @@ def main(argv=None):
         def _postura(self, cerere, raspuns):
             noua = "sezut" if cerere.data else "culcat"
             praguri = self._praguri(noua)
-            permis, motiv = sc.verdict_comutare(praguri, self.q)
+            # verificarea se face pe limitele MECANICE ale posturii-tinta, nu pe
+            # praguri; vezi verdict_comutare pentru de ce
+            mecanice = self.lim_sezut if noua == "sezut" else self.lim_culcat
+            permis, motiv = sc.verdict_comutare(mecanice, self.q)
             if not permis:
                 raspuns.success = False
                 raspuns.message = motiv

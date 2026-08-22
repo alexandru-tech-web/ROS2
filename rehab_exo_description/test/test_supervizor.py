@@ -76,8 +76,8 @@ def main(argv):
     # AMBELE capete acum: la flip-ul de conventie banda de sezut a capatat si un
     # maxim propriu. Asertia a prins deja o despartire reala pe 22 aug, cand xacro
     # trecuse pe valorile transportate si nodul ramasese pe cele vechi.
-    for nume, implicit_nod in (("sold_sezut_min_deg", -65.0),
-                               ("sold_sezut_max_deg", 0.0)):
+    for nume, implicit_nod in (("sold_sezut_min_deg", 0.0),
+                               ("sold_sezut_max_deg", 25.0)):
         din_xacro = _proprietate_xacro(nume)
         ok(abs(din_xacro - implicit_nod) < 1e-9,
            "%s s-a despartit: xacro spune %.3f, nodul %.3f. Se schimba AMBELE sau "
@@ -89,8 +89,11 @@ def main(argv):
     for j in lim:
         if j.endswith("_hip_joint"):
             ok(lim_s[j] != lim[j], "%s: sezutul trebuie sa schimbe fereastra" % j)
-            ok(lim_s[j][1] <= lim[j][1],
-               "%s: sezutul nu are voie sa EXTINDA fereastra in sus" % j)
+            ok(lim_s[j][1] < lim[j][1],
+               "%s: sezutul trebuie sa REDUCA fereastra, nu doar sa o mute -- e "
+               "chiar ce spune documentul despre inelul de oprire" % j)
+            ok(lim_s[j][0] >= lim[j][0],
+               "%s: capatul de jos se PASTREAZA (submultime, nu deplasare)" % j)
         else:
             ok(lim_s[j] == lim[j], "%s NU are voie sa se schimbe la sezut" % j)
 

@@ -70,17 +70,26 @@
   <xacro:property name="sold_min_deg"      value="0"/>
   <xacro:property name="sold_max_deg"      value="90"/>
 
-  <!-- BANDA DE SEZUT: TRANSPORTATA mecanic din conventia veche prin aceeasi mapare
-       ca restul (se scad 90 de grade din 25..90), NU validata. Rezultatul cade
-       integral SUB orizontala, deci e geometric imposibil, si tocmai asta e dovada
-       ca plasarea veche era gresita. Se pastreaza in forma transportata ca sa nu
-       ramana nimic in doua conventii, si se REJUDECA separat (punctul 5), impreuna
-       cu fraza din document: "in sitting position, the motion space of the hip joint
-       is small". Pana atunci: postura sezut produce deliberat un model care PICA
-       invariantul podelei, iar test/test_podea.py aserteaza exact acest lucru.
-       Implicitul ramane culcat. -->
-  <xacro:property name="sold_sezut_min_deg" value="-65"/>
-  <xacro:property name="sold_sezut_max_deg" value="0"/>
+  <!-- BANDA DE POSTURA SEZUT, RE-JUSTIFICATA (nu convertita) pe 22 aug 2026.
+       Banda transportata mecanic (minus 65 pana la 0) a MURIT: cadea integral sub
+       orizontala, deci era imposibila geometric. Continutul de aici e construit de la
+       zero, in termeni B-prim. Derivarea completa, cu ce a fost respins si de ce, sta
+       in urdf/IPOTEZE_LIMITE.md; pe scurt:
+
+         FORMA, din [PDF p.7]: blocul 204 se misca INTRE inelele 201 si 208, iar
+         extinderea lui 208 reduce cursa. Deci banda de sezut e o submultime care
+         PASTREAZA UN CAPAT din cursa completa. Textul nu spune CARE capat; se
+         presupune, explicit, ca repausul (B-prim zero) apartine benzii de
+         antrenament in sezut. De aici forma 0..X.
+
+         CAPATUL DE SUS, ANTROPO: la spatar vertical, coapsa ridicata intra in
+         trunchi. X = 25 grade mecanic inseamna circa 115 grade de flexie anatomica,
+         marginea conservatoare pentru populatia de reabilitare.
+
+       Clasa: IPOTEZA-ANTROPO. Pozitiile proximity-urilor o inchid definitiv; item pe
+       agenda vizitei. -->
+  <xacro:property name="sold_sezut_min_deg" value="0"/>
+  <xacro:property name="sold_sezut_max_deg" value="25"/>
 
   <xacro:property name="genunchi_min_deg"  value="0"/>
   <xacro:property name="genunchi_max_deg"  value="140"/>

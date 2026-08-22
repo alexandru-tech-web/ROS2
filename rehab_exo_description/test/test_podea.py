@@ -20,11 +20,11 @@ CE SE VERIFICA: cele patru colturi ale placii de talpa, plus axele gleznei si
 genunchiului. Colturile conteaza: centrul poate fi deasupra podelei in timp ce un
 colt e dedesubt.
 
-POSTURA SEZUT PICA INTENTIONAT. Banda ei a fost TRANSPORTATA mecanic din conventia
-veche (DECIZII.md, corectia 3) si cade integral sub orizontala. Testul aserteaza ca
-pica, fiindca exact asta e dovada ca plasarea veche era gresita. Cand banda se
-rejustifica (punctul 5), asertia se inverseaza -- deliberat, printr-o modificare
-vizibila a acestui fisier, nu prin tacere.
+POSTURA SEZUT TRECE, dupa re-justificare. Pana pe 22 aug banda ei era doar
+TRANSPORTATA mecanic si cadea sub orizontala, iar testul asertase ca PICA -- fiindca
+exact asta era dovada ca plasarea veche era gresita. Re-justificata la 0..25 in
+B-prim, banda descrie configuratii reale si e verificata ca oricare alta, pe aceeasi
+margine. Inversarea asertiei s-a facut vizibil, in acest fisier.
 
 Rulare: python3 test/test_podea.py
 """
@@ -239,24 +239,33 @@ def main(argv):
     z_jos_min = min(z for _, z in _puncte_critice(_fk(J, q_jos), c))
     ok(z_jos_min < 0.0, "argumentul podelei trebuie sa tina si la lungimea minima")
 
-    # --- 4. POSTURA SEZUT: banda transportata pica INTENTIONAT. Vezi antetul.
+    # --- 4. POSTURA SEZUT: banda RE-JUSTIFICATA trebuie sa TREACA.
+    # Asertia de aici a fost INVERSATA deliberat pe 22 aug, exact cum prevedea
+    # comentariul versiunii anterioare: cat timp banda era doar TRANSPORTATA mecanic
+    # (minus 65 pana la 0) cadea sub orizontala si testul cerea sa pice. Odata
+    # re-justificata la 0..25 in B-prim, ea descrie configuratii reale, deci trece ca
+    # oricare alta. Inversarea s-a facut prin modificarea vizibila a acestui fisier,
+    # nu prin stergerea asertiei.
     J2, lim2 = _model(_urdf("postura:=sezut",
                             "controllers:=%s" % os.path.join(PACHET, "config",
                                                              "controllers.yaml")))
     lo2, hi2 = lim2["left_hip_joint"]
-    ok(hi2 <= 1e-9,
-       "banda de sezut transportata ar trebui sa fie integral sub orizontala, dar "
-       "urca la %.2f grade" % math.degrees(hi2))
-    z2, unde2, _ = _baleiaza(J2, lim2, c, pasi=3)
-    ok(z2 < 0.0,
-       "banda de sezut TRANSPORTATA ar trebui sa pice invariantul podelei; daca a "
-       "inceput sa treaca, inseamna ca a fost rejustificata (punctul 5) si asertia "
-       "asta trebuie INVERSATA deliberat, nu stearsa")
-    print("  sezut (banda transportata, IMPOSIBILA): cel mai jos punct z = %+.4f m" % z2)
-    print("          %s" % unde2)
+    lo1, hi1 = lim["left_hip_joint"]
+    ok(lo2 >= lo1 - 1e-12 and hi2 < hi1,
+       "sezutul trebuie sa fie o SUBMULTIME care pastreaza capatul de jos: are "
+       "%.2f..%.2f grade fata de %.2f..%.2f"
+       % (math.degrees(lo2), math.degrees(hi2), math.degrees(lo1), math.degrees(hi1)))
+    ok(hi2 > 1e-9, "banda de sezut trebuie sa urce peste orizontala, nu sub ea")
+    z2, unde2, cate2 = _baleiaza(J2, lim2, c)
+    print("  sezut: %d configuratii legale, cel mai jos punct z = %+.4f m" % (cate2, z2))
+    print("          (%s)" % unde2)
+    ok(z2 >= c["margine_podea"],
+       "banda de sezut RE-JUSTIFICATA trebuie sa respecte aceeasi margine ca "
+       "restul; cel mai jos punct e la %.4f m: %s" % (z2, unde2))
+    n[0] += cate2
 
     print("test_podea: %d verificari OK (grila legala culcat curata, repausul "
-          "coincide cu derivarea, sezutul transportat pica asa cum trebuie)." % n[0])
+          "coincide cu derivarea, ambele posturi respecta marginea)." % n[0])
     return 0
 
 

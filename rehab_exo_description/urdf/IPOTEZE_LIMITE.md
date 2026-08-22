@@ -22,6 +22,62 @@ Zero ANATOMIC, plan sagital (decizia B din registrul de pe 18 aug):
 | genunchi | 0 .. +140 | 140 | Conventia clinica standard: zero la extensie completa, flexia pozitiva. Nu se presupune hiperextensie, care ar cere justificare separata. |
 | glezna | -35 .. +35 | 70 | Impartire SIMETRICA. Alternativa clinica ar fi -50 plantar / +20 dorsi (tot 70), dar dispozitivul e o masina cu opritoare, iar modelul mostenit folosea deja o impartire simetrica (+-34.38 grade, adica 68.75 total, evident derivata din cei 70 documentati). Simetria e ipoteza cu cele mai putine presupuneri in plus. |
 
+## BANDA DE POSTURA SEZUT, re-justificata 22 aug 2026 (nu convertita)
+
+Banda transportata mecanic din conventia veche (minus 65 pana la 0 in B-prim) e
+MOARTA: cadea integral sub coapsa orizontala, adica in jumatatea in care piciorul
+trece prin podea. Ce urmeaza e construit de la zero, in termeni B-prim.
+
+### Sursa 1 -- FORMA benzii. FAPT plus o presupunere NUMITA.
+
+[PDF p.7], verbatim: *"In sitting position, the motion space of the hip joint is
+small. By making the third electric push rod 210, the stop ring 208 is extended from
+the position ring 201, so that the motion range of the hip positioning block 204
+between the position ring 201 and the stop ring 208 is reduced."*
+
+Ce e FAPT: blocul 204 se misca INTRE doua inele, iar extinderea lui 208 REDUCE cursa.
+Deci banda de sezut e o SUBMULTIME a cursei complete, care pastreaza un capat.
+
+Ce e PRESUPUNERE, si se scrie ca atare: textul NU spune care capat se pastreaza. Se
+presupune ca repausul (B-prim zero, coapsa orizontala) apartine benzii de antrenament
+in sezut -- altfel dispozitivul n-ar putea antrena in chiar postura in care sta.
+De aici forma `0 .. X`, cu X sub 90. **Pozitiile celor doua proximity-uri rastoarna
+sau confirma presupunerea asta la prima vizita.**
+
+### Sursa 2 -- CAPATUL DE SUS. Argument ANTROPO.
+
+Argumentul geometric pe care il banuisem -- ca perna scaunului ar bloca coborarea
+coapsei sub orizontala -- e INFIRMAT prin masurare: perna se termina exact la axa
+soldului, coapsa pleaca inainte pe langa ea, si nici la minus 30 de grade nu exista
+contact. Se consemneaza ca respins ca sa nu fie reinventat.
+
+Ce margineste efectiv:
+  in JOS, invariantul podelei, adica chiar argumentul deciziei D1; el e cel care
+         face ca banda sa nu poata cobori sub zero;
+  in SUS, interferenta coapsa-trunchi. La spatar vertical, coapsa ridicata intra in
+         abdomen. **X = 25 grade** mecanic inseamna circa 115 grade de flexie
+         anatomica, marginea conservatoare pentru populatia de reabilitare.
+
+### Sursa 3 -- banda 65-80 din literatura LLR-Ro: NEUTILIZABILA.
+
+Citata aici ca sa nu fie recuperata din greseala mai tarziu. Trei motive:
+cifra de 65 e o LATIME, nu o pozitie (venea din 90 minus 25 al ipotezei vechi);
+o latime de 65-80 dintr-un total de 90 nu e o reducere, deci contrazice
+"the motion space is small" din document; iar sursa e "literatura LLR-Ro" fara nicio
+referinta verificabila in repo. Nu se foloseste.
+
+### Valoarea
+
+`sold_sezut_min_deg = 0`, `sold_sezut_max_deg = 25`, clasa **IPOTEZA-ANTROPO**.
+
+### Ipoteza CONCURENTA, consemnata si nefolosita
+
+URDF-ul livrat initial avea soldul la -25.78 .. +40.11 grade fata de un zero declarat
+"SEZUT". Valorile n-au nicio sursa in document si de aceea nu se folosesc. Dar daca
+autorul lor cunostea dispozitivul fizic, ele sugereaza o banda reala care coboara
+usor sub orizontala si urca spre 40 de grade, nu spre 25. E o alternativa plauzibila
+la ce am ales, si o las scrisa: proximity-urile transeaza intre cele doua.
+
 ## POSTSCRIPTUM, 22 aug 2026: ipoteza "culcat" a MURIT pe geometrie
 
 Ipoteza de la randul "sold (culcat)" era cea mai curata din tot GAP 4: capetele
