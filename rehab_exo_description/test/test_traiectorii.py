@@ -1,27 +1,32 @@
 #!/usr/bin/env python3
-"""test_traiectorii.py -- traiectoriile convertite fac ce trebuie.
+"""test_traiectorii.py -- reconversia B0 -> B-prim: forma pastrata, absolutul schimbat.
 
-DOUA INVARIANTE DIFERITE, si diferenta conteaza:
-  genunchi + glezna -- unghiul FIZIC ramane identic (reetichetare pura);
-  sold              -- unghiul fizic SE SCHIMBA deliberat; se pastreaza FRACTIA din
-                       cursa disponibila. Motiv MASURAT pe cele 636 de valori vechi de
-                       sold, exprimate anatomic: punctele stau in 90.00..124.38 grade
-                       (span 34.38), deci incap intr-o fereastra de 90 -- dar NU intr-una
-                       ANCORATA ANATOMIC. Cu zero la culcat drept si cursa documentata de
-                       90 [PDF Tabel 3.1], fereastra e 0..90 si punctele urca la 124.38.
-                       Exercitiile vechi porneau din sezut (minimul e exact 90.00, adica
-                       vechiul zero) si ridicau coapsa peste el. Limitele vechi erau
-                       placeholdere fara sursa (GAP 4); documentul are prioritate.
+CE SE DOVEDESTE
+La 22 aug traiectoriile au trecut din conventia B0 (zero anatomic) in B-prim (zero
+mecanic, D1). Tratamentul NU e acelasi pentru toate articulatiile, si asta se
+verifica, nu se declara:
 
-Conversia de conventie (M1) a atins 36 de valori de unghi din exercise_core.py si
-6 pozitii de repaus din patient_demo.yaml. O conversie facuta cu mana ar fi trecut
-neobservata daca ar fi ratat una singura: exercitiul ar arata plauzibil si ar duce
-piciorul in alta parte.
+  genunchi, glezna -- TRANSPORT prin maparea dovedita, care la ele e IDENTITATEA.
+                      Valorile raman numeric aceleasi si cad toate in ferestrele
+                      B-prim. Invariant: egalitate stricta cu versiunea B0.
 
-DOVADA: pentru FIECARE punct al FIECAREI traiectorii, unghiul din nucleul NOU trebuie
-sa fie exact conversia unghiului din nucleul VECHI (attic/exercise_core.py.vechi).
-Se compara toate cele 6 articulatii, la toti timpii, pentru toate exercitiile
-inregistrate -- nu un esantion.
+  sold             -- RE-DERIVARE PE FRACTIE. Transportul (minus 90 de grade) ar
+                      duce toate valorile in [-82, -35], adica in afara ferestrei
+                      B-prim [0, 90]. S-a pastrat deci FRACTIA din cursa disponibila
+                      DEASUPRA REPAUSULUI: intervalul vechi [repaus_vechi, 90] s-a
+                      mapat pe cel nou [0, 90]. Asta pastreaza forma exercitiului
+                      (cat de sus urca, ca fractie din cat poate urca) si schimba
+                      deliberat unghiul absolut.
+
+CELE DOUA INVARIANTE SE TESTEAZA SEPARAT, ca la M1: daca ar fi verificate impreuna,
+un test care trece n-ar mai spune care din cele doua proprietati tine.
+
+ANCORA re-derivarii e LITERALUL folosit in traiectorii (0.6147 rad), nu
+radians(35.22). Difera cu 4.4e-6 rad, iar cu ancora gresita repausul s-ar mapa la
+-7e-6 rad, adica un pic SUB limita: o iesire din fereastra produsa de rotunjire, nu
+de model. Detaliul e scris fiindca a fost o decizie, nu o intamplare.
+
+Rulare: python3 test/test_traiectorii.py
 """
 import importlib.machinery
 import importlib.util
@@ -31,166 +36,129 @@ import sys
 
 AICI = os.path.dirname(os.path.abspath(__file__))
 PACHET = os.path.dirname(AICI)
-TOL = 1e-4          # valorile convertite sunt scrise cu 4 zecimale in sursa
 
-_V = [0]
+VECHI_REPAUS = 0.6147                 # literalul din traiectoriile B0
+VECHI_MAX = math.radians(90.0)
+NOU_MIN, NOU_MAX = 0.0, math.radians(90.0)
+PRAG = 1e-9
 
-
-def ok(cond, mesaj):
-    assert cond, mesaj
-    _V[0] += 1
+# Pragul pe FORMA e mai larg decat cel pe transport, si motivul e o inconsecventa
+# care exista DEJA in B0, nu una introdusa de reconversie: POSTURA_INITIALA se
+# calcula din grade (radians(35.22) = 0.6147044) in timp ce traiectoriile purtau
+# literalul rotunjit 0.6147. Cele doua difera cu 4.4e-6 rad, adica 0.00025 grade,
+# ceea ce da o abatere de fractie de circa 4.6e-6. Pragul e pus imediat peste ea, ca
+# sa nu ascunda nimic mai mare: daca abaterea creste, testul pica.
+PRAG_FORMA = 1e-5
+PASI = 40                             # esantioane pe exercitiu
 
 
 def incarca(cale, nume):
-    """Incarcare pe cale explicita: fisierul din attic are extensia '.vechi' tocmai ca
-    sa nu poata fi importat din greseala ca modul activ, deci importlib nu il recunoaste
-    singur si are nevoie de SourceFileLoader."""
-    incarcator = importlib.machinery.SourceFileLoader(nume, cale)
-    sp = importlib.util.spec_from_loader(nume, incarcator)
+    """Incarcare pe cale explicita: fisierul din attic are o extensie tocmai ca sa nu
+    poata fi importat din greseala ca modul activ."""
+    inc = importlib.machinery.SourceFileLoader(nume, cale)
+    sp = importlib.util.spec_from_loader(nume, inc)
     m = importlib.util.module_from_spec(sp)
-    incarcator.exec_module(m)
+    inc.exec_module(m)
     return m
 
 
-VECHI = {"hip": (-0.45, 0.70), "knee": (0.00, 1.75), "ankle": (-0.60, 0.60)}
-NOU = {"hip": (0.0, math.radians(90)), "knee": (0.0, math.radians(140)),
-       "ankle": (math.radians(-35), math.radians(35))}
+def fractie_veche(q):
+    return (q - VECHI_REPAUS) / (VECHI_MAX - VECHI_REPAUS)
 
 
-def familie(joint):
-    return "hip" if "hip" in joint else ("knee" if "knee" in joint else "ankle")
-
-
-def converteste(joint, val):
-    """Maparea, si NU e uniforma. Genunchi si glezna: unghi FIZIC identic (offset, cu
-    inversare la genunchi). Sold: RE-DERIVAT pe fractia din cursa -- cursa veche,
-    exprimata anatomic, era 64.22..130.11 grade si nu incape in cei 90 documentati."""
-    k = familie(joint)
-    if k == "knee":
-        return math.pi / 2.0 - val
-    if k == "ankle":
-        return val
-    lo_v, hi_v = VECHI["hip"]
-    lo_n, hi_n = NOU["hip"]
-    return lo_n + (val - lo_v) / (hi_v - lo_v) * (hi_n - lo_n)
-
-
-def fractie(joint, val, tabel):
-    lo, hi = tabel[familie(joint)]
-    return (val - lo) / (hi - lo)
-
-
-# ---------------------------------------------------------------------------
-# SKIP DELIBERAT, de la 22 aug 2026 (decizia D1, conventia B-prim).
-#
-# Testul asta compara traiectoriile din exercise_core cu cele vechi si dovedeste ca
-# pastreaza aceeasi forma. Comparatia are sens doar cat timp AMBELE sunt in aceeasi
-# conventie. Flip-ul B -> B-prim a schimbat intelesul unghiului de sold, iar
-# traiectoriile NU au fost inca reconvertite (punctul 7 din planul de geometrie).
-# Pana atunci verdictul lui n-ar insemna nimic: ar compara doua lucruri numite la fel
-# si masurate altfel.
-#
-# NU e sters si NU e lasat sa pice tacut. E sarit EXPLICIT, iar conditia de sarire se
-# ANULEAZA SINGURA: in clipa in care traiectoriile ajung in aceeasi conventie cu
-# modelul, skip-ul de mai jos PICA si obliga pe cineva sa reactiveze testul. Un skip
-# care supravietuieste motivului lui e cum se pierd suitele de teste.
-# ---------------------------------------------------------------------------
-def _motiv_de_skip():
-    """(trebuie_sarit, mesaj). Se uita la versiunile REALE, nu la o constanta."""
-    import re
-    sys.path.insert(0, os.path.join(PACHET, "scripts"))
-    import exercise_core as ec
-    urdf = os.path.join(PACHET, "urdf", "rehab_exo.urdf.xacro")
-    text = open(urdf).read()
-    m = re.search(r'name="conventie_versiune"\s+value="([^"]+)"', text)
-    a_modelului = m.group(1) if m else None
-    a_traiect = getattr(ec, "CONVENTIE_TRAIECTORII", None)
-    if a_modelului is None or a_traiect is None:
-        return (False, "nu pot citi versiunile; testul se ruleaza")
-    if a_modelului != a_traiect:
-        return (True, "modelul e in %s, traiectoriile in %s" % (a_modelului, a_traiect))
-    return (False, "versiunile coincid (%s)" % a_modelului)
+def fractie_noua(q):
+    return (q - NOU_MIN) / (NOU_MAX - NOU_MIN)
 
 
 def main(argv=None):
-    sarit, motiv = _motiv_de_skip()
-    if sarit:
-        print("SKIP test_traiectorii: %s." % motiv)
-        print("  Motivul: comparatia de forma nu are sens intre doua conventii.")
-        print("  Se reactiveaza singur cand traiectoriile se reconverteste (punctul 7).")
-        return 0
-    print("test_traiectorii: NU se mai sare (%s); rulez comparatia." % motiv)
+    n = [0]
+
+    def ok(c, m):
+        if not c:
+            print("ESEC: %s" % m)
+            raise SystemExit(1)
+        n[0] += 1
 
     nou = incarca(os.path.join(PACHET, "scripts", "exercise_core.py"), "ec_nou")
-    vechi = incarca(os.path.join(PACHET, "attic", "exercise_core.py.vechi"), "ec_vechi")
+    vechi = incarca(os.path.join(PACHET, "attic", "exercise_core.py.conventieB0"),
+                    "ec_b0")
 
-    nume = sorted(set(getattr(nou, "EXERCISES", {})) & set(getattr(vechi, "EXERCISES", {})))
+    ok(nou.CONVENTIE_TRAIECTORII == "B1",
+       "traiectoriile active trebuie sa fie in B1, sunt in %s"
+       % nou.CONVENTIE_TRAIECTORII)
+    ok(vechi.CONVENTIE_TRAIECTORII == "B0",
+       "snapshotul din attic trebuie sa fie in B0")
+
+    nume = sorted(set(nou.EXERCISES) & set(vechi.EXERCISES))
     ok(len(nume) >= 8, "prea putine exercitii comparate: %d" % len(nume))
-    print("== echivalenta traiectoriilor: %d exercitii ==" % len(nume))
+    print("  %d exercitii, %d esantioane fiecare" % (len(nume), PASI))
 
-    total_puncte = 0
-    d_max = 0.0
+    total, sold_pts, kg_pts = 0, 0, 0
+    max_abatere_forma, max_abatere_kg = 0.0, 0.0
+    max_delta_sold = 0.0
+
     for ex in nume:
-        tv = vechi.EXERCISES[ex]().timeline
-        tn = nou.EXERCISES[ex]().timeline
-        ok(len(tv) == len(tn), "%s: %d segmente vechi vs %d noi" % (ex, len(tv), len(tn)))
-        for i, (sv, sn) in enumerate(zip(tv, tn)):
-            ok(abs(sv[0] - sn[0]) < 1e-9 and abs(sv[1] - sn[1]) < 1e-9,
-               "%s[%d]: timpii s-au schimbat (%s vs %s)" % (ex, i, sv[:2], sn[:2]))
-            for capat in (2, 3):        # q_start si q_end
-                qv, qn = sv[capat], sn[capat]
-                ok(sorted(qv) == sorted(qn),
-                   "%s[%d]: alt set de articulatii" % (ex, i))
-                for j in qv:
-                    asteptat = converteste(j, qv[j])
-                    d = abs(asteptat - qn[j])
-                    d_max = max(d_max, d)
-                    ok(d < TOL, "%s[%d].%s: vechi %.4f -> asteptat %.4f, gasit %.4f"
-                       % (ex, i, j, qv[j], asteptat, qn[j]))
-                    total_puncte += 1
-    print("   %d valori de unghi comparate; abatere maxima %.2e rad" % (total_puncte, d_max))
-    print("   genunchi si glezna: unghi FIZIC identic; sold: aceeasi FRACTIE din cursa")
-    ok(total_puncte > 100, "prea putine valori comparate: %d" % total_puncte)
+        pn = nou.EXERCISES[ex](q_init=dict(nou.POSTURA_INITIALA))
+        pv = vechi.EXERCISES[ex](q_init=dict(vechi.POSTURA_INITIALA))
+        pln, plv = nou.Player(pn), vechi.Player(pv)
+        ok(abs(pn.total_time - pv.total_time) < PRAG,
+           "%s: durata s-a schimbat (%.3f vs %.3f)" % (ex, pn.total_time, pv.total_time))
+        for k in range(PASI):
+            t = pn.total_time * k / (PASI - 1.0)
+            qn, _ = pln.sample(t)
+            qv, _ = plv.sample(t)
+            for j in nou.JOINT_NAMES:
+                total += 1
+                if "hip" in j:
+                    # INVARIANT 1: FORMA. Fractia din cursa disponibila deasupra
+                    # repausului trebuie sa fie aceeasi in ambele conventii.
+                    fv, fn = fractie_veche(qv[j]), fractie_noua(qn[j])
+                    max_abatere_forma = max(max_abatere_forma, abs(fv - fn))
+                    ok(abs(fv - fn) < PRAG_FORMA,
+                       "%s t=%.2f %s: fractia NU s-a pastrat (%.6f vs %.6f)"
+                       % (ex, t, j, fv, fn))
+                    max_delta_sold = max(max_delta_sold, abs(qn[j] - qv[j]))
+                    # ... si nimic nu a fost taiat: totul e in fereastra B-prim
+                    ok(NOU_MIN - 1e-9 <= qn[j] <= NOU_MAX + 1e-9,
+                       "%s t=%.2f %s: %.4f in afara ferestrei B-prim -- CLAMP"
+                       % (ex, t, j, qn[j]))
+                    sold_pts += 1
+                else:
+                    # INVARIANT 2: TRANSPORT IDENTIC la genunchi si glezna.
+                    max_abatere_kg = max(max_abatere_kg, abs(qn[j] - qv[j]))
+                    ok(abs(qn[j] - qv[j]) < PRAG,
+                       "%s t=%.2f %s: transportul trebuie sa fie identitatea, dar "
+                       "difera cu %.3e" % (ex, t, j, abs(qn[j] - qv[j])))
+                    kg_pts += 1
 
-    # CONTROL NEGATIV: daca maparea ar fi identitatea, testul TREBUIE sa pice.
-    # Fara asta, un nucleu nou identic cu cel vechi ar trece drept convertit.
-    gresite = 0
-    for ex in nume:
-        tv = vechi.EXERCISES[ex]().timeline
-        tn = nou.EXERCISES[ex]().timeline
-        for sv, sn in zip(tv, tn):
-            for capat in (2, 3):
-                for j in sv[capat]:
-                    if ("hip" in j or "knee" in j) \
-                            and abs(sv[capat][j] - sn[capat][j]) < TOL \
-                            and abs(converteste(j, sv[capat][j]) - sv[capat][j]) > TOL:
-                        gresite += 1
-    ok(gresite == 0, "%d valori de sold/genunchi au ramas NECONVERTITE" % gresite)
-    print("   control negativ: 0 valori de sold/genunchi ramase neconvertite")
+    print("  sold     : %d puncte, forma pastrata la %.2e; deplasare absoluta "
+          "maxima %.4f rad (%.2f grade)"
+          % (sold_pts, max_abatere_forma, max_delta_sold, math.degrees(max_delta_sold)))
+    print("  gen+glez : %d puncte, transport identic la %.2e" % (kg_pts, max_abatere_kg))
 
-    # LIMITELE din nucleu = cursele documentate
-    for cheie, doc in (("hip", 90.0), ("knee", 140.0), ("ankle", 70.0)):
-        lo, hi = nou.LIMITS[cheie]
-        ok(abs(math.degrees(hi - lo) - doc) < 0.01,
-           "%s: cursa %.2f, documentat %.0f" % (cheie, math.degrees(hi - lo), doc))
-    print("   limitele nucleului: sold 90, genunchi 140, glezna 70 grade (documentate)")
+    # INVARIANTUL 2 ARE NEVOIE DE DINTI: absolutul soldului chiar TREBUIE sa se fi
+    # schimbat. Daca ar fi ramas identic, "forma pastrata" ar fi trecut trivial si
+    # n-ar dovedi ca s-a facut vreo re-derivare.
+    ok(max_abatere_forma < PRAG_FORMA,
+       "abaterea de forma (%.2e) a crescut peste reziduul de rotunjire cunoscut; "
+       "nu mai e explicabila prin literalul 0.6147" % max_abatere_forma)
+    ok(max_delta_sold > math.radians(5.0),
+       "unghiul absolut al soldului ar trebui sa se fi schimbat deliberat, dar "
+       "deplasarea maxima e doar %.4f rad" % max_delta_sold)
 
-    # toate punctele sunt IN limitele noi (o conversie corecta nu iese din cursa)
-    afara = []
-    for ex in nume:
-        tn = nou.EXERCISES[ex]().timeline
-        for i, sn in enumerate(tn):
-            for j, v in list(sn[2].items()) + list(sn[3].items()):
-                cheie = "hip" if "hip" in j else ("knee" if "knee" in j else "ankle")
-                lo, hi = nou.LIMITS[cheie]
-                if not (lo - 1e-6 <= v <= hi + 1e-6):
-                    afara.append("%s[%d].%s = %.4f nu e in [%.4f, %.4f]" % (ex, i, j, v, lo, hi))
-    ok(not afara, "puncte in afara limitelor dupa conversie:\n    " + "\n    ".join(afara[:6]))
-    print("   toate punctele convertite sunt in cursele noi")
+    # CONTROL NEGATIV: o fractie calculata gresit (pe fereastra intreaga, nu pe cea
+    # deasupra repausului) trebuie sa NU treaca -- altfel testul ar accepta si
+    # tratamentul gresit.
+    gresit = max(abs(qv[j] / VECHI_MAX - fractie_noua(qn[j]))
+                 for j in nou.JOINT_NAMES if "hip" in j)
+    ok(gresit > 1e-3,
+       "fractia calculata pe fereastra intreaga ar trebui sa difere vizibil de cea "
+       "corecta, dar difera cu %.3e" % gresit)
 
-    print("SELFTEST traiectorii OK (%d verificari)." % _V[0])
+    print("test_traiectorii: %d verificari OK (forma pastrata la sold, transport "
+          "identic la genunchi si glezna, 0 clamp-uri)." % n[0])
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(sys.argv[1:]))

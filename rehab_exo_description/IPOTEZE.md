@@ -43,8 +43,10 @@ este cea care da intelesul coloanei "valoare" de mai jos pentru orice unghi.
 | 19 | **inaltimea suportului de talpa** | **0.230 m** | **INVARIANT** | `geometrie_core.INALTIME_TALPA`; ALEASA ca invariantul podelei sa treaca. Nu descrie dispozitivul, descrie o cerinta pe care i-am impus-o eu. **Prima de masurat la vizita.** | 22 aug |
 | 20 | marja fata de podea | 0.030 m | IPOTEZA | `geometrie_core.MARGINE_PODEA`; cerinta de proiectare aleasa | 22 aug |
 | 21 | plasarea ferestrei soldului | 0..90 in B-prim | IPOTEZA | re-derivata la D1; latimea ramane documentata | 22 aug |
-| 22 | banda de postura sezut | -65..0 in B-prim | **TRANSPORTATA, NEVALIDATA** | cade sub orizontala, deci imposibila; se rejustifica la punctul 5 impreuna cu banda culcat | 22 aug |
+| 22 | banda de postura sezut | **0..25** in B-prim | **IPOTEZA-ANTROPO** | RE-JUSTIFICATA la P2.1, nu convertita. Forma (0..X) din mecanismul inelului 208 [PDF p.7] plus presupunerea numita ca repausul apartine benzii; capatul X=25 din interferenta coapsa-trunchi, circa 115 grade flexie anatomica. Derivarea completa in `urdf/IPOTEZE_LIMITE.md`. **Proximity-urile o inchid.** | 22 aug |
 | 23 | **sensul cursei coloanei de ridicare** | `-0.15 .. 0` m (coboara pentru transfer) | **IPOTEZA** | `urdf/rehab_exo.urdf.xacro`, `seat_lift_joint`. Documentul spune ca exista o coloana de ridicare (reper 101) si ca scaunul "se ridica si coboara" [PDF p.4-5], dar NU da nici cursa, nici sensul fata de o pozitie de referinta. Alegerea ca zeroul sa fie pozitia de LUCRU, iar cursa sa fie negativa, e a mea: decurge din faptul ca inaltimea de lucru e derivata din lantul geometric, deci trebuie sa fie o pozitie fixa, iar transferul cere coborare. La vizita se masoara cursa reala si inaltimile celor doua capete. | 22 aug |
+| 24 | POSTURA_INITIALA | sold 0, genunchi 90, glezna 0 | DERIVAT (fizic) | pozitia de asezare a pacientului; verificata pe 3 conditii in `test/test_postura.py` | 22 aug |
+| 25 | ancora re-derivarii traiectoriilor | literalul 0.6147, nu radians(35.22) | ALES PRIN MASURARE | difera cu 4.4e-6 rad; cu ancora gresita repausul s-ar mapa la -7e-6, adica sub limita | 22 aug |
 ## Ordinea la vizita fizica
 
 1. **inaltimea suportului de talpa (19)** -- singura cota din clasa INVARIANT, adica
@@ -54,7 +56,9 @@ este cea care da intelesul coloanei "valoare" de mai jos pentru orice unghi.
    fata, plus **cursa reala a coloanei 101 si inaltimile celor doua capete** (23) --
    se masoara in aceeasi vizita, cu aceeasi ruleta
 3. lungimile si cursele reale ale push rod-urilor 306 si 403
-4. unde sunt montate proximitatile (13)
+4. **unde sunt montate proximitatile (13, 22)** -- inchid DEFINITIV si pragurile
+   electrice, si banda de postura sezut, care acum se sprijina pe o presupunere
+   numita (ca repausul apartine benzii) plus un argument antropometric
 5. masele si inertiile (6, 7)
 
 ## Ce ar transforma ipotezele in masuratori

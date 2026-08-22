@@ -60,70 +60,65 @@ necesar pentru alta, reala si complet tacuta.
     ros2 launch rehab_exo_description display.launch.py
     ros2 launch rehab_exo_description display.launch.py rmw:=zenoh
 
-## Conventia articulara: ZERO ANATOMIC
+## Conventia articulara: ZEROUL MECANIC (B-prim)
 
-Plan sagital, pentru fiecare articulatie:
+Decizia D1, 22 aug 2026. Vezi `DECIZII.md` pentru rationament si statutul dovezii.
 
-| articulatie | zero | pozitiv | cursa (documentata) | split (ipoteza, GAP 4) |
-|---|---|---|---|---|
-| sold | coapsa colineara cu trunchiul | FLEXIE | 90 grade | 0 .. +90 |
-| genunchi | gamba colineara cu coapsa | FLEXIE | 140 grade | 0 .. +140 |
-| glezna | talpa perpendiculara pe gamba | DORSIFLEXIE | 70 grade | -35 .. +35 |
+| articulatie | zero | pozitiv | cursa documentata |
+|---|---|---|---|
+| sold | coapsa ORIZONTALA (postura de lucru) | RIDICARE | 90 grade |
+| genunchi | gamba in prelungirea coapsei | flexie | 140 grade |
+| glezna | talpa perpendiculara pe gamba | dorsiflexie | 70 grade |
 
-Cursele TOTALE sunt din [PDF Tabel 3.1, p.10-11]. Impartirea min/max NU e in document
-si e ipoteza locala, motivata in `urdf/IPOTEZE_LIMITE.md`; sunt parametri xacro, cu
-suma asertata egala cu cursa documentata.
+Cursele TOTALE sunt din [PDF Tabel 3.1, p.10-11]. PLASAREA ferestrei in jurul
+zeroului nu e in document si ramane IPOTEZA:
 
-`postura:=culcat|sezut` schimba DOAR limita inferioara a soldului: in sezut, inelul de
-oprire (reper 208, PDF p.7) reduce mecanic cursa la 25..90 grade. Restul articulatiilor
-raman neatinse (verificat in test).
+| postura | sold | de unde |
+|---|---|---|
+| `culcat` | 0 .. 90 | re-derivata la D1: in jos piciorul ar trece prin podea |
+| `sezut` | 0 .. 25 | re-justificata la P2.1, IPOTEZA-ANTROPO; vezi `urdf/IPOTEZE_LIMITE.md` |
 
-### Conventia veche, si de ce s-a pensionat
-
-Pana la M1, zeroul era postura SEZUT (coapsa orizontala, gamba verticala), declarata in
-antetul URDF-ului livrat. Se pastreaza in `attic/rehab_exo.urdf.livrat`. Echivalenta
-fizica dintre cele doua conventii e dovedita programatic, nu prin citire
-(`test/test_conventie.py`: 62 de configuratii x 2 picioare, abatere maxima 2.5e-16 m,
-plus control negativ cu o mapare gresita).
-
-ATENTIE la genunchi: in conventia veche unghiul crestea spre EXTENSIE; acum creste spre
-FLEXIE. Inversarea de semn e reala si e materializata in axa jointului.
+`sezut` REDUCE cursa pastrand capatul de jos, cum cere mecanismul inelului de oprire
+(reper 208) descris in [PDF p.7].
 
 ### Postura initiala
 
-`POSTURA_INITIALA` din `scripts/exercise_core.py`, in conventia noua:
+`POSTURA_INITIALA` = **sold 0, genunchi 90, glezna 0**: pozitia fizica de asezare a
+pacientului, coapsa pe sezut si gamba atarnand vertical. Nu e o fractie mostenita, ci
+o postura descrisa direct, si e verificata pe trei conditii in `test/test_postura.py`
+(apartenenta la banda de sezut, invariantul podelei pe toata rampa, si FK-ul care
+arata gamba verticala la 5.6e-17).
 
-| articulatie | valoare | de unde |
-|---|---|---|
-| sold | **35.22 grade** | RE-DERIVATA: fractia 0.3913 (unde cadea vechiul zero in cursa veche) din noua cursa de 90 |
-| genunchi | **90.00 grade** | convertita exact: vechiul zero era gamba verticala sub coapsa orizontala |
-| glezna | **0.00 grade** | neschimbata |
+### Cele doua conventii moarte, si de ce a murit fiecare
 
-ATENTIE, si e o consecinta de stiut, nu un detaliu: soldul de 35.22 grade e IN setul de
-limite `postura:=sezut` (25..90), dar NU e postura sezut. Sezutul fizic inseamna 90 de
-grade de flexie de sold; vechea stare initiala chiar acolo era. Fractia s-a pastrat,
-postura fizica de plecare nu -- exact acelasi compromis ca la traiectoriile de sold.
-Daca se prefera ca dispozitivul sa PORNEASCA fizic din sezut, valoarea devine 90 si
-primul segment al fiecarui exercitiu se schimba; e o decizie deschisa, nu o scapare.
+Ambele traiesc in `attic/`, si nu ca fisiere moarte: testele le GENEREAZA la fiecare
+rulare ca sa dovedeasca echivalentele.
 
-### Schimbari DELIBERATE de domeniu (registrul complet)
+**Zero = SEZUT, din URDF-ul livrat initial** (`attic/rehab_exo.urdf.livrat`).
+SEMANTICA lui era corecta si e chiar cea la care s-a revenit la D1. Au murit
+VALORILE: cursa de sold era -25.78..+40.11 grade, adica 65.89, nu cei 90 documentati,
+si asimetrica fara nicio justificare.
 
-Trei domenii articulare s-au schimbat intentionat la M1. Doua dintre ele nu au legatura
-cu traiectoriile si de aceea sunt usor de trecut cu vederea:
-
-| # | schimbare | vechi (anatomic) | nou | efect |
-|---|---|---|---|---|
-| 1 | sold RE-DERIVAT | 64.22 .. 130.11 | 0 .. 90 | traiectoriile pastreaza fractia, nu unghiul |
-| 2 | **hiperextensia genunchiului ELIMINATA** | -10.27 .. 90 | 0 .. 140 | vechiul model permitea 10.27 grade de hiperextensie; niciun exercitiu nu o folosea (dovedit de test), dar disparitia ei e DECIZIE, nu consecinta |
-| 3 | glezna largita | -34.38 .. +34.38 (68.75) | -35 .. +35 (70) | +0.62 grade pe fiecare parte, spre cursa documentata |
+**Zero ANATOMIC, varianta B de la M1** (`attic/rehab_exo.xacro.conventieB`,
+`attic/exercise_core.py.conventieB0`). A murit pe geometrie: fereastra ei 0..90 se
+transporta in -90..0 mecanic, adica integral in jumatatea in care piciorul trece prin
+podea. Ironia utila e ca tot re-derivarea de la M1 a EXPUS imposibilitatea: inainte de
+ea soldul statea la 64.22..130.11, o fereastra care ascundea problema. M1 nu a fost o
+greseala, a fost pasul care a facut D1 posibila.
 
 ### Traiectoriile: doua invariante diferite
 
-Genunchi si glezna au fost CONVERTITE (unghi fizic identic). Soldul a fost RE-DERIVAT:
-cursa lui veche, exprimata anatomic, era 64.22..130.11 grade -- sold permanent flectat,
-peste flexia umana normala -- si nu incape in cei 90 documentati. Punctele pastreaza
-FRACTIA din cursa disponibila, adica forma exercitiului, nu unghiul absolut.
-Verificat in `test/test_traiectorii.py` (1908 valori, cele doua invariante separate).
+La reconversia B0 spre B-prim tratamentul NU a fost acelasi peste tot, si se verifica
+separat in `test/test_traiectorii.py` (3858 de verificari):
+
+| articulatie | tratament | de ce |
+|---|---|---|
+| genunchi, glezna | TRANSPORT, maparea e identitatea | toate valorile cad in ferestrele B-prim; egalitate stricta, abatere 0.0 |
+| sold | RE-DERIVARE PE FRACTIE | transportul ar da [-82, -35], in afara ferestrei; s-a pastrat fractia din cursa DEASUPRA repausului |
+
+Forma e pastrata la 5.19e-06 pe 960 de puncte de sold; unghiul absolut s-a schimbat
+deliberat cu pana la 35.22 grade. Zero clamp-uri: fiecare punct a incaput in fereastra
+fara sa fie taiat.
 
 ## Mase si inertii: NEVERIFICATE
 

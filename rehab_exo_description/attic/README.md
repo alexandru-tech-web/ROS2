@@ -36,3 +36,21 @@ moarta: `test/test_conventie.py` o GENEREAZA la fiecare rulare si dovedeste prin
 ca modelul nou (conventia B', decizia D1) descrie acelasi lant fizic. Fara ea,
 echivalenta ar fi o afirmatie in loc de o masuratoare. Se sterge doar impreuna cu
 testul.
+
+## exercise_core.py.conventieB0 (retras 22 aug 2026)
+
+Traiectoriile in conventia B0 (zero anatomic), inainte de reconversia la B-prim. Ca si
+`rehab_exo.xacro.conventieB`, NU e o copie moarta: `test/test_traiectorii.py` o
+incarca la fiecare rulare si dovedeste ca reconversia a pastrat FORMA exercitiilor si
+a schimbat DELIBERAT unghiul absolut. Se sterge doar impreuna cu testul.
+
+## De ce a murit fiecare conventie
+
+**Zero = SEZUT (URDF-ul livrat).** Semantica era CORECTA si e cea la care s-a revenit
+la D1. Au murit valorile: sold -25.78..+40.11 grade, adica o cursa de 65.89 in loc de
+cei 90 documentati, si asimetrica fara justificare.
+
+**Zero ANATOMIC (varianta B, M1).** A murit pe geometrie: fereastra 0..90 se
+transporta in -90..0 mecanic, integral sub orizontala, unde piciorul trece prin podea.
+Dar tot re-derivarea M1 a expus imposibilitatea; inainte de ea soldul statea la
+64.22..130.11, fereastra care o ascundea.

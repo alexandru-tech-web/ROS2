@@ -54,7 +54,7 @@ JOINT_NAMES = [
 # duce robotul in alt loc decat scrie pe ea, si ar face-o linistit.
 # B0 = zero anatomic (M1). B1 = zero mecanic al dispozitivului (D1, 22 aug).
 # Traiectoriile de mai jos sunt inca in B0; se reconvertesc la punctul 7.
-CONVENTIE_TRAIECTORII = "B1"
+CONVENTIE_TRAIECTORII = "B0"
 
 # Cod de esec DISTINCT, ca un refuz de conventie sa nu poata fi confundat cu altceva.
 COD_CONVENTIE = 7
@@ -65,23 +65,12 @@ LIMITS = {
     "ankle": (-0.61087, 0.61087),  # -35..+35 grade [PDF Tabel 3.1, split GAP 4]
 }
 
-# POSTURA INITIALA, RE-ANCORATA FIZIC pe 22 aug 2026 (conventia B-prim, D1).
-#
-# Nu mai e o fractie mostenita, ci POZITIA DE ASEZARE a pacientului, descrisa direct:
-#   sold 0      coapsa pe sezut, orizontala. In B-prim zero CHIAR E repausul.
-#   genunchi 90 gamba atarna vertical, talpa pe suport.
-#   glezna 0    talpa perpendiculara pe gamba.
-#
-# Ce a fost inainte, si de ce a murit: la M1 soldul primise 35.22 grade, pastrand
-# fractia 0.3913 din cursa veche. Fractia era o mostenire aritmetica, nu o postura:
-# 35.22 nu descria nimic fizic, si in conventia noua ar fi insemnat coapsa ridicata
-# la 35 de grade deasupra orizontalei, adica pacientul asezat cu genunchii in sus.
-#
-# Cele trei conditii sunt VERIFICATE, nu presupuse, in test/test_postura.py:
-# apartenenta la banda de sezut, invariantul podelei, si FK-ul care arata gamba
-# verticala.
+# POSTURA INITIALA. In conventia veche era implicit {toate 0.0} = fizic SEZUT. In
+# conventia anatomica zero inseamna CULCAT DREPT, deci starea initiala se declara
+# explicit. Genunchiul si glezna pastreaza postura fizica veche; soldul urmeaza
+# re-derivarea (fractia 0.3913 din cursa veche devine aceeasi fractie din cea noua).
 import math as _math
-POSTURA_INITIALA_DEG = {"hip": 0.0, "knee": 90.0, "ankle": 0.0}
+POSTURA_INITIALA_DEG = {"hip": 35.22, "knee": 90.0, "ankle": 0.0}
 POSTURA_INITIALA = {
     j: _math.radians(POSTURA_INITIALA_DEG[
         "hip" if "hip" in j else ("knee" if "knee" in j else "ankle")])
@@ -258,30 +247,30 @@ def _full_knee_pulses(reps=2):
 # ---------- SOLD ----------
 def _full_hip_raise(reps=3):
     rep = [
-        (2.0, _both({"hip": 1.121955})),
+        (2.0, _both({"hip": 1.2976})),
         (1.5, {}),
-        (2.0, _both({"hip": 0.000000})),
+        (2.0, _both({"hip": 0.6147})),
         (1.0, {}),
     ]
     return rep * reps
 
 def _full_hip_alternating(reps=2):
     rep = [
-        (1.8, {"left_hip_joint": 1.234167}),
+        (1.8, {"left_hip_joint": 1.3659}),
         (0.8, {}),
-        (1.8, {"left_hip_joint": 0.000000}),
-        (1.8, {"right_hip_joint": 1.234167}),
+        (1.8, {"left_hip_joint": 0.6147}),
+        (1.8, {"right_hip_joint": 1.3659}),
         (0.8, {}),
-        (1.8, {"right_hip_joint": 0.000000}),
+        (1.8, {"right_hip_joint": 0.6147}),
         (0.4, {}),
     ]
     return rep * reps
 
 def _full_hip_hold(reps=2):
     rep = [
-        (2.2, _both({"hip": 1.346379})),
+        (2.2, _both({"hip": 1.4342})),
         (4.0, {}),                          # mentinere izometrica
-        (2.2, _both({"hip": 0.000000})),
+        (2.2, _both({"hip": 0.6147})),
         (0.6, {}),
     ]
     return rep * reps
@@ -290,18 +279,18 @@ def _full_hip_hold(reps=2):
 # ---------- COMBINATE ----------
 def _full_alternating_march(reps=3):
     rep = [
-        (1.6, {"left_hip_joint": 1.009743, "left_knee_joint": 1.2208}),
-        (1.6, {"left_hip_joint": 0.000000, "left_knee_joint": 1.5708}),
-        (1.6, {"right_hip_joint": 1.009743, "right_knee_joint": 1.2208}),
-        (1.6, {"right_hip_joint": 0.000000, "right_knee_joint": 1.5708}),
+        (1.6, {"left_hip_joint": 1.2293, "left_knee_joint": 1.2208}),
+        (1.6, {"left_hip_joint": 0.6147, "left_knee_joint": 1.5708}),
+        (1.6, {"right_hip_joint": 1.2293, "right_knee_joint": 1.2208}),
+        (1.6, {"right_hip_joint": 0.6147, "right_knee_joint": 1.5708}),
     ]
     return rep * reps
 
 def _full_full_extension(reps=2):
     rep = [
-        (3.0, _both({"hip": 0.560895, "knee": 0.0708, "ankle": 0.15})),
+        (3.0, _both({"hip": 0.9561, "knee": 0.0708, "ankle": 0.15})),
         (2.5, {}),
-        (3.0, _both({"hip": 0.000000, "knee": 1.5708, "ankle": 0.00})),
+        (3.0, _both({"hip": 0.6147, "knee": 1.5708, "ankle": 0.00})),
         (1.0, {}),
     ]
     return rep * reps
@@ -309,13 +298,13 @@ def _full_full_extension(reps=2):
 def _full_leg_wave(reps=2):
     """Val coordonat: sold -> genunchi -> glezna, apoi derulare inversa."""
     rep = [
-        (1.8, _both({"hip": 0.785319})),
+        (1.8, _both({"hip": 1.0927})),
         (1.8, _both({"knee": 0.3708})),
         (1.2, _both({"ankle": 0.30})),
         (1.5, {}),
         (1.2, _both({"ankle": 0.00})),
         (1.8, _both({"knee": 1.5708})),
-        (1.8, _both({"hip": 0.000000})),
+        (1.8, _both({"hip": 0.6147})),
         (0.5, {}),
     ]
     return rep * reps

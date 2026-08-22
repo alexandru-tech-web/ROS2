@@ -51,21 +51,26 @@ def main(argv):
     a_modelului = m.group(1)
     ok(a_modelului == "B1", "modelul declara '%s', se astepta B1" % a_modelului)
 
-    # 2. AFIRMATIA CENTRALA: modelul nou si traiectoriile vechi se resping.
+    # 2. AFIRMATIA CENTRALA, INVERSATA DELIBERAT pe 22 aug dupa reconversie.
+    # Cat timp traiectoriile erau in B0 iar modelul in B1, aici se cerea REFUZ, si
+    # asta era rostul gardianului. Odata reconvertite (P2.3), versiunile coincid si
+    # se cere ACCEPTARE. Inversarea e vizibila in fisier, nu tacuta; daca reapare un
+    # refuz, inseamna ca ceva a ramas in urma la o reconversie viitoare.
+    ok(ec.CONVENTIE_TRAIECTORII == a_modelului,
+       "dupa reconversie, traiectoriile (%s) trebuie sa fie in aceeasi conventie ca "
+       "modelul (%s)" % (ec.CONVENTIE_TRAIECTORII, a_modelului))
     permis, motiv = ec.verdict_conventie(a_modelului)
-    ok(not permis,
-       "traiectoriile in %s NU au voie sa fie acceptate pe un model in %s"
-       % (ec.CONVENTIE_TRAIECTORII, a_modelului))
-    ok("NEPOTRIVIRE" in motiv, "refuzul trebuie sa spuna ca e o nepotrivire")
-    ok(a_modelului in motiv and ec.CONVENTIE_TRAIECTORII in motiv,
-       "mesajul trebuie sa numeasca AMBELE versiuni, altfel nu se poate depana")
+    ok(permis, "cu versiunile potrivite, gardianul trebuie sa PERMITA rularea")
+    ok("confirmata" in motiv, "acceptarea trebuie sa se vada ca acceptare")
 
-    # 3. CONTROL NEGATIV: acelasi verdict trebuie sa ACCEPTE cand versiunile
-    # coincid. Fara asta, testul 2 ar trece si daca gardianul ar refuza orice --
-    # adica daca ar fi rupt in celalalt sens.
-    permis2, motiv2 = ec.verdict_conventie(a_modelului, a_modelului)
-    ok(permis2, "cand versiunile coincid, gardianul trebuie sa PERMITA")
-    ok("confirmata" in motiv2, "acceptarea trebuie sa se vada ca acceptare")
+    # 3. CONTROL NEGATIV: gardianul mai are dinti. O versiune diferita trebuie
+    # REFUZATA, cu ambele nume in mesaj. Fara asta, testul 2 ar trece si daca
+    # gardianul ar fi fost scos din functiune.
+    permis2, motiv2 = ec.verdict_conventie("B0")
+    ok(not permis2, "un model ramas in B0 trebuie REFUZAT")
+    ok("NEPOTRIVIRE" in motiv2, "refuzul trebuie sa spuna ca e o nepotrivire")
+    ok("B0" in motiv2 and ec.CONVENTIE_TRAIECTORII in motiv2,
+       "mesajul trebuie sa numeasca AMBELE versiuni, altfel nu se poate depana")
 
     # 4. "Nu stiu" nu e "da". Un model care nu declara nimic e exact cazul vechi,
     # adica exact cel pentru care exista gardianul.
