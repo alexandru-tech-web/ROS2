@@ -102,7 +102,12 @@ MARGINE_PODEA = 0.030            # ALES: cat trebuie sa ramana sub cel mai jos p
 # Verificare ieftina cu ochiul, la orice inspectie in RViz: ancora de scara de la
 # glezna e motorul TBM60, adica 60 mm diametru DOCUMENTAT. O talpa de 230 mm langa
 # un motor de 60 mm se vede imediat daca e absurda ca proportie.
-INALTIME_TALPA = 0.230           # INVARIANT (vezi test_podea.py)
+# RE-ALEASA la 0.250 pe 22 aug (decizia A): fereastra soldului coboara la -2 grade ca
+# repausul sa nu mai stea PE limita, iar asta scufunda lantul cu circa 0.02 m si
+# strica invariantul podelei. Masurat: la talpa 0.230 si sold_min -2, cel mai jos
+# punct cade la +0.0127, sub marja ceruta de 0.030. Cota se re-alege deci prin
+# PROPRIUL ei criteriu, acelasi ca prima data.
+INALTIME_TALPA = 0.250           # INVARIANT (vezi test_podea.py)
 
 # Amplasarea in plan. Axa soldului MASINII sta lateral fata de scaun, fiindca modulul
 # de picior e un ansamblu propriu langa scaun [Fig 2.2: 001 baza scaun, 003 baza

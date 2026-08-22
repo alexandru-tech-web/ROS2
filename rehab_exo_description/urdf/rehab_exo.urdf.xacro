@@ -67,8 +67,15 @@
        DOCUMENTATA [PDF Tabel 3.1]; PLASAREA ei in jurul zeroului a fost mereu
        IPOTEZA (GAP 4) si a fost RE-DERIVATA la D1: repausul e coapsa orizontala si
        cursa merge in sus, fiindca in jos piciorul ar trece prin podea. -->
-  <xacro:property name="sold_min_deg"      value="0"/>
-  <xacro:property name="sold_max_deg"      value="90"/>
+  <!-- MINUS 2 GRADE, nu zero (decizia A, 22 aug). Repausul soldului e coapsa
+       orizontala, adica 0; daca limita mecanica ar fi tot acolo, articulatia s-ar
+       odihni PE opritor. Masurat: in acea configuratie constrangerea de limita din
+       solver tine articulatia si comanda de viteza a lui gz_ros2_control nu o mai
+       poate elibera. Pe masina reala opritorul sta SUB pozitia de repaus: motorul
+       tine pozitia, stopul o prinde pasiv. Latimea documentata de 90 de grade se
+       pastreaza; fereastra devine -2..88. Vezi DECIZII.md, D3. -->
+  <xacro:property name="sold_min_deg"      value="-2"/>
+  <xacro:property name="sold_max_deg"      value="88"/>
 
   <!-- BANDA DE POSTURA SEZUT, RE-JUSTIFICATA (nu convertita) pe 22 aug 2026.
        Banda transportata mecanic (minus 65 pana la 0) a MURIT: cadea integral sub
@@ -88,7 +95,11 @@
 
        Clasa: IPOTEZA-ANTROPO. Pozitiile proximity-urilor o inchid definitiv; item pe
        agenda vizitei. -->
-  <xacro:property name="sold_sezut_min_deg" value="0"/>
+  <!-- Capatul de JOS se imparte cu fereastra completa, deci urmeaza si el la -2
+       (D3): structura din P2.1 spune ca banda de sezut e o SUBMULTIME care pastreaza
+       un capat, iar acela e cel de jos. Capatul de SUS ramane cel ANTROPO, 25 grade,
+       neatins de aceasta decizie. -->
+  <xacro:property name="sold_sezut_min_deg" value="-2"/>
   <xacro:property name="sold_sezut_max_deg" value="25"/>
 
   <xacro:property name="genunchi_min_deg"  value="0"/>

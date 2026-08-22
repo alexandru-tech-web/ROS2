@@ -67,8 +67,14 @@ def main(argv):
     ok(len(lim) == 6, "trebuie 6 articulatii, am %d" % len(lim))
     for j, (lo, hi) in lim.items():
         ok(hi > lo, "%s: limita superioara trebuie sa fie peste cea inferioara" % j)
-    ok(abs(lim["left_hip_joint"][1] - math.radians(90.0)) < 1e-4,
-       "soldul trebuie sa aiba maxim 90 de grade")
+    # D3: fereastra soldului e -2..88, nu 0..90. LATIMEA documentata de 90 de grade
+    # se pastreaza; plasarea s-a mutat ca repausul (0) sa nu stea PE limita.
+    lo_h, hi_h = lim["left_hip_joint"]
+    ok(abs(math.degrees(hi_h - lo_h) - 90.0) < 1e-3,
+       "latimea documentata a soldului trebuie sa ramana 90 de grade, e %.3f"
+       % math.degrees(hi_h - lo_h))
+    ok(lo_h < 0.0 < hi_h,
+       "repausul (0) trebuie sa fie STRICT in interiorul ferestrei soldului")
     ok(abs(lim["left_knee_joint"][1] - math.radians(140.0)) < 1e-4,
        "genunchiul trebuie sa aiba maxim 140 de grade")
 
@@ -76,7 +82,7 @@ def main(argv):
     # AMBELE capete acum: la flip-ul de conventie banda de sezut a capatat si un
     # maxim propriu. Asertia a prins deja o despartire reala pe 22 aug, cand xacro
     # trecuse pe valorile transportate si nodul ramasese pe cele vechi.
-    for nume, implicit_nod in (("sold_sezut_min_deg", 0.0),
+    for nume, implicit_nod in (("sold_sezut_min_deg", -2.0),
                                ("sold_sezut_max_deg", 25.0)):
         din_xacro = _proprietate_xacro(nume)
         ok(abs(din_xacro - implicit_nod) < 1e-9,
@@ -111,16 +117,21 @@ def main(argv):
             ok(hi - lo >= 2 * sc.BANDA_ARMARE_RAD,
                "%s/%s: fereastra prea ingusta pentru banda de armare" % (eticheta, j))
 
-    # 5. POSTURA DE PORNIRE, pe date reale: articulatiile apar la 0.0, iar soldul si
-    # genunchiul au minimul mecanic tot 0.0 -- deci pornirea E pe margine. Nimic nu
-    # are voie sa declanseze, si asta e chiar motivul pentru care exista armarea.
-    ok(abs(lim["left_hip_joint"][0]) < 1e-9,
-       "premisa testului: minimul soldului e 0.0 (daca se schimba, revizuieste)")
+    # 5. POSTURA DE PORNIRE, pe date reale. Premisa acestui test S-A SCHIMBAT la D3 si
+    # asertia de mai jos e cea care m-a anuntat, exact cum fusese scrisa sa faca:
+    # soldul nu mai are minimul la 0, ci la -2 grade, tocmai ca sa nu se odihneasca pe
+    # limita. GENUNCHIUL insa il are inca la 0, deci pornirea ramane pe margine pentru
+    # el, iar armarea e in continuare necesara. Testul se rescrie pe genunchi.
+    ok(abs(lim["left_knee_joint"][0]) < 1e-9,
+       "premisa: minimul genunchiului e 0.0 (daca se schimba, revizuieste)")
+    ok(lim["left_hip_joint"][0] < 0.0,
+       "dupa D3 soldul trebuie sa aiba minimul SUB zero, ca repausul sa fie in interior")
     s = sc.Supervizor(sc.praguri_electrice(lim))
     boot = {j: 0.0 for j in ARTICULATII}
     for _ in range(100):
         ok(not s.pas(boot), "pornirea la 0.0 NU are voie sa declanseze")
-    ok(s.stare["left_hip_joint"] == sc.NEARMAT, "soldul ramane nearmat la pornire")
+    ok(s.stare["left_knee_joint"] == sc.NEARMAT,
+       "genunchiul ramane nearmat la pornire: minimul lui e inca la 0")
 
     # 6. POSTURA_INITIALA E CHIAR PE MARGINE, si asta e acum situatia normala, nu un
     # caz limita. De la re-ancorarea din 22 aug soldul sta la 0, adica exact capatul
@@ -136,10 +147,18 @@ def main(argv):
         for _ in range(50):
             ok(not s2.pas(ec.POSTURA_INITIALA),
                "%s: POSTURA_INITIALA nu are voie sa declanseze, niciodata" % et)
+        # Dupa D3 soldul NU mai sta pe capat: repausul (0) e la 2 grade deasupra
+        # limitei (-2). Consecinta buna: soldul se poate arma chiar de la pornire,
+        # deci e supravegheat imediat, nu dupa prima intrare in zona.
+        # Dar rezerva de repaus (2 grade) e EXACT cat banda de armare, deci starea lui
+        # la repaus e la granita si poate bascula cu zgomotul solverului (masurat
+        # -9.1e-14). Se aserteaza deci proprietatea ROBUSTA -- nu declanseaza -- si nu
+        # eticheta de stare, care aici nu e determinista.
+        # De separat la vizita: rezerva de repaus si banda de armare nu ar trebui sa
+        # fie egale.
         for j in ("left_hip_joint", "right_hip_joint"):
-            ok(s2.stare[j] == sc.NEARMAT,
-               "%s: %s ar trebui NEARMAT la postura initiala (e chiar pe capat, iar "
-               "banda de armare cere sa se intre mai adanc)" % (et, j))
+            ok(s2.stare[j] in (sc.NEARMAT, sc.ARMAT),
+               "%s: %s nu are voie sa fie DECLANSAT la postura initiala" % (et, j))
         for j in ("left_knee_joint", "right_knee_joint"):
             ok(s2.stare[j] == sc.ARMAT,
                "%s: genunchiul la 90 de grade e bine inauntru, deci SE armeaza" % et)

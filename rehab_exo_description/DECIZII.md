@@ -119,3 +119,54 @@ repausul nu poate fi mutat de la 0 -- acolo E.
   fiindca jos cele doua praguri coincid acum si nu mai pot arata o diferenta;
 - `supervizor:=false` ramane PORTITA DE DEPANARE. Demonstratiile pentru coordonator
   ruleaza cu supervizorul in lant.
+
+---
+
+## D3 (22 aug 2026, decizie a lui Alexandru) -- Opritorul sub repaus
+
+**Ce s-a decis.** Fereastra soldului devine **-2 .. 88 grade**. Latimea documentata de
+90 se pastreaza [PDF Tabel 3.1]; se muta PLASAREA, care a fost mereu IPOTEZA.
+`POSTURA_INITIALA` ramane la sold 0: repausul e tinut de CONTROL, iar opritorul de la
+-2 il prinde pasiv -- exact ca pe masina reala, unde motorul tine pozitia si stopul e
+siguranta. Ancora lui D1 (repaus = coapsa orizontala) ramane intacta.
+Banda de sezut isi urmeaza capatul de jos la -2, pastrandu-si capatul ANTROPO la 25.
+Inaltimea talpii se re-alege prin propriul ei criteriu, de la 0.230 la **0.250 m**, ca
+invariantul podelei sa redevina verde.
+
+### Mecanismul care a impus decizia
+
+Soldul se odihnea exact PE limita lui inferioara, acolo unde gravitatia il impinge cu
+coapsa orizontala. Constrangerea de limita din solverul de fizica tinea articulatia,
+iar comanda de viteza a lui gz_ros2_control nu o mai putea elibera. Dovada, A/B cu o
+singura variabila si control de revenire: limita 0 -> soldul ramane la -0.0000;
+limita -3 -> ajunge la +1.3464; inapoi la 0 -> blocat din nou.
+
+### Trei linii independente converg spre aceeasi solutie
+
+1. **Principiul de masina.** Opritorul sta SUB pozitia de repaus. Acelasi rationament
+   care a produs D2 pentru proximity: un element de capat care contine starea de
+   repaus e auto-contradictoriu.
+2. **Ipoteza concurenta din registru primeste prima confirmare partiala.** La P2.1 am
+   consemnat valorile URDF-ului livrat (-25.78 .. +40.11) ca "nefolosite, dar daca
+   autorul initial cunostea dispozitivul, banda ar putea cobori sub 0". Fizica insasi
+   cere acum exact semiplanul negativ pe care el il avea. Nu confirma valorile, dar
+   confirma SEMNUL.
+3. **O diferenta de modelare, acum inteleasa.** Pe dispozitivul real, in sezut, coapsa
+   se odihneste PE PERNA, care preia sarcina. Modelul nostru nu are acel contact:
+   perna se termina exact la axa soldului (masurat la P1). Deci coapsa atarna IN
+   ARTICULATIE si incarca limita intr-un fel in care masina reala n-o incarca
+   niciodata. Blocajul nu e doar artefact de solver, e simptomul acestei diferente.
+
+### Ce a fost respins
+
+**Fereastra -2..90 (92 de grade)**: ar depasi latimea documentata.
+**POSTURA_INITIALA mutata la +2**: ar rupe ancora lui D1, repausul n-ar mai fi coapsa
+orizontala.
+
+### Ce ramane de separat
+
+Rezerva de repaus (2 grade) e EXACT cat banda de armare a supervizorului (2 grade),
+deci starea de armare la repaus sta la granita si poate bascula cu zgomotul
+solverului. Nu afecteaza siguranta -- proprietatea robusta (nu declanseaza) e
+asertata -- dar cele doua cifre nu ar trebui sa fie egale. Se separa dupa vizita,
+cand inaltimile reale spun cat loc chiar exista.

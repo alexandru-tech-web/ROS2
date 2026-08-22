@@ -33,7 +33,10 @@ PRISMATICE = ("seat_lift_joint", "left_thigh_ext_joint", "right_thigh_ext_joint"
 # Conventie ANATOMICA (M1). Cursele TOTALE sunt documentate [PDF Tabel 3.1];
 # impartirea min/max ramane IPOTEZA LOCALA (GAP 4), motivata in urdf/IPOTEZE_LIMITE.md.
 import math as _m
-LIMITE = {"hip": (0.0, _m.radians(90)), "knee": (0.0, _m.radians(140)),
+# Fereastra soldului e -2..88 de la D3 (22 aug): LATIMEA documentata de 90 de grade
+# se pastreaza, plasarea s-a mutat ca repausul (0) sa nu se odihneasca PE limita --
+# acolo constrangerea din solver blocheaza articulatia. Vezi test_repaus_pe_limita.
+LIMITE = {"hip": (_m.radians(-2), _m.radians(88)), "knee": (0.0, _m.radians(140)),
           "ankle": (_m.radians(-35), _m.radians(35))}
 ROM_DOCUMENTAT = {"hip": 90.0, "knee": 140.0, "ankle": 70.0}
 

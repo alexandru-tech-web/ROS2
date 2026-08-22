@@ -227,32 +227,33 @@ ros2 topic pub --once /exercise_cmd std_msgs/msg/String "{data: 'hip_raise'}"
 | `knee_pulses` | knee+ankle | 187 | 18.6 s | 2 |
 | `leg_wave` | hip+knee+ankle | 233 | 23.2 s | 2 |
 
-### Smoke pe toate cele 12, cu supervizor activ (dupa decizia D2)
+### Smoke pe toate cele 12, cu supervizor activ (dupa D3)
 
-Rulate intr-o singura sesiune Gazebo, trimise pe rand pe `/exercise_cmd`.
-Verdictele sunt calculate cu ACELEASI functii pure ca monitorul.
+Rulate intr-o singura sesiune, trimise pe rand pe `/exercise_cmd`. Verdictul e
+eroarea MAXIMA pe toata durata exercitiului, nu la un singur moment -- artefactul
+de esantionare care a inselat primul tabel e mort.
 
-| exercitiu | URMARIRE | COERENTA | CANALE | VITEZA | eroare max |
-|---|---|---|---|---|---:|
-| `alternating_march` | OK | OK | OK | OK | 0.0000 |
-| `ankle_alternating` | OK | OK | OK | OK | 0.0000 |
-| `ankle_holds` | OK | OK | OK | OK | 0.0000 |
-| `ankle_pump` | OK | OK | OK | OK | 0.0000 |
-| `full_extension` | OK | OK | OK | OK | 0.0081 |
-| `hip_alternating` | ATENTIE | OK | OK | OK | 1.0960 |
-| `hip_hold` | ATENTIE | OK | OK | OK | 1.0825 |
-| `hip_raise` | OK | OK | OK | OK | 0.0000 |
-| `knee_alternating` | OK | OK | OK | OK | 0.0010 |
-| `knee_extension` | OK | OK | OK | OK | 0.0000 |
-| `knee_pulses` | OK | OK | OK | OK | 0.0076 |
-| `leg_wave` | ATENTIE | OK | OK | OK | 0.2914 |
+| exercitiu | err sold | err genunchi | err glezna |
+|---|---:|---:|---:|
+| `alternating_march` | 0.0117 | 0.0039 | 0.0000 |
+| `ankle_alternating` | 0.0000 | 0.0037 | 0.0103 |
+| `ankle_holds` | 0.0000 | 0.0038 | 0.0094 |
+| `ankle_pump` | 0.0000 | 0.0038 | 0.0092 |
+| `full_extension` | 0.0040 | 0.0109 | 0.0011 |
+| `hip_alternating` | 0.0144 | 0.0000 | 0.0000 |
+| `hip_hold` | 0.0114 | 0.0000 | 0.0000 |
+| `hip_raise` | 0.0105 | 0.0000 | 0.0000 |
+| `knee_alternating` | 0.0006 | 0.0152 | 0.0022 |
+| `knee_extension` | 0.0002 | 0.0113 | 0.0016 |
+| `knee_pulses` | 0.0002 | 0.0115 | 0.0015 |
+| `leg_wave` | 0.0088 | 0.0133 | 0.0050 |
 
-**Declansari: 0.** Decizia D2 (marje per capat) a eliminat complet declansarile
-false de pe capatul de jos; inainte erau 4, toate pe `min`.
+**12 din 12, cu 0 declansari ale supervizorului.** Cea mai mare eroare din tot
+tabelul e 0.0152 rad, adica 0.87 grade.
 
-**Noua din douasprezece trec pe toate patru verdictele.** Cele trei exercitii de
-sold care pica au o cauza comuna si NEELUCIDATA; vezi sectiunea de defect deschis
-de mai jos. Nu e geometrie, nu e supervizor, nu e acordare.
+Inainte de D3, cele patru exercitii de sold lasau articulatia complet nemiscata
+(eroare EGALA cu amplitudinea comandata: 1.3464, 1.2342, 1.1220, 0.7853). Cauza
+e in `docs/material_teza/sold_blocat/`.
 ## Purtarea armarii intre exercitii, si scenariul care a pacalit smoke-ul
 
 Starea supervizorului **se pastreaza intre exercitii** in aceeasi sesiune. Nu e un
@@ -270,7 +271,7 @@ dupa au aratat erori de urmarire uriase. Cauza nu era la ele.
 Cine ruleaza un smoke pe mai multe exercitii trebuie deci sa stie doua lucruri:
 ordinea CONTEAZA, iar o singura declansare timpurie contamineaza tot restul tabelului.
 
-## DEFECT DESCHIS: exercitiile de sold nu misca articulatia prin player
+## DEFECT INCHIS: exercitiile de sold (rezolvat la D3)
 
 Gasit la re-smoke-ul din 22 aug, dupa ce decizia D2 eliminase declansarile false.
 Se raporteaza fara sa fie reparat, fiindca **nu i-am gasit cauza**.

@@ -40,26 +40,32 @@ este cea care da intelesul coloanei "valoare" de mai jos pentru orice unghi.
 | 16 | praguri de raportare in monitor | urmarire 0.10 rad, saturatie 0.98 din limita, plafon de viteza 0.5 rad/s | **ALES PRIN MASURARE** | `scripts/monitor_core.py`; praguri de DEMONSTRATIE, nu cerinte clinice | 21-22 aug |
 | 17 | segmente coapsa / gamba | 0.4287 / 0.4305 m | DERIVAT (ANTROPO) | `scripts/geometrie_core.py`, 0.245 si 0.246 x statura 1.75 | 22 aug |
 | 18 | gabaritul articulatiilor | sold 170, genunchi 142, glezna 60 mm | DOCUMENTAT | fisele componentelor: reductoare SHG-40 si SHG-32, motor TBM60 | 22 aug |
-| 19 | **inaltimea suportului de talpa** | **0.230 m** | **INVARIANT** | `geometrie_core.INALTIME_TALPA`; ALEASA ca invariantul podelei sa treaca. Nu descrie dispozitivul, descrie o cerinta pe care i-am impus-o eu. **Prima de masurat la vizita.** | 22 aug |
+| 19 | **inaltimea suportului de talpa** | **0.250 m** | **INVARIANT** | `geometrie_core.INALTIME_TALPA`; ALEASA ca invariantul podelei sa treaca. Nu descrie dispozitivul, descrie o cerinta pe care i-am impus-o eu. **Prima de masurat la vizita.** | 22 aug |
 | 20 | marja fata de podea | 0.030 m | IPOTEZA | `geometrie_core.MARGINE_PODEA`; cerinta de proiectare aleasa | 22 aug |
-| 21 | plasarea ferestrei soldului | 0..90 in B-prim | IPOTEZA | re-derivata la D1; latimea ramane documentata | 22 aug |
-| 22 | banda de postura sezut | **0..25** in B-prim | **IPOTEZA-ANTROPO** | RE-JUSTIFICATA la P2.1, nu convertita. Forma (0..X) din mecanismul inelului 208 [PDF p.7] plus presupunerea numita ca repausul apartine benzii; capatul X=25 din interferenta coapsa-trunchi, circa 115 grade flexie anatomica. Derivarea completa in `urdf/IPOTEZE_LIMITE.md`. **Proximity-urile o inchid.** | 22 aug |
+| 21 | plasarea ferestrei soldului | **-2..88** in B-prim | IPOTEZA | D3: opritorul sub repaus, ca articulatia sa nu se odihneasca PE limita. Latimea documentata de 90 pastrata | 22 aug |
+| 22 | banda de postura sezut | **-2..25** in B-prim | **IPOTEZA-ANTROPO** | RE-JUSTIFICATA la P2.1, nu convertita. Forma (0..X) din mecanismul inelului 208 [PDF p.7] plus presupunerea numita ca repausul apartine benzii; capatul X=25 din interferenta coapsa-trunchi, circa 115 grade flexie anatomica. Derivarea completa in `urdf/IPOTEZE_LIMITE.md`. **Proximity-urile o inchid.** | 22 aug |
 | 23 | **sensul cursei coloanei de ridicare** | `-0.15 .. 0` m (coboara pentru transfer) | **IPOTEZA** | `urdf/rehab_exo.urdf.xacro`, `seat_lift_joint`. Documentul spune ca exista o coloana de ridicare (reper 101) si ca scaunul "se ridica si coboara" [PDF p.4-5], dar NU da nici cursa, nici sensul fata de o pozitie de referinta. Alegerea ca zeroul sa fie pozitia de LUCRU, iar cursa sa fie negativa, e a mea: decurge din faptul ca inaltimea de lucru e derivata din lantul geometric, deci trebuie sa fie o pozitie fixa, iar transferul cere coborare. La vizita se masoara cursa reala si inaltimile celor doua capete. | 22 aug |
 | 24 | POSTURA_INITIALA | sold 0, genunchi 90, glezna 0 | DERIVAT (fizic) | pozitia de asezare a pacientului; verificata pe 3 conditii in `test/test_postura.py` | 22 aug |
 | 25 | ancora re-derivarii traiectoriilor | literalul 0.6147, nu radians(35.22) | ALES PRIN MASURARE | difera cu 4.4e-6 rad; cu ancora gresita repausul s-ar mapa la -7e-6, adica sub limita | 22 aug |
 ## Ordinea la vizita fizica
 
-1. **inaltimea suportului de talpa (19)** -- singura cota din clasa INVARIANT, adica
+1. **INALTIMEA SCAUNULUI.** Prin alegeri INVARIANT succesive, axa soldului a urcat de
+   la 0.60 la 0.749 m si scaunul la 0.689 -- inaltime de taburet de bar, nu de scaun
+   de reabilitare. Daca dispozitivul real are scaunul la 0.50-0.55, atunci ori
+   geometria talpa/glezna difera, ori marja de podea reala e mai mica. **Prima cifra
+   de masurat**, inaintea oricarei alteia, fiindca de ea atarna tot lantul vertical.
+   Impreuna cu ea: opritoarele reale ale soldului (D3 le presupune la -2 grade).
+2. **inaltimea suportului de talpa (19)** -- singura cota din clasa INVARIANT, adica
    singura aleasa ca sa treaca un test, nu ca sa descrie ceva. Ea determina inaltimea
    soldului si a scaunului, deci greseala ei se propaga in tot modelul.
-2. geometria scaunului si a coloanei: pozitia axei soldului fata de marginea din
+3. geometria coloanei: pozitia axei soldului fata de marginea din
    fata, plus **cursa reala a coloanei 101 si inaltimile celor doua capete** (23) --
    se masoara in aceeasi vizita, cu aceeasi ruleta
-3. lungimile si cursele reale ale push rod-urilor 306 si 403
-4. **unde sunt montate proximitatile (13, 22)** -- inchid DEFINITIV si pragurile
+4. lungimile si cursele reale ale push rod-urilor 306 si 403
+5. **unde sunt montate proximitatile (13, 22)** -- inchid DEFINITIV si pragurile
    electrice, si banda de postura sezut, care acum se sprijina pe o presupunere
    numita (ca repausul apartine benzii) plus un argument antropometric
-5. masele si inertiile (6, 7)
+6. masele si inertiile (6, 7)
 
 ## Ce ar transforma ipotezele in masuratori
 

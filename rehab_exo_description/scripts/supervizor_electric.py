@@ -88,7 +88,7 @@ def main(argv=None):
             self.declare_parameter("marja_sus_deg", math.degrees(sc.MARJA_SUS_RAD))
             # RE-JUSTIFICATA (nu convertita) pe 22 aug: 0..25 grade in B-prim.
             # Derivarea in urdf/IPOTEZE_LIMITE.md; clasa IPOTEZA-ANTROPO.
-            self.declare_parameter("sold_sezut_min_deg", 0.0)
+            self.declare_parameter("sold_sezut_min_deg", -2.0)
             self.declare_parameter("sold_sezut_max_deg", 25.0)
             self.declare_parameter("postura", "culcat")
             self.declare_parameter("hz", 20.0)

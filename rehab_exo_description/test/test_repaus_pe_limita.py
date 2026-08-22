@@ -54,15 +54,42 @@ def _urdf(*arg):
     return f.name
 
 
-def limite(cale):
+def limite(cale, tip=("revolute",)):
     r = ET.parse(cale).getroot()
     out = {}
     for j in r.findall("joint"):
         li = j.find("limit")
-        if li is not None and j.get("type") == "revolute":
+        if li is not None and j.get("type") in tip:
             out[j.get("name")] = (float(li.get("lower")), float(li.get("upper")))
     return out
 
+
+# ARTICULATIILE PRISMATICE se odihnesc TOATE pe cate un capat, si asta e prin
+# constructie: reglajele pleaca de la retras si coloana de la inaltimea de lucru.
+# Ele primesc EXEMPTIE, dar exemptia se demonstreaza, nu se presupune: mecanismul cere
+# ca GRAVITATIA sa impinga articulatia SPRE limita pe care se odihneste. Directia se
+# calculeaza din axa articulatiei in postura de repaus, iar verificarea empirica (se
+# misca sau nu la comanda) e in raportul zilei.
+STATUT_PRISMATICE = {
+    # Rationamentul de mai jos e cel gravitational. Verificarea EMPIRICA din 22 aug
+    # l-a CONTRAZIS partial, si asta se scrie aici in loc sa fie ascuns: comandate sa
+    # se mute de la repaus, doua din trei NU s-au miscat. Deci NU sunt exemptii
+    # dovedite, sunt items DESCHISE cu rationament scris. Cauza nu e stabilita si
+    # poate fi alta decat mecanismul soldului; exercitiile nu le folosesc, deci nu
+    # afecteaza cele 12.
+    "seat_lift_joint":
+        "repaus la 0 = capatul de SUS (-0.15..0); gravitatia impinge DINSPRE el. "
+        "EMPIRIC: comandat -0.05, a coborat pana la -0.15, adica pe celalalt capat. "
+        "Se misca, dar nu se opreste unde i se cere. DESCHIS.",
+    "left_thigh_ext_joint":
+        "axa in lungul coapsei, orizontala la repaus; gravitatia nu are componenta pe "
+        "axa. EMPIRIC: comandat +0.04, nu s-a miscat. DESCHIS.",
+    "right_thigh_ext_joint": "idem stanga. DESCHIS.",
+    "left_shank_ext_joint":
+        "axa in lungul gambei, verticala la repaus; gravitatia impinge SPRE extindere, "
+        "dinspre limita 0. EMPIRIC: comandat +0.04, nu s-a miscat. DESCHIS.",
+    "right_shank_ext_joint": "idem stanga. DESCHIS.",
+}
 
 def main(argv):
     n = [0]
@@ -89,6 +116,23 @@ def main(argv):
                     rele.append((postura, j, math.degrees(v), math.degrees(lo),
                                  math.degrees(hi), math.degrees(min(jos, sus))))
                 n[0] += 1
+
+    # PRISMATICE: fiecare trebuie sa aiba verdict -- fie rezerva, fie exemptie SCRISA.
+    # O articulatie fara niciunul din cele doua e o scapare, nu o exceptie.
+    lim_p = limite(_urdf(ctrl), tip=("prismatic",))
+    fara_verdict = []
+    for j, (lo, hi) in sorted(lim_p.items()):
+        v = 0.0     # toate reglajele pornesc de la zero
+        pe_limita = min(v - lo, hi - v) < REZERVA_RAD
+        if pe_limita and j not in STATUT_PRISMATICE:
+            fara_verdict.append(j)
+        n[0] += 1
+    ok(not fara_verdict,
+       "articulatii prismatice care se odihnesc pe limita si NU au STATUT scris: %s"
+       % fara_verdict)
+    print("  prismatice: %d verificate, %d cu statut scris (toate DESCHISE -- "
+          "verificarea empirica a contrazis rationamentul gravitational)" %
+          (len(lim_p), len([j for j in lim_p if j in STATUT_PRISMATICE])))
 
     if rele:
         print("  ARTICULATII CU REPAUSUL PE LIMITA (rezerva ceruta %.1f grade):"
