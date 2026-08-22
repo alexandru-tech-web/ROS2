@@ -368,7 +368,14 @@ def build(name: str, reps: int, q_init=None) -> Program:
     q_init = pozitia curenta a articulatiilor: traiectoria porneste de
     acolo (comutare live fara salt). Pentru sesiuni, `reps` repeta sesiunea."""
     if name == "neutral":
-        prog = Program("neutral", [(2.0, {j: 0.0 for j in JOINT_NAMES}), (0.5, {})],
+        # TINTA E POSTURA_INITIALA, nu zero pe toate articulatiile. Pana pe 22 aug
+        # `neutral` ducea robotul la tot-zero, adica la piciorul complet INTINS -- nu
+        # la postura de asezare a pacientului, care e chiar ce promite docstringul de
+        # mai sus. Demo-ul porneste cu `neutral`, deci fiecare sesiune incepea in
+        # extensie completa. Bugul e vizibil in conventia B-prim, unde zero pe genunchi
+        # NU mai inseamna postura de lucru; in conventia veche coincideau.
+        prog = Program("neutral",
+                       [(2.0, dict(POSTURA_INITIALA)), (0.5, {})],
                        1, q_init=q_init)
         prog.reps = 1
         return prog
