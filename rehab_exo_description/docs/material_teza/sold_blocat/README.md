@@ -71,3 +71,48 @@ prin extensie completa si una care nu.
 Doua brate de test in ACEEASI sesiune se contamineaza: al doilea porneste din starea
 lasata de primul. M-a pacalit o data (a dat "use_sim_time e cauza", fals). Orice
 comparatie A/B se face in sesiuni separate.
+
+---
+
+# MECANISM GASIT (22 aug 2026, vanatoarea 2)
+
+> **Soldul se odihneste exact PE limita lui inferioara (0 grade), acolo unde
+> gravitatia il impinge cu coapsa orizontala. Constrangerea de limita din solverul de
+> fizica tine articulatia, iar comanda de viteza a lui gz_ros2_control nu o poate
+> elibera. Genunchiul nu pateste asta fiindca aceeasi gravitatie il impinge DINSPRE
+> limita lui, spre flexie.**
+
+## Dovada: A/B cu o singura variabila
+
+Sesiuni curate, aceeasi comanda (un punct, sold 1.3464 rad), restul identic:
+
+| limita inferioara a soldului | rezultat |
+|---|---|
+| 0 grade (cea din model) | soldul ramane la **-0.0000** |
+| -3 grade (repausul strict in interior) | soldul ajunge la **+1.3464** |
+| 0 grade, control de revenire | **-0.0000** din nou |
+
+Controlul de revenire conteaza: fara el, diferenta ar fi putut fi variatie intre rulari.
+
+## De ce explica TOT ce s-a observat
+
+- **De ce doar soldul.** Cu piciorul intins, gravitatia roteste coapsa in JOS, adica
+  spre limita inferioara a soldului (0). Aceeasi gravitatie trage gamba in jos, ceea
+  ce inseamna FLEXIE la genunchi, adica DINSPRE limita lui inferioara. Glezna la fel.
+- **De ce depinde de istoric.** Din postura de lucru soldul e in interiorul cursei si
+  se misca; dupa trecerea prin extensie completa se aseaza pe limita si se intepeneste.
+- **De ce exercitiile care comanda si genunchiul pareau ca merg.** Nu genunchiul le
+  salva: `full_extension` porneste cu soldul deja deplasat de segmentul anterior.
+- **De ce esecul e SUB JTC.** JTC isi raporteaza corect eroarea (1.346379) pe o
+  interfata pe care o detine singur. Comanda pleaca; constrangerea de limita din
+  solver o inghite.
+
+## Regresia numita
+
+`test/test_repaus_pe_limita.py`. Regula: pozitia de repaus a fiecarei articulatii
+actionate trebuie sa fie STRICT in interiorul limitelor, cu rezerva de 2 grade.
+Inregistrata in suita DESI PICA: defectul e real si cunoscut, iar o suita verde care
+il ascunde ar fi mai rea decat una rosie care il arata.
+
+Nu e o subtilitate de simulator: o masina reala care se odihneste pe propriul opritor
+mecanic isi macina opritorul si nu are de unde sa plece la pornire.

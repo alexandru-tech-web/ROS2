@@ -132,6 +132,17 @@ if(BUILD_TESTING)
     RESULT_FILE "${CMAKE_BINARY_DIR}/test_recorder.xunit.xml"
     TIMEOUT 60)
 
+  # REGRESIE NUMITA pentru mecanismul "repausul pe limita" (22 aug 2026). E
+  # inregistrata desi PICA: defectul e real, cunoscut si documentat, iar o suita verde
+  # care il ascunde ar fi mai rea decat una rosie care il arata. Trece cand fereastra
+  # soldului se replaseaza; decizia e a omului, vezi raportul.
+  ament_add_test(test_repaus_pe_limita
+    GENERATE_RESULT_FOR_RETURN_CODE_ZERO
+    COMMAND "/usr/bin/python3" "${CMAKE_CURRENT_SOURCE_DIR}/test/test_repaus_pe_limita.py"
+    OUTPUT_FILE "${CMAKE_BINARY_DIR}/test_repaus_pe_limita.log"
+    RESULT_FILE "${CMAKE_BINARY_DIR}/test_repaus_pe_limita.xunit.xml"
+    TIMEOUT 120)
+
   ament_add_test(test_postura
     GENERATE_RESULT_FOR_RETURN_CODE_ZERO
     COMMAND "/usr/bin/python3" "${CMAKE_CURRENT_SOURCE_DIR}/test/test_postura.py"
