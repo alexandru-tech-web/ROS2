@@ -241,11 +241,16 @@
         <geometry><box size="0.1400 0.1000 ${g_sold_inaltime - g_placa_grosime}"/></geometry>
         <material name="frame_gri"/>
       </visual>
-      <collision>
-        <origin xyz="${g_sold_x} ${sy * g_sold_y} ${(g_placa_grosime + g_sold_inaltime)/2}"
-                rpy="0 0 0"/>
-        <geometry><box size="0.1400 0.1000 ${g_sold_inaltime - g_placa_grosime}"/></geometry>
-      </collision>
+      <!-- FARA COLIZIUNE, si asta nu e o scurtatura. Coloana urca EXACT pana la axa
+           soldului, iar coapsa are grosime, deci cele doua au un volum comun
+           permanent langa pivot: x in [0, 0.07] si z in [0.689, 0.729]. Cum
+           base_link si coapsa nu sunt parinte-copil, Gazebo le ciocneste si
+           BLOCHEAZA soldul complet; masurat pe 22 aug, referinta urca la 1.3464 rad
+           si masuratul ramane la 0.0000 pe toata durata exercitiului.
+           Bracketul real are un decupaj de gabarit in jurul pivotului, dar geometria
+           lui nu e in document (acelasi GAP ca restul cotelor). Pana cand exista,
+           coloana ramane element VIZUAL: prezenta ei in coliziuni ar fi o
+           constrangere INVENTATA, mai rea decat absenta ei. -->
     </xacro:macro>
     <xacro:coloana_sold sy="1"/>
     <xacro:coloana_sold sy="-1"/>

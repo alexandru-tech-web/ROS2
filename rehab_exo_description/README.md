@@ -202,6 +202,93 @@ Consecinta de stiut: cu comanda cinematica NU exista rejectie de perturbatie. Ca
 modelul de pacient va aplica forte reale, e nevoie de comanda in EFORT, si atunci
 acordarea se reia de la zero.
 
+## Exercitii
+
+Toate sunt in conventia B-prim (`convention_version B1`). Se pornesc fie ca
+argument al demo-ului, fie trimise la runtime:
+
+```bash
+ros2 launch rehab_exo_description demo_c4.launch.py exercitiu:=knee_extension
+ros2 topic pub --once /exercise_cmd std_msgs/msg/String "{data: 'hip_raise'}"
+```
+
+| exercitiu | articulatii | puncte | durata | repetari |
+|---|---|---:|---:|---:|
+| `alternating_march` | hip+knee | 192 | 19.2 s | 3 |
+| `ankle_alternating` | knee+ankle | 171 | 17.1 s | 3 |
+| `ankle_holds` | knee+ankle | 243 | 24.3 s | 2 |
+| `ankle_pump` | knee+ankle | 160 | 15.9 s | 3 |
+| `full_extension` | hip+knee+ankle | 191 | 19.0 s | 2 |
+| `hip_alternating` | hip | 185 | 18.4 s | 2 |
+| `hip_hold` | hip | 181 | 18.0 s | 2 |
+| `hip_raise` | hip | 196 | 19.5 s | 3 |
+| `knee_alternating` | knee+ankle | 211 | 21.0 s | 2 |
+| `knee_extension` | knee+ankle | 226 | 22.5 s | 3 |
+| `knee_pulses` | knee+ankle | 187 | 18.6 s | 2 |
+| `leg_wave` | hip+knee+ankle | 233 | 23.2 s | 2 |
+
+### Smoke pe toate cele 12, cu supervizor activ (22 aug 2026)
+
+Rulate intr-o singura sesiune Gazebo, trimise pe rand pe `/exercise_cmd`.
+Verdictele sunt calculate cu ACELEASI functii pure ca monitorul.
+
+| exercitiu | URMARIRE | COERENTA | CANALE | VITEZA | eroare max |
+|---|---|---|---|---|---:|
+| `alternating_march` | OK | OK | OK | OK | 0.0000 |
+| `ankle_alternating` | OK | OK | OK | OK | 0.0000 |
+| `ankle_holds` | OK | OK | OK | OK | 0.0000 |
+| `ankle_pump` | OK | OK | OK | OK | 0.0000 |
+| `full_extension` | OK | OK | OK | OK | 0.0000 |
+| `hip_alternating` | ATENTIE | OK | OK | OK | 1.1145 |
+| `hip_hold` | ATENTIE | OK | OK | OK | 1.1935 |
+| `hip_raise` | OK | OK | OK | OK | 0.0000 |
+| `knee_alternating` | OK | OK | OK | OK | 0.0011 |
+| `knee_extension` | OK | OK | OK | OK | 0.0000 |
+| `knee_pulses` | OK | OK | OK | OK | 0.0000 |
+| `leg_wave` | ATENTIE | OK | OK | OK | 0.2335 |
+
+**Trei exercitii pica pe URMARIRE, si toate trei din ACEEASI cauza.**
+Nu e o problema de geometrie sau de urmarire: e supervizorul care s-a
+declansat devreme, a facut latch si a tinut articulatia pentru tot restul
+sesiunii. Vezi sectiunea urmatoare. Coloana de declansari nu apare in tabel
+fiindca proba se abonase DUPA ce latch-ul pornise si le subnumara; cifra
+corecta, din log, e 4 declansari in toata sesiunea.
+
+## DEFECT DESCHIS: pragul electric inferior intra in conflict cu exercitiile
+
+Gasit de smoke-ul complet pe 22 aug. Se raporteaza cu cifre si NU se repara tacit;
+e o decizie despre stratul de siguranta, nu o corectie de model.
+
+Pragul electric sta la 5 grade INAUNTRU fata de limita mecanica, la AMBELE capete.
+Dar exercitiile folosesc legitim capatul de jos al ferestrei documentate:
+
+| articulatie | prag electric inferior | cea mai mica valoare ceruta de exercitii |
+|---|---:|---:|
+| sold | 5.00 grade | **0.00 grade** (repausul insusi) |
+| genunchi | 5.00 grade | **4.06 grade** |
+
+Deci orice exercitiu care revine la repaus trece sub prag, declanseaza, iar
+supervizorul FACE LATCH si tine articulatia pana la finalul sesiunii. Masurat: 4
+declansari, toate pe capatul `min`, la 0.0664 pana la 0.0781 rad.
+
+Cauza de fond e o ordonare gresita a straturilor. Corect ar fi
+`mecanic > electric > software`, adica traiectoriile sa stea INAUNTRUL ferestrei
+electrice. La noi traiectoriile ating capatul MECANIC, deci il incalca pe cel
+electric prin constructie.
+
+Doua rezolvari, ambele aparabile, si alegerea e a omului:
+
+1. **Traiectoriile se re-deriva in fereastra electrica** (`[5, 85]` in loc de
+   `[0, 90]`). Respecta ordonarea manualelor, dar inseamna inca o remapare si
+   pierde 10 grade din cursa documentata.
+2. **Pragul inferior dispare acolo unde limita mecanica E pozitia de repaus.**
+   In B-prim, soldul la 0 e coapsa orizontala, adica exact unde sta dispozitivul; un
+   proximity montat acolo ar fi apasat permanent. Pericolul e SUB acel punct, iar
+   fereastra nu are loc dedesubt.
+
+Pana la decizie, demo-ul cu supervizor activ va declansa pe exercitiile care revin
+la repaus. `supervizor:=false` il scoate din lant pentru demonstratii.
+
 ## Siguranta: cele TREI straturi
 
 Nu se inlocuiesc si nu se sincronizeaza. Fiecare prinde alta clasa de esec.
