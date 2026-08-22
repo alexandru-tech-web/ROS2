@@ -118,12 +118,36 @@ def main(argv):
         ok(not s.pas(boot), "pornirea la 0.0 NU are voie sa declanseze")
     ok(s.stare["left_hip_joint"] == sc.NEARMAT, "soldul ramane nearmat la pornire")
 
-    # 6. postura initiala a exercitiilor: se armeaza si NU declanseaza
+    # 6. POSTURA_INITIALA E CHIAR PE MARGINE, si asta e acum situatia normala, nu un
+    # caz limita. De la re-ancorarea din 22 aug soldul sta la 0, adica exact capatul
+    # de jos al benzii, deci SUB pragul electric. Un supervizor fara armare ar
+    # declansa la fiecare asezare a pacientului.
+    # Se cere deci: zero declansari, si soldul NEARMAT PRIN PROIECTARE -- nu "armat",
+    # cum cerea versiunea de dinainte, cand postura era la 35.22 grade.
     import exercise_core as ec
-    s2 = sc.Supervizor(sc.praguri_electrice(lim))
-    ok(not s2.pas(ec.POSTURA_INITIALA), "POSTURA_INITIALA nu declanseaza")
-    ok(all(v == sc.ARMAT for v in s2.stare.values()),
-       "POSTURA_INITIALA e destul de inauntru cat sa armeze toate articulatiile")
+    lim_sez = limite_sezut(lim, math.radians(_proprietate_xacro("sold_sezut_min_deg")),
+                           math.radians(_proprietate_xacro("sold_sezut_max_deg")))
+    for lim_post, et in ((lim, "culcat"), (lim_sez, "sezut")):
+        s2 = sc.Supervizor(sc.praguri_electrice(lim_post))
+        for _ in range(50):
+            ok(not s2.pas(ec.POSTURA_INITIALA),
+               "%s: POSTURA_INITIALA nu are voie sa declanseze, niciodata" % et)
+        for j in ("left_hip_joint", "right_hip_joint"):
+            ok(s2.stare[j] == sc.NEARMAT,
+               "%s: %s ar trebui NEARMAT la postura initiala (e chiar pe capat)"
+               % (et, j))
+        for j in ("left_knee_joint", "right_knee_joint"):
+            ok(s2.stare[j] == sc.ARMAT,
+               "%s: genunchiul la 90 de grade e bine inauntru, deci SE armeaza" % et)
+    # ... iar dupa ce soldul intra in zona sigura, se armeaza si poate declansa
+    s3 = sc.Supervizor(sc.praguri_electrice(lim))
+    s3.pas(dict(ec.POSTURA_INITIALA, left_hip_joint=math.radians(30.0),
+                right_hip_joint=math.radians(30.0)))
+    ok(s3.stare["left_hip_joint"] == sc.ARMAT,
+       "dupa ce intra la 30 de grade soldul trebuie sa se armeze")
+    ok(len(s3.pas(dict(ec.POSTURA_INITIALA, left_hip_joint=math.radians(88.0),
+                       right_hip_joint=math.radians(88.0)))) == 2,
+       "odata armat, soldul trebuie sa poata declansa")
 
     print("test_supervizor: %d verificari OK (limite din URDF, pragul de sezut "
           "sincron cu xacro, pornire pe margine)." % n[0])

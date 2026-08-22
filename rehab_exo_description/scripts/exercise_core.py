@@ -65,12 +65,23 @@ LIMITS = {
     "ankle": (-0.61087, 0.61087),  # -35..+35 grade [PDF Tabel 3.1, split GAP 4]
 }
 
-# POSTURA INITIALA. In conventia veche era implicit {toate 0.0} = fizic SEZUT. In
-# conventia anatomica zero inseamna CULCAT DREPT, deci starea initiala se declara
-# explicit. Genunchiul si glezna pastreaza postura fizica veche; soldul urmeaza
-# re-derivarea (fractia 0.3913 din cursa veche devine aceeasi fractie din cea noua).
+# POSTURA INITIALA, RE-ANCORATA FIZIC pe 22 aug 2026 (conventia B-prim, D1).
+#
+# Nu mai e o fractie mostenita, ci POZITIA DE ASEZARE a pacientului, descrisa direct:
+#   sold 0      coapsa pe sezut, orizontala. In B-prim zero CHIAR E repausul.
+#   genunchi 90 gamba atarna vertical, talpa pe suport.
+#   glezna 0    talpa perpendiculara pe gamba.
+#
+# Ce a fost inainte, si de ce a murit: la M1 soldul primise 35.22 grade, pastrand
+# fractia 0.3913 din cursa veche. Fractia era o mostenire aritmetica, nu o postura:
+# 35.22 nu descria nimic fizic, si in conventia noua ar fi insemnat coapsa ridicata
+# la 35 de grade deasupra orizontalei, adica pacientul asezat cu genunchii in sus.
+#
+# Cele trei conditii sunt VERIFICATE, nu presupuse, in test/test_postura.py:
+# apartenenta la banda de sezut, invariantul podelei, si FK-ul care arata gamba
+# verticala.
 import math as _math
-POSTURA_INITIALA_DEG = {"hip": 35.22, "knee": 90.0, "ankle": 0.0}
+POSTURA_INITIALA_DEG = {"hip": 0.0, "knee": 90.0, "ankle": 0.0}
 POSTURA_INITIALA = {
     j: _math.radians(POSTURA_INITIALA_DEG[
         "hip" if "hip" in j else ("knee" if "knee" in j else "ankle")])

@@ -99,6 +99,13 @@ if(BUILD_TESTING)
     RESULT_FILE "${CMAKE_BINARY_DIR}/test_rmw_mutant.xunit.xml"
     TIMEOUT 300)
 
+  ament_add_test(test_postura
+    GENERATE_RESULT_FOR_RETURN_CODE_ZERO
+    COMMAND "/usr/bin/python3" "${CMAKE_CURRENT_SOURCE_DIR}/test/test_postura.py"
+    OUTPUT_FILE "${CMAKE_BINARY_DIR}/test_postura.log"
+    RESULT_FILE "${CMAKE_BINARY_DIR}/test_postura.xunit.xml"
+    TIMEOUT 300)
+
   ament_add_test(test_podea
     GENERATE_RESULT_FOR_RETURN_CODE_ZERO
     COMMAND "/usr/bin/python3" "${CMAKE_CURRENT_SOURCE_DIR}/test/test_podea.py"
