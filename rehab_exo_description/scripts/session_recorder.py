@@ -99,6 +99,7 @@ def main(argv=None):
             self.val = {}
             self.contor = {}
             self.randuri = 0
+            self.nan = {}
             self.t0_sim = None
             self.t0_perete = time.time()
             self.evenimente = 0
@@ -193,6 +194,10 @@ def main(argv=None):
         def _tic(self):
             if "joint_states" not in self.contor:
                 return          # nu se scriu randuri inainte sa existe date
+            for c in COL:
+                v = self.val.get(c)
+                if v is None or (isinstance(v, float) and math.isnan(v)):
+                    self.nan[c] = self.nan.get(c, 0) + 1
             self.f.write(rc.rand(self._t(), self.val, COL) + "\n")
             self.randuri += 1
 
@@ -201,7 +206,8 @@ def main(argv=None):
             perete = time.time() - self.t0_perete
             rtf = (durata / perete) if perete > 0.5 else None
             self.f.write("# rtf_mediu: %s\n" % ("%.3f" % rtf if rtf else "NECUNOSCUT"))
-            L, ok, rele = rc.subsol(self.contor, self.randuri, self.rata, durata)
+            L, ok, rele = rc.subsol(self.contor, self.randuri, self.rata, durata,
+                                    nan=self.nan)
             for l in L:
                 self.f.write(l + "\n")
             self.f.flush()

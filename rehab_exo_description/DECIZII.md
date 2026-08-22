@@ -75,3 +75,47 @@ cu repausul la zero si nu se transporta ca adevar, ci ca numar de convertit.
   gresit;
 - invariantul podelei devine test permanent: argumentul care a decis conventia nu are
   voie sa ramana o amintire.
+
+---
+
+## D2 (22 aug 2026, decizie a lui Alexandru) -- Marje electrice PER CAPAT
+
+**Ce s-a decis.** Stratul electric nu mai are o marja simetrica. Fiecare capat isi
+are marja lui, ca parametru per articulatie:
+
+| capat | marja | clasa |
+|---|---:|---|
+| jos | **0 grade** | IPOTEZA |
+| sus | **5 grade** | IPOTEZA |
+
+Ambele se inchid definitiv de pozitiile proximity-urilor, la vizita fizica.
+
+### De ce: coerenta interna, nu preferinta
+
+Repausul la sold 0 e **fapt documentat** -- e postura de sezut, si chiar ancora
+conventiei B-prim. Un strat electric a carui zona interzisa CONTINE starea de repaus
+documentata e **auto-contradictoriu**: pe dispozitivul real, proximity-ul de jos e
+prin necesitate la sau sub repaus, altfel robotul s-ar autodeclansa stand pe loc.
+
+Nu e un argument teoretic. Cu marja simetrica de 5 grade, smoke-ul complet din aceeasi
+zi a dat 4 declansari, toate pe capatul `min`, intre 0.0664 si 0.0781 rad, si trei
+exercitii tinute de propriul supervizor pana la finalul sesiunii.
+
+### Ce a fost respins, si de ce
+
+**Prag conditionat de viteza** ("declanseaza doar la apropiere rapida"): e o ipoteza
+COMPORTAMENTALA despre dispozitiv, mai mare decat cea pe care o inlocuieste, si fara
+niciun sprijin in document.
+
+**Mutarea traiectoriilor** in fereastra electrica: traiectoriile sunt cele mai
+auditate obiecte din pachet (3858 de verificari, doi invarianti separati), si oricum
+repausul nu poate fi mutat de la 0 -- acolo E.
+
+### Ce constrange
+
+- capatul de jos nu mai protejeaza nimic, si asta e intentionat: acolo protejeaza
+  invariantul podelei si limita mecanica din URDF;
+- controalele negative ale armarii si ale comutarii s-au mutat pe capatul de SUS,
+  fiindca jos cele doua praguri coincid acum si nu mai pot arata o diferenta;
+- `supervizor:=false` ramane PORTITA DE DEPANARE. Demonstratiile pentru coordonator
+  ruleaza cu supervizorul in lant.

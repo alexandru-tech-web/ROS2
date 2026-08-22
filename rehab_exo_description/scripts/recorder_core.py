@@ -103,7 +103,7 @@ def verdict_pierderi(primite, randuri, rata_hz, durata_s, prag=PRAG_ACOPERIRE):
     return (not rele, rele)
 
 
-def subsol(primite, randuri, rata_hz, durata_s, prag=PRAG_ACOPERIRE):
+def subsol(primite, randuri, rata_hz, durata_s, prag=PRAG_ACOPERIRE, nan=None):
     """Liniile de inchidere. Contoarele intra in FISIER, nu doar in log: un CSV
     trimis mai departe trebuie sa-si poarte singur avertismentele."""
     ok, rele = verdict_pierderi(primite, randuri, rata_hz, durata_s, prag)
@@ -113,6 +113,18 @@ def subsol(primite, randuri, rata_hz, durata_s, prag=PRAG_ACOPERIRE):
          "# mesaje primite per canal:"]
     for canal, n in sorted(primite.items()):
         L.append("#   %-28s %d" % (canal, n))
+    if nan:
+        # DEFALCAREA NaN PER COLOANA. Un total agregat se poate potrivi "aproape" cu
+        # asteptarea si sa ascunda o coloana care nu trebuia sa fie NaN deloc; pe
+        # coloane, cifra se explica singura. Se listeaza doar coloanele care CHIAR au
+        # NaN-uri, ca subsolul sa nu creasca degeaba.
+        cu_nan = [(c, k) for c, k in sorted(nan.items()) if k]
+        L.append("# campuri NaN pe coloana (total %d):" % sum(k for _, k in cu_nan))
+        for c, k in cu_nan:
+            plin = " (INTEGRAL)" if k == randuri else ""
+            L.append("#   %-28s %d%s" % (c, k, plin))
+        if not cu_nan:
+            L.append("#   (niciunul)")
     if ok:
         L.append("# verdict: toate canalele au livrat")
     else:
@@ -187,6 +199,18 @@ def _selftest():
     ok(any("ATENTIE" in l for l in L), "avertismentul trebuie sa fie IN fisier")
     ok(any("forta_6d_left" in l for l in L), "canalul problematic e numit in fisier")
     ok(any("randuri scrise: 500" in l for l in L), "numarul de randuri intra in subsol")
+    # 6b. DEFALCAREA NaN pe coloane: o coloana integral NaN se marcheaza ca atare,
+    # iar totalul din subsol trebuie sa fie suma coloanelor, nu o cifra care se
+    # potriveste "aproape".
+    L_nan, _, _ = subsol({"a": 100}, 100, 50.0, 2.0,
+                         nan={"f6d.left.force.y": 100, "a_joint.pos": 3, "curat": 0})
+    ok(any("INTEGRAL" in l and "force.y" in l for l in L_nan),
+       "o coloana integral NaN trebuie marcata INTEGRAL")
+    ok(any("a_joint.pos" in l and " 3" in l for l in L_nan), "NaN partiali se numara")
+    ok(not any("curat" in l for l in L_nan),
+       "coloanele fara NaN nu se listeaza, ca subsolul sa nu creasca degeaba")
+    ok(any("total 103" in l for l in L_nan),
+       "totalul din subsol trebuie sa fie suma coloanelor")
     L2, o4, _ = subsol({"a": 500}, 500, 50.0, 10.0)
     ok(any("toate canalele au livrat" in l for l in L2),
        "cazul curat trebuie sa se vada ca atare, nu prin absenta avertismentului")

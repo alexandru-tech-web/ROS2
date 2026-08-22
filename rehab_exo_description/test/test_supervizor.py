@@ -102,8 +102,12 @@ def main(argv):
     for eticheta, L in (("culcat", lim), ("sezut", lim_s)):
         P = sc.praguri_electrice(L)
         for j, (lo, hi) in P.items():
-            ok(lo > L[j][0] and hi < L[j][1],
-               "%s/%s: pragul electric trebuie strict inauntru" % (eticheta, j))
+            # D2: marje PER CAPAT. Jos pragul coincide cu limita mecanica (repausul
+            # nu e zona interzisa), sus e strict inauntru.
+            ok(abs(lo - L[j][0]) < 1e-12,
+               "%s/%s: jos pragul trebuie sa coincida cu limita mecanica" % (eticheta, j))
+            ok(hi < L[j][1],
+               "%s/%s: sus pragul trebuie sa fie strict inauntru" % (eticheta, j))
             ok(hi - lo >= 2 * sc.BANDA_ARMARE_RAD,
                "%s/%s: fereastra prea ingusta pentru banda de armare" % (eticheta, j))
 
@@ -134,8 +138,8 @@ def main(argv):
                "%s: POSTURA_INITIALA nu are voie sa declanseze, niciodata" % et)
         for j in ("left_hip_joint", "right_hip_joint"):
             ok(s2.stare[j] == sc.NEARMAT,
-               "%s: %s ar trebui NEARMAT la postura initiala (e chiar pe capat)"
-               % (et, j))
+               "%s: %s ar trebui NEARMAT la postura initiala (e chiar pe capat, iar "
+               "banda de armare cere sa se intre mai adanc)" % (et, j))
         for j in ("left_knee_joint", "right_knee_joint"):
             ok(s2.stare[j] == sc.ARMAT,
                "%s: genunchiul la 90 de grade e bine inauntru, deci SE armeaza" % et)

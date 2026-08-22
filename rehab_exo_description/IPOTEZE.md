@@ -34,7 +34,7 @@ este cea care da intelesul coloanei "valoare" de mai jos pentru orice unghi.
 | 10 | offset de montaj al senzorului de glezna | +-0.012 rad | IPOTEZA | `senzori_core.OFFSET_MONTAJ_GLEZNA`; deliberat, ca senzorul sa nu fie o copie a lui `/joint_states` | 21 aug |
 | 11 | `position_proportional_gain` | 1.0 | **ALES PRIN MASURARE** | `config/controllers.yaml`; 15.0 producea oscilatie, 1.0 nu | 22 aug |
 | 12 | inaltimea de aparitie | 1.2 m | **ALES PRIN MASURARE** | la 0, talpile intra in podea si contactul falsifica urmarirea | 21 aug |
-| 13 | marja pragului ELECTRIC | 5 grade sub opritor | IPOTEZA | `supervizor_core.MARJA_IMPLICITA_RAD`; proximitatile reale nemasurate | 22 aug |
+| 13 | marje electrice PER CAPAT | **jos 0, sus 5 grade** | IPOTEZA | D2: repausul nu e zona interzisa; `supervizor_core.MARJA_JOS_RAD` / `MARJA_SUS_RAD`. **Proximity-urile le inchid; au urcat pe agenda vizitei.** | 22 aug |
 | 14 | banda de armare (histerezis) | 2 grade | IPOTEZA | `supervizor_core.BANDA_ARMARE_RAD` | 22 aug |
 | 15 | praguri terapeutice de cuplu/viteza | vezi fisier | IPOTEZA | `config/safety_limits.yaml`; de stabilit cu personal clinic | anterior |
 | 16 | praguri de raportare in monitor | urmarire 0.10 rad, saturatie 0.98 din limita, plafon de viteza 0.5 rad/s | **ALES PRIN MASURARE** | `scripts/monitor_core.py`; praguri de DEMONSTRATIE, nu cerinte clinice | 21-22 aug |

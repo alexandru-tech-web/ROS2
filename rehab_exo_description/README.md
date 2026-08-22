@@ -227,7 +227,7 @@ ros2 topic pub --once /exercise_cmd std_msgs/msg/String "{data: 'hip_raise'}"
 | `knee_pulses` | knee+ankle | 187 | 18.6 s | 2 |
 | `leg_wave` | hip+knee+ankle | 233 | 23.2 s | 2 |
 
-### Smoke pe toate cele 12, cu supervizor activ (22 aug 2026)
+### Smoke pe toate cele 12, cu supervizor activ (dupa decizia D2)
 
 Rulate intr-o singura sesiune Gazebo, trimise pe rand pe `/exercise_cmd`.
 Verdictele sunt calculate cu ACELEASI functii pure ca monitorul.
@@ -238,107 +238,70 @@ Verdictele sunt calculate cu ACELEASI functii pure ca monitorul.
 | `ankle_alternating` | OK | OK | OK | OK | 0.0000 |
 | `ankle_holds` | OK | OK | OK | OK | 0.0000 |
 | `ankle_pump` | OK | OK | OK | OK | 0.0000 |
-| `full_extension` | OK | OK | OK | OK | 0.0000 |
-| `hip_alternating` | ATENTIE | OK | OK | OK | 1.1145 |
-| `hip_hold` | ATENTIE | OK | OK | OK | 1.1935 |
+| `full_extension` | OK | OK | OK | OK | 0.0081 |
+| `hip_alternating` | ATENTIE | OK | OK | OK | 1.0960 |
+| `hip_hold` | ATENTIE | OK | OK | OK | 1.0825 |
 | `hip_raise` | OK | OK | OK | OK | 0.0000 |
-| `knee_alternating` | OK | OK | OK | OK | 0.0011 |
+| `knee_alternating` | OK | OK | OK | OK | 0.0010 |
 | `knee_extension` | OK | OK | OK | OK | 0.0000 |
-| `knee_pulses` | OK | OK | OK | OK | 0.0000 |
-| `leg_wave` | ATENTIE | OK | OK | OK | 0.2335 |
+| `knee_pulses` | OK | OK | OK | OK | 0.0076 |
+| `leg_wave` | ATENTIE | OK | OK | OK | 0.2914 |
 
-**Trei exercitii pica pe URMARIRE, si toate trei din ACEEASI cauza.**
-Nu e o problema de geometrie sau de urmarire: e supervizorul care s-a
-declansat devreme, a facut latch si a tinut articulatia pentru tot restul
-sesiunii. Vezi sectiunea urmatoare. Coloana de declansari nu apare in tabel
-fiindca proba se abonase DUPA ce latch-ul pornise si le subnumara; cifra
-corecta, din log, e 4 declansari in toata sesiunea.
+**Declansari: 0.** Decizia D2 (marje per capat) a eliminat complet declansarile
+false de pe capatul de jos; inainte erau 4, toate pe `min`.
 
-## Panoul de date
+**Noua din douasprezece trec pe toate patru verdictele.** Cele trei exercitii de
+sold care pica au o cauza comuna si NEELUCIDATA; vezi sectiunea de defect deschis
+de mai jos. Nu e geometrie, nu e supervizor, nu e acordare.
+## Purtarea armarii intre exercitii, si scenariul care a pacalit smoke-ul
 
-Trei nivele, de la cel mai ieftin la cel mai complet.
+Starea supervizorului **se pastreaza intre exercitii** in aceeasi sesiune. Nu e un
+bug, e comportament de dispozitiv: un pacient nu se ridica de pe scaun intre doua
+serii, deci nici supravegherea nu reporneste. Consecinta practica: o articulatie
+armata la primul exercitiu ramane armata la al doilea, iar un latch dintr-un
+exercitiu tine pana la o rearmare explicita.
 
-**1. Tabloul din terminal**, 2 Hz, patru verdicte, NaN vizibil ca NaN. Porneste
-odata cu demo-ul; separat:
+Asta a produs si un rezultat inselator la primul smoke complet. Rulate in ordine
+alfabetica intr-o singura sesiune, exercitiile de genunchi armasera deja
+articulatiile cand a venit randul celor de sold; primul exercitiu care a atins
+capatul de jos a declansat, supervizorul a facut latch, iar toate exercitiile de
+dupa au aratat erori de urmarire uriase. Cauza nu era la ele.
 
-```bash
-ros2 run rehab_exo_description monitor_senzori.py
-```
+Cine ruleaza un smoke pe mai multe exercitii trebuie deci sa stie doua lucruri:
+ordinea CONTEAZA, iar o singura declansare timpurie contamineaza tot restul tabelului.
 
-**2. Grafice live cu rqt_plot.** NU exista un config salvat in pachet: contextul in
-care se lucra il presupunea existent, dar nu e nicaieri, si se noteaza aici in loc
-sa fie inventat. Pana atunci, topicurile se dau direct:
+## DEFECT DESCHIS: exercitiile de sold nu misca articulatia prin player
 
-```bash
-ros2 run rqt_plot rqt_plot \
-  /joint_states/position[1] /joint_states/position[4] \
-  /rehab/cuplu/left_knee/data /rehab/cuplu/right_knee/data
-```
+Gasit la re-smoke-ul din 22 aug, dupa ce decizia D2 eliminase declansarile false.
+Se raporteaza fara sa fie reparat, fiindca **nu i-am gasit cauza**.
 
-**PlotJuggler NU e instalat** pe masina asta (verificat: 0 pachete). Nu se instaleaza
-nimic; daca apare, un layout salvat isi are locul aici.
+Simptom: `hip_alternating`, `hip_hold` si `leg_wave` raporteaza URMARIRE ATENTIE, cu
+erori de pana la 1.35 rad. Soldul nu se misca deloc prin exercitiu: referinta lui
+`joint_trajectory_controller` urca la 1.3464 rad si pozitia masurata ramane la
+-0.0000 pe toata durata.
 
-**3. Inregistrare pe disc si figuri post-sesiune.** Fiecare rulare poate lasa un CSV
-cu antet de provenienta:
+Ce a fost ELIMINAT prin masurare, ca sa nu fie reincercat:
 
-```bash
-ros2 launch rehab_exo_description demo_c4.launch.py \
-    exercitiu:=knee_extension inregistrare:=true
-python3 scripts/plot_sesiune.py ~/DATE_TWIN/<sesiunea>/
-```
+| ipoteza | test | rezultat |
+|---|---|---|
+| supervizorul tine articulatia | `supervizor:=false` | acelasi blocaj |
+| coliziune cu coloana soldului | coloana devenita vizuala | acelasi blocaj (dar bugul era real si a ramas reparat) |
+| blocaj mecanic la unghi mare | comanda directa in trepte, 0.2 pana la 1.3 rad | urmarire perfecta, eroare 0.0000 |
+| continutul traiectoriei | ascultat pe topic: 271 de puncte, nume corecte, sold 0 spre 1.3464 | mesaj corect |
+| numarul de puncte sau durata | replica EXACTA a traiectoriei playerului (271 puncte, 27 s), publicata din alt nod | **merge**: soldul ajunge la 1.3464 |
 
-### Unde se scriu datele
+Testul A/B decisiv, in ACEEASI sesiune: prin `/exercise_cmd` soldul ramane la
+-0.0000; imediat dupa, aceeasi tinta publicata direct pe topic il duce la +1.3464.
 
-`~/DATE_TWIN/<AAAALLZZ_HHMMSS>_<exercitiu>/sesiune.csv`, si **niciodata** in
-`~/DATE_CAMPANIE`. Acolo stau datele canonice de campanie ale tezei, care sunt
-read-only si nu se amesteca cu date de simulare; un twin care ar scrie in ele ar
-contamina exact ce nu are voie.
+Deci diferenta nu e in ce se trimite, ci in **cine trimite**. Diferenta ramasa
+neinvestigata intre cele doua noduri e configurarea lor (`use_sim_time` la
+`exercise_controller`, absent la nodul de proba). Genunchiul si glezna nu sunt
+afectate, ceea ce face si mai putin evident de ce.
 
-CSV-ul se autodocumenteaza. Antet cu data, commit-ul de la build, conventia
-articulara, exercitiul, parametrii si ipotezele active; subsol cu numarul de randuri,
-RTF-ul mediu al sesiunii si contoarele de mesaje primite pe fiecare canal. NaN se
-scrie NaN: niciodata 0, niciodata camp gol.
+Pana la lamurire, exercitiile de sold nu sunt de aratat la o demonstratie. Celelalte
+noua trec pe toate patru verdictele.
 
-Contoarele nu reclama canalele LENTE, si asta e deliberat: rigla merge la 10 Hz iar
-esantionarea la 50, deci va avea mereu mai putine mesaje decat randuri, si e corect.
-Pragul prinde canalul MUT sau aproape mut.
-
-## DEFECT DESCHIS: pragul electric inferior intra in conflict cu exercitiile
-
-Gasit de smoke-ul complet pe 22 aug. Se raporteaza cu cifre si NU se repara tacit;
-e o decizie despre stratul de siguranta, nu o corectie de model.
-
-Pragul electric sta la 5 grade INAUNTRU fata de limita mecanica, la AMBELE capete.
-Dar exercitiile folosesc legitim capatul de jos al ferestrei documentate:
-
-| articulatie | prag electric inferior | cea mai mica valoare ceruta de exercitii |
-|---|---:|---:|
-| sold | 5.00 grade | **0.00 grade** (repausul insusi) |
-| genunchi | 5.00 grade | **4.06 grade** |
-
-Deci orice exercitiu care revine la repaus trece sub prag, declanseaza, iar
-supervizorul FACE LATCH si tine articulatia pana la finalul sesiunii. Masurat: 4
-declansari, toate pe capatul `min`, la 0.0664 pana la 0.0781 rad.
-
-Cauza de fond e o ordonare gresita a straturilor. Corect ar fi
-`mecanic > electric > software`, adica traiectoriile sa stea INAUNTRUL ferestrei
-electrice. La noi traiectoriile ating capatul MECANIC, deci il incalca pe cel
-electric prin constructie.
-
-Doua rezolvari, ambele aparabile, si alegerea e a omului:
-
-1. **Traiectoriile se re-deriva in fereastra electrica** (`[5, 85]` in loc de
-   `[0, 90]`). Respecta ordonarea manualelor, dar inseamna inca o remapare si
-   pierde 10 grade din cursa documentata.
-2. **Pragul inferior dispare acolo unde limita mecanica E pozitia de repaus.**
-   In B-prim, soldul la 0 e coapsa orizontala, adica exact unde sta dispozitivul; un
-   proximity montat acolo ar fi apasat permanent. Pericolul e SUB acel punct, iar
-   fereastra nu are loc dedesubt.
-
-Pana la decizie, demo-ul cu supervizor activ va declansa pe exercitiile care revin
-la repaus. `supervizor:=false` il scoate din lant pentru demonstratii.
-
-## Siguranta: cele TREI straturi
+## Siguranta: cele TREI straturi## Siguranta: cele TREI straturi
 
 Nu se inlocuiesc si nu se sincronizeaza. Fiecare prinde alta clasa de esec.
 

@@ -82,7 +82,10 @@ def main(argv=None):
     class SupervizorElectric(Node):
         def __init__(self):
             Node.__init__(self, "rehab_supervizor_electric")
-            self.declare_parameter("marja_deg", math.degrees(sc.MARJA_IMPLICITA_RAD))
+            # Marje PER CAPAT (D2): jos zero, sus 5 grade. Repausul nu e zona
+            # interzisa; vezi DECIZII.md.
+            self.declare_parameter("marja_jos_deg", math.degrees(sc.MARJA_JOS_RAD))
+            self.declare_parameter("marja_sus_deg", math.degrees(sc.MARJA_SUS_RAD))
             # RE-JUSTIFICATA (nu convertita) pe 22 aug: 0..25 grade in B-prim.
             # Derivarea in urdf/IPOTEZE_LIMITE.md; clasa IPOTEZA-ANTROPO.
             self.declare_parameter("sold_sezut_min_deg", 0.0)
@@ -90,7 +93,8 @@ def main(argv=None):
             self.declare_parameter("postura", "culcat")
             self.declare_parameter("hz", 20.0)
 
-            marja = math.radians(float(self.get_parameter("marja_deg").value))
+            marja_jos = math.radians(float(self.get_parameter("marja_jos_deg").value))
+            marja_sus = math.radians(float(self.get_parameter("marja_sus_deg").value))
             self.sezut_min = math.radians(
                 float(self.get_parameter("sold_sezut_min_deg").value))
             self.sezut_max = math.radians(
@@ -100,7 +104,7 @@ def main(argv=None):
             self.lim_culcat = limite_din_urdf(urdf)
             self.lim_sezut = limite_sezut(self.lim_culcat, self.sezut_min,
                                           self.sezut_max)
-            self.marja = marja
+            self.marja_jos, self.marja_sus = marja_jos, marja_sus
             self.postura = self.get_parameter("postura").value
             self.sup = sc.Supervizor(self._praguri(self.postura))
 
@@ -116,8 +120,9 @@ def main(argv=None):
 
             p = self.sup.praguri
             self.get_logger().info(
-                "supervizor ELECTRIC activ, postura '%s', marja %.2f grade. "
-                "Praguri: %s" % (self.postura, math.degrees(marja),
+                "supervizor ELECTRIC activ, postura '%s', marje jos %.2f / sus "
+                "%.2f grade. Praguri: %s" % (self.postura, math.degrees(marja_jos),
+                                             math.degrees(marja_sus),
                                  ", ".join("%s %.3f..%.3f" % (j.replace("_joint", ""),
                                                               p[j][0], p[j][1])
                                            for j in sorted(p))))
@@ -127,7 +132,7 @@ def main(argv=None):
 
         def _praguri(self, postura):
             lim = self.lim_sezut if postura == "sezut" else self.lim_culcat
-            return sc.praguri_electrice(lim, self.marja)
+            return sc.praguri_electrice(lim, self.marja_jos, self.marja_sus)
 
         def _js(self, m):
             for n, p in zip(m.name, m.position):

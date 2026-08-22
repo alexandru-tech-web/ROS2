@@ -103,7 +103,8 @@ def generate_launch_description():
     supervizor = Node(
         package="rehab_exo_description", executable="supervizor_electric.py",
         output="screen", condition=IfCondition(LaunchConfiguration("supervizor")),
-        parameters=[{"marja_deg": LaunchConfiguration("marja_deg"),
+        parameters=[{"marja_jos_deg": LaunchConfiguration("marja_jos_deg"),
+                     "marja_sus_deg": LaunchConfiguration("marja_sus_deg"),
                      "postura": LaunchConfiguration("postura"),
                      "use_sim_time": True}])
 
@@ -116,7 +117,7 @@ def generate_launch_description():
         parameters=[{"exercitiu": LaunchConfiguration("exercitiu"),
                      "postura": LaunchConfiguration("postura"),
                      "viteza": LaunchConfiguration("viteza"),
-                     "marja_deg": LaunchConfiguration("marja_deg"),
+                     "marja_sus_deg": LaunchConfiguration("marja_sus_deg"),
                      "use_sim_time": True}])
 
     # Tabloul iese pe ecran; are nevoie de terminalul curat, deci porneste ultimul.
@@ -154,10 +155,15 @@ def generate_launch_description():
         DeclareLaunchArgument("inregistrare", default_value="false",
                               description="scrie un CSV de sesiune in ~/DATE_TWIN"),
         DeclareLaunchArgument("supervizor", default_value="true",
-                              description="stratul electric de siguranta (M5)"),
-        DeclareLaunchArgument("marja_deg", default_value="5.0",
-                              description="cat sub opritorul mecanic sta pragul "
-                                          "electric [grade]; IPOTEZA, nu masuratoare"),
+                              description="stratul electric de siguranta (M5). "
+                                          "supervizor:=false e PORTITA DE DEPANARE, "
+                                          "nu un mod de demonstratie"),
+        DeclareLaunchArgument("marja_jos_deg", default_value="0.0",
+                              description="marja electrica la capatul de JOS [grade]; "
+                                          "zero fiindca repausul e acolo (D2)"),
+        DeclareLaunchArgument("marja_sus_deg", default_value="5.0",
+                              description="marja electrica la capatul de SUS [grade]; "
+                                          "IPOTEZA, inchisa de proximity-uri"),
         DeclareLaunchArgument("postura", default_value="culcat",
                               description="setul de limite supravegheat: culcat|sezut"),
         DeclareLaunchArgument("gui", default_value="false",
