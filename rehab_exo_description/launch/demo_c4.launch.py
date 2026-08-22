@@ -107,6 +107,18 @@ def generate_launch_description():
                      "postura": LaunchConfiguration("postura"),
                      "use_sim_time": True}])
 
+    # Inregistratorul de sesiune. Implicit OPRIT: o demonstratie nu trebuie sa lase
+    # fisiere in urma decat daca cineva a cerut-o. Scrie in ~/DATE_TWIN, niciodata in
+    # ~/DATE_CAMPANIE, care e arhiva canonica a tezei si ramane read-only.
+    recorder = Node(
+        package="rehab_exo_description", executable="session_recorder.py",
+        output="screen", condition=IfCondition(LaunchConfiguration("inregistrare")),
+        parameters=[{"exercitiu": LaunchConfiguration("exercitiu"),
+                     "postura": LaunchConfiguration("postura"),
+                     "viteza": LaunchConfiguration("viteza"),
+                     "marja_deg": LaunchConfiguration("marja_deg"),
+                     "use_sim_time": True}])
+
     # Tabloul iese pe ecran; are nevoie de terminalul curat, deci porneste ultimul.
     monitor = Node(package="rehab_exo_description", executable="monitor_senzori.py",
                    output="screen", parameters=[{"hz": 2.0, "use_sim_time": True}])
@@ -125,7 +137,7 @@ def generate_launch_description():
         RegisterEventHandler(OnProcessExit(target_action=homing, on_exit=[traj])),
         RegisterEventHandler(OnProcessExit(target_action=traj, on_exit=[adjust])),
         RegisterEventHandler(OnProcessExit(target_action=adjust,
-                                           on_exit=[senzori, supervizor,
+                                           on_exit=[senzori, supervizor, recorder,
                                                     exercitiu, monitor])),
     ]
 
@@ -139,6 +151,8 @@ def generate_launch_description():
         DeclareLaunchArgument("inaltime", default_value="1.2",
                               description="inaltimea de aparitie [m]; tine talpile "
                                           "deasupra solului"),
+        DeclareLaunchArgument("inregistrare", default_value="false",
+                              description="scrie un CSV de sesiune in ~/DATE_TWIN"),
         DeclareLaunchArgument("supervizor", default_value="true",
                               description="stratul electric de siguranta (M5)"),
         DeclareLaunchArgument("marja_deg", default_value="5.0",

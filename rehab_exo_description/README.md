@@ -254,6 +254,55 @@ sesiunii. Vezi sectiunea urmatoare. Coloana de declansari nu apare in tabel
 fiindca proba se abonase DUPA ce latch-ul pornise si le subnumara; cifra
 corecta, din log, e 4 declansari in toata sesiunea.
 
+## Panoul de date
+
+Trei nivele, de la cel mai ieftin la cel mai complet.
+
+**1. Tabloul din terminal**, 2 Hz, patru verdicte, NaN vizibil ca NaN. Porneste
+odata cu demo-ul; separat:
+
+```bash
+ros2 run rehab_exo_description monitor_senzori.py
+```
+
+**2. Grafice live cu rqt_plot.** NU exista un config salvat in pachet: contextul in
+care se lucra il presupunea existent, dar nu e nicaieri, si se noteaza aici in loc
+sa fie inventat. Pana atunci, topicurile se dau direct:
+
+```bash
+ros2 run rqt_plot rqt_plot \
+  /joint_states/position[1] /joint_states/position[4] \
+  /rehab/cuplu/left_knee/data /rehab/cuplu/right_knee/data
+```
+
+**PlotJuggler NU e instalat** pe masina asta (verificat: 0 pachete). Nu se instaleaza
+nimic; daca apare, un layout salvat isi are locul aici.
+
+**3. Inregistrare pe disc si figuri post-sesiune.** Fiecare rulare poate lasa un CSV
+cu antet de provenienta:
+
+```bash
+ros2 launch rehab_exo_description demo_c4.launch.py \
+    exercitiu:=knee_extension inregistrare:=true
+python3 scripts/plot_sesiune.py ~/DATE_TWIN/<sesiunea>/
+```
+
+### Unde se scriu datele
+
+`~/DATE_TWIN/<AAAALLZZ_HHMMSS>_<exercitiu>/sesiune.csv`, si **niciodata** in
+`~/DATE_CAMPANIE`. Acolo stau datele canonice de campanie ale tezei, care sunt
+read-only si nu se amesteca cu date de simulare; un twin care ar scrie in ele ar
+contamina exact ce nu are voie.
+
+CSV-ul se autodocumenteaza. Antet cu data, commit-ul de la build, conventia
+articulara, exercitiul, parametrii si ipotezele active; subsol cu numarul de randuri,
+RTF-ul mediu al sesiunii si contoarele de mesaje primite pe fiecare canal. NaN se
+scrie NaN: niciodata 0, niciodata camp gol.
+
+Contoarele nu reclama canalele LENTE, si asta e deliberat: rigla merge la 10 Hz iar
+esantionarea la 50, deci va avea mereu mai putine mesaje decat randuri, si e corect.
+Pragul prinde canalul MUT sau aproape mut.
+
 ## DEFECT DESCHIS: pragul electric inferior intra in conflict cu exercitiile
 
 Gasit de smoke-ul complet pe 22 aug. Se raporteaza cu cifre si NU se repara tacit;

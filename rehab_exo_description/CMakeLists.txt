@@ -26,6 +26,22 @@ add_custom_command(
   DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/scripts/geometrie_core.py"
   COMMENT "Generare urdf/cote_derivate.xacro din geometrie_core.py")
 
+# Commit-ul se afla la BUILD, in arborele SURSA (care e repo git), si se instaleaza
+# ca fisier. Recorderul ruleaza din spatiul de install, care NU e repo, deci nu poate
+# afla singur -- scria "NECUNOSCUT" in antetul fiecarui CSV, adica exact campul de
+# provenienta care leaga datele de cod. Valoarea e cea de la BUILD, si asta e corect:
+# datele au fost produse de artefactul construit, nu de ce era in arbore la rulare.
+execute_process(
+  COMMAND git -C "${CMAKE_CURRENT_SOURCE_DIR}" rev-parse --short HEAD
+  OUTPUT_VARIABLE REPO_COMMIT OUTPUT_STRIP_TRAILING_WHITESPACE
+  ERROR_QUIET RESULT_VARIABLE GIT_RC)
+if(NOT GIT_RC EQUAL 0 OR REPO_COMMIT STREQUAL "")
+  set(REPO_COMMIT "NECUNOSCUT")
+endif()
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/COMMIT" "${REPO_COMMIT}\n")
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/COMMIT"
+        DESTINATION share/${PROJECT_NAME})
+
 find_program(XACRO_EXE xacro REQUIRED)
 set(URDF_GEN "${CMAKE_CURRENT_BINARY_DIR}/rehab_exo.urdf")
 add_custom_command(
@@ -59,6 +75,9 @@ install(
     scripts/senzori_node.py
     scripts/monitor_senzori.py
     scripts/supervizor_electric.py
+    scripts/session_recorder.py
+    scripts/plot_sesiune.py
+    scripts/recorder_core.py
     scripts/demo_cu_gui.sh
     scripts/supervizor_core.py
     scripts/geometrie_core.py
@@ -98,6 +117,20 @@ if(BUILD_TESTING)
     OUTPUT_FILE "${CMAKE_BINARY_DIR}/test_rmw_mutant.log"
     RESULT_FILE "${CMAKE_BINARY_DIR}/test_rmw_mutant.xunit.xml"
     TIMEOUT 300)
+
+  ament_add_test(test_plot_sesiune
+    GENERATE_RESULT_FOR_RETURN_CODE_ZERO
+    COMMAND "/usr/bin/python3" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/plot_sesiune.py" "--selftest"
+    OUTPUT_FILE "${CMAKE_BINARY_DIR}/test_plot_sesiune.log"
+    RESULT_FILE "${CMAKE_BINARY_DIR}/test_plot_sesiune.xunit.xml"
+    TIMEOUT 60)
+
+  ament_add_test(test_recorder
+    GENERATE_RESULT_FOR_RETURN_CODE_ZERO
+    COMMAND "/usr/bin/python3" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/recorder_core.py" "--selftest"
+    OUTPUT_FILE "${CMAKE_BINARY_DIR}/test_recorder.log"
+    RESULT_FILE "${CMAKE_BINARY_DIR}/test_recorder.xunit.xml"
+    TIMEOUT 60)
 
   ament_add_test(test_postura
     GENERATE_RESULT_FOR_RETURN_CODE_ZERO
