@@ -4,6 +4,10 @@ Depozit de cercetare doctorala -- IMSAR. Cod, protocoale experimentale si date s
 pentru evaluarea middleware-ului ROS 2 (`rmw_zenoh` vs. `rmw_cyclonedds_cpp`) in conditii
 de retea degradata, cu aplicatie in robotica Search and Rescue (SAR) si tele-reabilitare.
 
+> **In English:** this is a doctoral research monorepo, documented in Romanian.
+> For the C1 paper artifact (ROS 2 middleware benchmark under network
+> degradation), see [`c1_benchmark/README_EN.md`](c1_benchmark/README_EN.md).
+
 ---
 
 ## Rezumat
