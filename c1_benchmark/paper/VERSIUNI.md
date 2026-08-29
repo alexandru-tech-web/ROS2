@@ -66,13 +66,22 @@ dinaintea scoaterii.
 
 | Set | In git pana la | Acum la | Manifest | Verificat |
 |-----|----------------|---------|----------|-----------|
-| `c1_data/` (2651 fisiere, 154 MB) | `f1a0822` | `~/DATE_CAMPANIE/istoric/c1_data/` | `manifests/c1_data_SHA256.txt` | 2651/2651 |
-| `CAMPANII/` (506 fisiere, 4.7 MB) | `e30decd` | `~/DATE_CAMPANIE/istoric/CAMPANII/` | `manifests/CAMPANII_SHA256.txt` | 506/506 |
-| 7 manuscrise `.docx` (3.6 MB) | `7333d36` | `~/DATE_CAMPANIE/manuscrise/` | `manifests/manuscrise_SHA256.txt` | 7/7 |
+| `c1_data/` (2651 fisiere, 154 MB) -- campanii C1 anterioare | `f1a0822` | `~/ARHIVA_PHD/istoric/c1_data/` | `manifests/c1_data_SHA256.txt` | 2651/2651 |
+| `CAMPANII/` (506 fisiere, 4.7 MB) -- **pilot C1 HIL Wi-Fi**, 8 conditii C1, 2026-06-25..06-30 | `e30decd` | `~/ARHIVA_PHD/istoric/CAMPANII/` | `manifests/CAMPANII_SHA256.txt` | 506/506 |
+| 7 manuscrise `.docx` (3.6 MB) | `7333d36` | `~/ARHIVA_PHD/manuscrise/` | `manifests/manuscrise_SHA256.txt` | 7/7 |
 
 Niciunul dintre cele doua seturi de date nu continea vreunul dintre cele 720 de
-fisiere din `paper/MANIFEST_DATE.md` (0/720 fiecare): sunt campanii C1
-anterioare celei raportate in articol.
+fisiere din `paper/MANIFEST_DATE.md` (0/720 fiecare): sunt campanii C1 anterioare
+celei raportate in articol. Eticheta lui `CAMPANII/` a fost stabilita din lista de
+conditii, nu presupusa: 8 conditii C1 pe ambele rmw, niciuna C2.
+
+Radacinile sunt separate: `~/DATE_CAMPANIE/` ramane strict datele canonice ale
+campaniilor; materialul scos din arbore sta in `~/ARHIVA_PHD/`.
+
+**TODO(Alexandru) -- copia comentata a lui v4.** Versiunea trimisa coordonatorului
+la 2026-07-18 s-a intors cu comentarii; copia care era in git nu le continea.
+Cand ajunge la tine, arhiveaz-o in `~/ARHIVA_PHD/manuscrise/` cu SHA256 si data
+primirii, si adaug-o in tabelul de descendenta ca rand propriu.
 
 ## Harta de nume a conditiilor de retea (C1 <-> C2)
 

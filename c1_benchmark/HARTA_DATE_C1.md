@@ -1,5 +1,8 @@
 # Harta datelor C1 -- unde e fiecare campanie (ca sa NU re-rulezi ce ai deja)
 
+> 2026-08-29: seturile descrise aici au fost scoase din arbore in `e30decd` (c1_data/) si `7333d36` (CAMPANII/); copii verificate la `~/ARHIVA_PHD/istoric/`, manifeste in `manifests/`; vezi `paper/VERSIUNI.md`.
+
+
 Inventar facut prin scanarea transport_p*_summary.json. NU re-rula tot -- ai
 majoritatea datelor. Vezi sectiunea "CE trebuie re-rulat" la final.
 

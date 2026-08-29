@@ -1,5 +1,8 @@
 # Verdict: datele SIL Zenoh -- valide sau contaminate de watchdog?
 
+> 2026-08-29: seturile descrise aici au fost scoase din arbore in `e30decd` (c1_data/) si `7333d36` (CAMPANII/); copii verificate la `~/ARHIVA_PHD/istoric/`, manifeste in `manifests/`; vezi `paper/VERSIUNI.md`.
+
+
 Sarcina de verificare (READ-ONLY). Nu am modificat cod, nu am rulat campanii/ROS.
 
 ## Date inspectate

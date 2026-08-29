@@ -53,3 +53,16 @@ c1_benchmark/selector_dstar.*
 # (commit "UPDATE"); regula de mai jos previne intrarea altora noi.
 **/rtt_log.csv
 **/c1_data/**/rep*/
+
+# --- F8b: artefactul public = cod + manifeste, nu date si nu manuscrise ---
+# Seturile scoase in F8 au copii verificate in ~/ARHIVA_PHD/, cu manifeste
+# SHA256 in c1_benchmark/manifests/. Regulile de mai jos previn reintrarea lor.
+*.docx
+c1_data/
+CAMPANII/
+DATE_CAMPANIE*/
+ARHIVA_PHD/
+*.log
+# Exceptie: jurnalele de dovada pentru teza (clasa "RMW mismatch") sunt
+# urmarite intentionat -- sunt dovada, nu iesire de rulare.
+!docs/material_teza/cm_rmw_mismatch/*.log

@@ -1,5 +1,8 @@
 # Harta datelor C1 -- inventar complet (generat READ-ONLY, nimic modificat)
 
+> 2026-08-29: seturile descrise aici au fost scoase din arbore in `e30decd` (c1_data/) si `7333d36` (CAMPANII/); copii verificate la `~/ARHIVA_PHD/istoric/`, manifeste in `manifests/`; vezi `paper/VERSIUNI.md`.
+
+
 Data generarii: 2026-07-01. NIMIC nu a fost sters/mutat/modificat. Plasa de siguranta
 (Trash, copii) e intacta. Clasificare SIL/HIL facuta din RTT mean la ideal (cyclonedds,
 p4096): SIL loopback ~1.2 ms; HIL switch/cablu ~3.8 ms; HIL Wi-Fi ~11-13 ms.
