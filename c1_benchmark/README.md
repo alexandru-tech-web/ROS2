@@ -62,7 +62,7 @@ ceasurilor intre publisher si subscriber.
 cd ~/ros2_ws/src/c1_benchmark
 
 # 0) verificarile fara ROS
-python3 test_bench_core.py                 # 12 verificari
+python3 test_bench_core.py                 # 13 verificari
 python3 analyze_campaign.py --selftest     # validarea fluxului de analiza
 
 # 1) garda de mediu (obligatoriu inaintea oricarei campanii)

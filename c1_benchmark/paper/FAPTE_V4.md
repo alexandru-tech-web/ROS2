@@ -139,9 +139,9 @@ Binar: rmw_zenohd (din pachetul rmw_zenoh_cpp), pornit prin ros2 run:
 Doar pe SIL porneste campania router-ul (o instanta per bloc RMW, run_campaign.py:120).
 Pe HIL router-ul e gestionat EXTERN (run_campaign.py:124-127: "routerul Zenoh e
 gestionat EXTERN ... Campania NU porneste router pe HIL.") -- acelasi binar, pornit manual.
-Versiune (VERSIUNI_3.1.md): rmw_zenoh_cpp 0.2.9; zenoh-cpp-vendor 0.2.9 (routerul
+Versiune (VERSIUNI.md): rmw_zenoh_cpp 0.2.9; zenoh-cpp-vendor 0.2.9 (routerul
 rmw_zenohd e livrat cu acest pachet). Amprenta Pi: [DE COMPLETAT de Alexandru -- vezi
-VERSIUNI_3.1.md]; asa ca versiunea router-ului pe MASINA-router HIL ramane de confirmat.
+VERSIUNI.md]; asa ca versiunea router-ului pe MASINA-router HIL ramane de confirmat.
 
 ================================================================================
 REZUMAT CELE 8 FAPTE (o linie fiecare)

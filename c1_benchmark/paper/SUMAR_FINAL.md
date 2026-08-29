@@ -38,7 +38,7 @@ Doua neconcordante de FORMULARE (nu de cifra): Sec 4.1 ("11-13 ms") si Sec 3.2/e
     NB: NU am editat docx-ul (Regula 3); Alexandru lipeste cele 5 ancore (4 replace + 1 insert).
 (d) Fig. 4 (caption/text) -- zecimale exacte: la ideal, 64 KB pe Wi-Fi, Zenoh pierde 57.8%
     (rotunjit 58%), CycloneDDS 0%.
-(e) Sec 3.1 versiuni: vezi VERSIUNI_3.1.md (laptop cules; Pi de completat prin snippet SSH).
+(e) Sec 3.1 versiuni: vezi VERSIUNI.md (laptop cules; Pi de completat prin snippet SSH).
 
 ## TOP 3 DECIZII CARE RAMAN LA ALEXANDRU
 1. Fig. 7 (image7): fie extinde make_figures_c1_en.py (load_summary sa tolereze p95 gol +
@@ -47,7 +47,7 @@ Doua neconcordante de FORMULARE (nu de cifra): Sec 4.1 ("11-13 ms") si Sec 3.2/e
 2. Distributia jitter (1d): accepta rewording-ul la UNIFORM (datele reflecta uniform), SAU
    re-ruleaza cu 'distribution normal' explicit daca vrei modelul normal (schimba doar forma
    jitter-ului, nu concluziile). Recomand rewording la uniform -- nicio re-rulare, mai onest.
-3. Confirma versiunile Pi (VERSIUNI_3.1.md) si ca versiunile laptop culese azi == cele din campanie.
+3. Confirma versiunile Pi (VERSIUNI.md) si ca versiunile laptop culese azi == cele din campanie.
 
 ## LIVRABILE (branch paper/audit-v2, un commit per pas; MERGE il face Alexandru)
 - pas 0: draft v2 + make_figures_c1_en.py in paper/
@@ -55,6 +55,6 @@ Doua neconcordante de FORMULARE (nu de cifra): Sec 4.1 ("11-13 ms") si Sec 3.2/e
 - pas 2: campaign_summary.csv + figuri_en/ + PAYLOAD_LOSS canonic
 - pas 3a: swap image6 (Fig.4) in docx; original pastrat ca _pre-swap.docx
 - pas 4: MANIFEST_DATE.md (sursa de adevar, 720 SHA256, matrice, structura Zenodo)
-- pas 5: VERSIUNI_3.1.md
+- pas 5: VERSIUNI.md
 - pas 6: acest SUMAR_FINAL.md
 NEATINS (regula): datele brute ~/DATE_CAMPANIE/, codul c1_benchmark/*.py, textul articolului.
