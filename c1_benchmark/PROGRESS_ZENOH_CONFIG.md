@@ -4,11 +4,11 @@ Branch: `zenoh-router-configs-wifi` (din main). FARA push, FARA merge.
 
 ## Ce am creat (2 fisiere, continut EXACT din sarcina)
 
-- `router_pi.json5` -- ROUTER pe Raspberry Pi (pi4-node), wlan0, IP 192.168.100.19.
-  mode:"router", connect:[] (nu se conecteaza nicaieri), listen:["tcp/192.168.100.19:7447"],
+- `router_pi.json5` -- ROUTER pe Raspberry Pi (pi4-node), wlan0, IP <gazda-server-wifi>.
+  mode:"router", connect:[] (nu se conecteaza nicaieri), listen:["tcp/<gazda-server-wifi>:7447"],
   scouting.multicast.enabled:false.
-- `router_m1.json5` -- ROUTER pe laptop M1 (client), wlp4s0, IP 192.168.100.14.
-  mode:"router", connect:["tcp/192.168.100.19:7447"] (spre Pi), listen:["tcp/192.168.100.14:7447"],
+- `router_m1.json5` -- ROUTER pe laptop M1 (client), wlp4s0, IP <gazda-client>.
+  mode:"router", connect:["tcp/<gazda-server-wifi>:7447"] (spre Pi), listen:["tcp/<gazda-client>:7447"],
   scouting.multicast.enabled:false.
 
 Fiecare are un comentariu // de antet (masina, IP, cum se foloseste).
@@ -27,8 +27,8 @@ NICIODATA in git (verificat: `git log --all -- zenoh_pi.json5` gol, `ls` gol).
 EXISTA insa `zenoh_m1.json5` (UNTRACKED + gitignorat in sesiunea anterioara ca
 artefact), care se potriveste EXACT cu descrierea fisierului-gresit din sarcina:
   - mode:"peer" (config de NOD, nu de router) -- gresit;
-  - IP-uri AMESTECATE: connect "tcp/192.168.100.17:7447" (.17 = Pi-CABLU) cu
-    listen "tcp/192.168.100.14:7447" (.14 = M1-WiFi) -- incoerent, exact ca in sarcina.
+  - IP-uri AMESTECATE: connect "tcp/<gazda-server-cablu>:7447" (gazda-server pe cablu) cu
+    listen "tcp/<gazda-client>:7447" (gazda-client pe WiFi) -- incoerent, exact ca in sarcina.
 
 Clarificare de la utilizator: existau DOUA fisiere vechi incoerente, cate unul pe
 fiecare masina (zenoh_m1.json5 pe M1, zenoh_pi.json5 pe Pi). Eu (pe M1) am vazut doar

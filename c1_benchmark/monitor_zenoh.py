@@ -174,18 +174,18 @@ def _selftest():
     # 1. format 'ss -tn' (cu coloana State): 2 conexiuni ating 7447 (una local, una peer)
     ss_cu_stare = (
         "State      Recv-Q Send-Q      Local Address:Port      Peer Address:Port Process\n"
-        "ESTAB      0      0           192.168.100.14:7447     192.168.100.20:51234\n"
-        "ESTAB      0      0           192.168.100.14:57342    160.79.104.10:443\n"
-        "ESTAB      0      0           192.168.100.14:44120    192.168.100.20:7447\n"
-        "TIME-WAIT  0      0           192.168.100.14:44121    192.168.100.20:7447\n"
+        "ESTAB      0      0           192.168.1.10:7447     192.168.1.30:51234\n"
+        "ESTAB      0      0           192.168.1.10:57342    160.79.104.10:443\n"
+        "ESTAB      0      0           192.168.1.10:44120    192.168.1.30:7447\n"
+        "TIME-WAIT  0      0           192.168.1.10:44121    192.168.1.30:7447\n"
         "LISTEN     0      128         0.0.0.0:7447            0.0.0.0:*\n")
     assert count_estab(ss_cu_stare) == 2, count_estab(ss_cu_stare)
     assert count_estab(ss_cu_stare, port=443) == 1
     # 2. format 'ss -tn state established' (FARA coloana State)
     ss_fara_stare = (
         "Recv-Q Send-Q                Local Address:Port      Peer Address:Port Process\n"
-        "0      0                     192.168.100.14:44120    192.168.100.20:7447\n"
-        "0      0                     192.168.100.14:57342    160.79.104.10:443\n")
+        "0      0                     192.168.1.10:44120    192.168.1.30:7447\n"
+        "0      0                     192.168.1.10:57342    160.79.104.10:443\n")
     assert count_estab(ss_fara_stare) == 1, count_estab(ss_fara_stare)
     # 3. IPv6 si adrese cu '*'
     ss_v6 = ("State  Recv-Q Send-Q Local Address:Port Peer Address:Port\n"

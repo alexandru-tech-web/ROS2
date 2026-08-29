@@ -72,8 +72,8 @@ literatura -- exact valoarea contributiei: nimeni nu a masurat sistematic regimu
 ## ATENTIE -- modificare necomisa gasita in router_m1.json5 (in afara scopului)
 
 Pe acest branch, router_m1.json5 avea o modificare NECOMISA in working tree:
-  listen: ["tcp/192.168.100.14:7447"]  ->  listen: ["tcp/[::]:7447"]
-(asculta pe TOATE interfetele in loc de IP-ul specific .14 -- de obicei MAI ROBUST).
+  listen: ["tcp/<gazda-client>:7447"]  ->  listen: ["tcp/[::]:7447"]
+(asculta pe TOATE interfetele in loc de IP-ul specific al gazdei-client -- de obicei MAI ROBUST).
 Pare o editare intentionata a utilizatorului (de pe M1, la testarea routerului). Am
 readus fisierul la starea comisa ca sa tin branch-ul de figuri curat, DAR daca acea
 editare era a ta si o vrei pastrata, spune-mi -- o aplic pe main ca un commit separat

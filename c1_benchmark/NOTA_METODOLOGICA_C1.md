@@ -110,13 +110,13 @@ Atentie / limite:
 
 ## 8. rmw_zenoh discovery pe retele eterogene (constatare practica de deployment)
 
-Montaj: rmw_zenoh_cpp 0.2.9, ROS 2 Jazzy. M1=192.168.100.14 (WiFi, wlp4s0),
-M2=192.168.100.17 / pi4-node (eth0, cablu), ROS_DOMAIN_ID=7, ambele prin ONT HG8121H
+Montaj: rmw_zenoh_cpp 0.2.9, ROS 2 Jazzy. M1=<gazda-client> (WiFi, wlp4s0),
+M2=<gazda-server-cablu> / pi4-node (eth0, cablu), ROS_DOMAIN_ID=7, ambele prin ONT HG8121H
 (segmente WiFi vs Ethernet diferite). CycloneDDS HIL e complet, arhivat
 (~/c1_archive/hil_cyclonedds_*) si MERGE pe aceasta retea -- contrastul-cheie.
 
 ### Simptom (reproductibil 100%)
-Router rmw_zenohd pe M1 (asculta tcp/192.168.100.14:7447); ambele sesiuni -- ecoul de pe Pi si un
+Router rmw_zenohd pe M1 (asculta tcp/<gazda-client>:7447); ambele sesiuni -- ecoul de pe Pi si un
 terminal de test pe M1 -- se conecteaza la el (avertismentul "Unable to connect to a Zenoh router"
 DISPARE pe ambele). DAR `ros2 topic list` pe M1 NU vede /bench/ping, /bench/pong de pe Pi -- doar
 /parameter_events si /rosout. Aparent routerul nu propaga declaratiile de topicuri intre cele doua

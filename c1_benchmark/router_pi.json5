@@ -1,5 +1,6 @@
-// router_pi.json5 -- config ROUTER Zenoh pentru Raspberry Pi (pi4-node), HIL Wi-Fi C1.
-// Interfata wlan0, IP 192.168.100.19. Asculta pe .19; M1 se conecteaza la el.
+// router_pi.json5 -- config ROUTER Zenoh pentru gazda-SERVER (Raspberry Pi), HIL Wi-Fi C1.
+// Asculta pe toate interfetele, portul 7447; gazda-client se conecteaza la el.
+// Nu contine adrese: nu e nimic de adaptat aici.
 // Folosit cu: export ZENOH_ROUTER_CONFIG_URI=router_pi.json5 ; ros2 run rmw_zenoh_cpp rmw_zenohd
 {
   mode: "router",

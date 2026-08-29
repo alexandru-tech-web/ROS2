@@ -30,7 +30,7 @@ Portile 1-3 fac POLLING la 2 s -- pornirile lente nu mai sunt ratate de un sleep
   1. routerul Pi a pornit    -- 'reached at' in log, reincercat maxim 30 s
   2. routerul M1 a pornit    -- 'reached at' in log, reincercat maxim 30 s
   3. sesiunea s-a atasat     -- pe M2: pereche loopback [::1]:7447 (ecoul <-> router local)
-                                SI o linie cu 192.168.100.14 (M1 <-> router M2), maxim 15 s
+                                SI o linie cu 192.168.1.10 (M1 <-> router M2), maxim 15 s
   4. netem aplicat pe M2     -- hil_netem.py iese cu 0 (altfel conditia NU e aplicata si
                                 rularea ar fi invalida, deci nu se porneste driverul)
   5. driverul a terminat 0   -- run_campaign.py sub 'set -o pipefail' (tee nu mascheaza codul)
@@ -50,11 +50,16 @@ import sys
 import time
 
 # ------------------------------------------------------------------ constante
-PI = "ubuntu@192.168.100.19"
-IP_PI = "192.168.100.19"
-IP_M1 = "192.168.100.14"
-IFACE_M1 = "wlp4s0"
-IFACE_PI = "wlan0"
+# Montajul HIL este specific fiecarei retele. Valorile de mai jos sunt
+# EXEMPLE; adapteaza-le la LAN-ul tau, direct aici sau prin variabile de
+# mediu, fara sa modifici fisierul:
+#   C1_PI_SSH=user@gazda  C1_IP_PI=...  C1_IP_M1=...  C1_IFACE_M1=...  C1_IFACE_PI=...
+import os as _os
+IP_PI = _os.environ.get("C1_IP_PI", "192.168.1.20")      # gazda-server (Raspberry Pi)
+IP_M1 = _os.environ.get("C1_IP_M1", "192.168.1.10")      # gazda-client (laptop)
+PI = _os.environ.get("C1_PI_SSH", "ubuntu@" + IP_PI)     # tinta SSH catre Pi
+IFACE_M1 = _os.environ.get("C1_IFACE_M1", "wlp4s0")
+IFACE_PI = _os.environ.get("C1_IFACE_PI", "wlan0")
 PORT = 7447
 ROS_DOMAIN = 7
 
@@ -589,16 +594,16 @@ def _selftest():
     cu_stare = (
         "ESTAB      0      0            [::1]:7447            [::1]:47238\n"
         "ESTAB      0      0            [::1]:47238           [::1]:7447\n"
-        "ESTAB      0      0            [::ffff:192.168.100.19]:7447 "
-        "[::ffff:192.168.100.14]:44988\n")
+        "ESTAB      0      0            [::ffff:192.168.1.20]:7447 "
+        "[::ffff:192.168.1.10]:44988\n")
     v = parse_ss(cu_stare)
     assert v["ok"] and v["loopback"] == 2 and v["m1"] == 1, v
     assert v["active"] == 3, v
 
     # --- 2. formatul FARA coloana State ('ss -tn state established')
     fara_stare = ("0      0            [::1]:7447            [::1]:47238\n"
-                  "0      0            [::ffff:192.168.100.19]:7447 "
-                  "[::ffff:192.168.100.14]:44988\n")
+                  "0      0            [::ffff:192.168.1.20]:7447 "
+                  "[::ffff:192.168.1.10]:44988\n")
     v2 = parse_ss(fara_stare)
     assert v2["ok"] and v2["loopback"] == 1 and v2["m1"] == 1, v2
 
@@ -606,7 +611,7 @@ def _selftest():
     doar_loopback = "ESTAB 0 0 [::1]:7447 [::1]:47238\n"
     v3 = parse_ss(doar_loopback)
     assert not v3["ok"] and len(v3["motive"]) == 1 and IP_M1 in v3["motive"][0], v3
-    doar_m1 = "ESTAB 0 0 [::ffff:192.168.100.19]:7447 [::ffff:192.168.100.14]:44988\n"
+    doar_m1 = "ESTAB 0 0 [::ffff:192.168.1.20]:7447 [::ffff:192.168.1.10]:44988\n"
     v4 = parse_ss(doar_m1)
     assert not v4["ok"] and "loopback" in v4["motive"][0], v4
     # LISTEN si antetul nu conteaza ca atasare
@@ -734,7 +739,7 @@ def _selftest():
     # payload-ul ssh: '$' escapat, ghilimele duble in jurul lui bash -lc
     p = ssh_payload("for p in $(pgrep x); do echo $p; done")
     assert p == 'bash -lc "for p in \\$(pgrep x); do echo \\$p; done"', p
-    assert ssh_display("true") == 'ssh ubuntu@192.168.100.19 \'bash -lc "true"\'', ssh_display("true")
+    assert ssh_display("true") == 'ssh ubuntu@192.168.1.20 \'bash -lc "true"\'', ssh_display("true")
     assert ssh_argv("true")[:2] == ["ssh", PI]
     # driverul: preambul de mediu EXPLICIT (domeniul 7 + setup.bash pe cale absoluta),
     # inaintea lui 'set -o pipefail', in acelasi bash -c

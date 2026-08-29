@@ -1,9 +1,15 @@
-// router_m1.json5 -- config ROUTER Zenoh pentru laptopul M1 (masina-client), HIL Wi-Fi C1.
-// Interfata wlp4s0, IP 192.168.100.14. Asculta pe .14; se conecteaza la routerul Pi (.19).
+// router_m1.json5 -- config ROUTER Zenoh pentru gazda-CLIENT (laptop), HIL Wi-Fi C1.
+// Asculta pe toate interfetele, portul 7447, si se conecteaza la routerul de pe
+// gazda-server.
+//
+// ADAPTEAZA LA RETEAUA TA / adjust to your LAN: adresa din "connect" de mai jos
+// este un EXEMPLU (192.168.1.20 = gazda-server). Inlocuieste-o cu adresa reala a
+// masinii care ruleaza router_pi.json5.
+//
 // Folosit cu: export ZENOH_ROUTER_CONFIG_URI=router_m1.json5 ; ros2 run rmw_zenoh_cpp rmw_zenohd
 {
   mode: "router",
-  connect: { endpoints: ["tcp/192.168.100.19:7447"] },
+  connect: { endpoints: ["tcp/192.168.1.20:7447"] },
   listen: { endpoints: ["tcp/[::]:7447"] },
   scouting: {
     multicast: { enabled: false }
