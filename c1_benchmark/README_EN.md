@@ -38,7 +38,10 @@ campaign by `analyze_campaign.py`. Repetitions per cell: **10 in SIL, 5 in HIL**
 - **Network conditions** -- 24 conditions defined in `bench_core.CONDITIONS`,
   applied by `netem.py`. They cover loss (independent and bursty),
   latency + jitter, and Gilbert-Elliott channels. See the name map in
-  `paper/VERSIUNI.md`.
+  `paper/VERSIUNI.md` -- it also records which conditions C1 and C2 share under
+  different names, that the shared ones are the same distribution reached by a
+  different netem code path, and the kernel / `iproute2` versions of the
+  campaign machine.
 
 Cells where the link failed completely are **not silently dropped**: they are
 recorded as `received=0` and drawn as an explicit hatched marker in the

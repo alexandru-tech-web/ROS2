@@ -74,6 +74,19 @@ C1 exprima pierderea independenta prin `netem loss <L>%`. C2 o exprima prin
 este matematic fara memorie -- deci acelasi canal. Rafala medie calculata pentru
 `bern_*` iese 1.1-1.4 pachete, ceea ce confirma echivalenta.
 
+Este **aceeasi distributie pe alta cale de cod netem**: `loss_15` ajunge pe ramura
+de pierdere independenta (`tc ... netem loss 15.0%`), iar `bern_15` pe ramura
+Gilbert-Elliott (`tc ... netem loss gemodel 15.000% 85.000% 100% 0%`). Diferenta e
+de implementare in netem, nu de model statistic, si asta trebuie spus cand cele
+doua articole se citesc impreuna.
+
+Cei patru parametri ai lui `gemodel` sunt emisi **explicit**, nu lasati pe seama
+implicitelor: `netem_cmd` scrie intotdeauna si `1-h = 100%` (pierdere totala in
+starea Bad) si `1-k = 0%` (fara pierdere in starea Good) -- vezi
+`bench_core.py:98`. Sunt exact valorile implicite din `tc-netem(8)`, deci
+comportamentul nu depinde de versiunea de `iproute2`; le scriem oricum, ca sa nu
+depinda.
+
 ### Fara corespondent
 
 | Nume | Prezent in | Canal |
@@ -104,3 +117,17 @@ raporteaza doar `loss_*` si `lat200_jit50`. Conditiile Gilbert-Elliott
 (`gilbert_*`) erau **implementate la data tagului dar neraportate**; setul C2
 (`bern_*`, `ge_*`, `lat200_jit50_ge_15_8`) a fost adaugat pe `main` DUPA tag si nu
 face parte din C1. Cine reproduce articolul foloseste tagul `c1-paper-v3.4`.
+
+### Versiuni de referinta ale masinii de campanie
+
+Pentru cine reproduce canalele, versiunile care conteaza sunt kernelul (netem
+traieste in kernel) si `iproute2` (comanda `tc` care le programeaza).
+
+| Ce | Valoare | Provenienta |
+|----|---------|-------------|
+| `uname -r` | `6.17.0-35-generic` | cules de pe laptop la 2026-07-07, DUPA campanie (SIL 2026-06-24, HIL 2026-07-01); nu e o amprenta luata in timpul rularii |
+| `tc -V` (iproute2) | TODO(Alexandru) | nu apare in niciun antet CSV, manifest sau jurnal din artefact -- nu a fost cules |
+
+`tc -V` nu se poate reconstitui din ce exista in depozit, asa ca ramane TODO in
+loc sa fie completat cu o valoare presupusa. Culegerea e o singura comanda pe
+masina de campanie, daca mai e in aceeasi stare.
