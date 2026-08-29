@@ -1,5 +1,8 @@
 # Manifest SHA256 -- manuscrise scoase din arbore
 # 7 fisiere. Format: sha256  dimensiune  cale-relativa-la-c1_benchmark/
+# Copie verificata la: ~/ARHIVA_PHD/manuscrise/
+# Cele 7 manuscrise .docx scoase din arbore.
+# Verificata contra acestui manifest la 2026-08-29, dupa mutare: 7/7 OK.
 12ac788afffe73aeb0d03eb0723dd9fbb4ee943208a41e501f4e930e29f9fb50  693494  paper/Articol_C1_v4.docx
 2e34ecc42aed3214016265d7e9494013b002f43118b10b47b497d81e7d48c3a9  499916  paper/Draft_Articol_C1_2coloane_v2.docx
 0455de2a07f5d99023bdcc2b2924a5a910ef4e2ba01b5988e26f1d7b403b9a9e  501533  paper/Draft_Articol_C1_2coloane_v2_pre-swap.docx

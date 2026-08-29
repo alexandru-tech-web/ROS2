@@ -1,5 +1,10 @@
 # Manifest SHA256 -- set scos din arbore: CAMPANII
 # 506 fisiere. Format: sha256  dimensiune  cale-relativa-la-c1_benchmark/
+# Copie verificata la: ~/ARHIVA_PHD/istoric/CAMPANII/
+# Pilot C1 HIL Wi-Fi: 8 conditii C1 (ideal, loss_5/15/20/25/30, lat200_jit50,
+#   lat200_l15), niciuna C2; inregistrat 2026-06-25..2026-06-30, intre campania SIL
+#   canonica (2026-06-24) si cea HIL canonica (2026-07-01).
+# Verificata contra acestui manifest la 2026-08-29, dupa mutare: 506/506 OK.
 9770545b584f8697db972b2e9c1b5b065288365303be26b5091fcec9bbeea67d  21678  CAMPANII/Analiza_ML_18.06.2026/figA_dataset.pdf
 ff706a5a0c34c7411452ddb6e94fb554098e47224c50f3af99257c59b40bf55a  150949  CAMPANII/Analiza_ML_18.06.2026/figA_dataset.png
 3bf0a14a2b295833ec6be03e87922b4ed8d256bd25f4d0d553a185014704e5d2  18590  CAMPANII/Analiza_ML_18.06.2026/figB_regresie.pdf

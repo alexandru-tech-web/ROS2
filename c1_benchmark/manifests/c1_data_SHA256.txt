@@ -1,5 +1,8 @@
 # Manifest SHA256 -- set scos din arbore: c1_data
 # 2651 fisiere. Format: sha256  dimensiune  cale-relativa-la-c1_benchmark/
+# Copie verificata la: ~/ARHIVA_PHD/istoric/c1_data/
+# Campanii C1 ANTERIOARE celei din articol (conditii ideal/loss_*/lat200_*).
+# Verificata contra acestui manifest la 2026-08-29, dupa mutare: 2651/2651 OK.
 f6cd0b7eeb062069cb33704352523c3b74d71e26f72ab355528dbb05bc0b2298  263631  c1_data/00_baseline_20250616_run.log
 487011e836fb1c73b4f206143cb0efdab0adacefa8004d6e105df2620a5520f9  963  c1_data/01_crossover_20250619/analysis/campaign_summary.csv
 42f45165e57f209a4cd23cf05da3f9666c5d670822c583d7e32143df8fe5bab1  43602  c1_data/01_crossover_20250619/analysis/fig_cdf.png
