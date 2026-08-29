@@ -3,13 +3,14 @@
 // gazda-server.
 //
 // ADAPTEAZA LA RETEAUA TA / adjust to your LAN: adresa din "connect" de mai jos
-// este un EXEMPLU (192.168.1.20 = gazda-server). Inlocuieste-o cu adresa reala a
+// este un EXEMPLU din 192.0.2.0/24 (TEST-NET-1, RFC 5737), blocul rezervat
+// documentatiei. 192.0.2.20 = gazda-server; inlocuieste-o cu adresa reala a
 // masinii care ruleaza router_pi.json5.
 //
 // Folosit cu: export ZENOH_ROUTER_CONFIG_URI=router_m1.json5 ; ros2 run rmw_zenoh_cpp rmw_zenohd
 {
   mode: "router",
-  connect: { endpoints: ["tcp/192.168.1.20:7447"] },
+  connect: { endpoints: ["tcp/192.0.2.20:7447"] },
   listen: { endpoints: ["tcp/[::]:7447"] },
   scouting: {
     multicast: { enabled: false }

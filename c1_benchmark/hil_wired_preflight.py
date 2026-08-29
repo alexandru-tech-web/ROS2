@@ -41,7 +41,7 @@ PACHETE PE SECUNDA (de ce P5 cere limit 100000):
   (~150 pkt/s) si problema nu apare; ea apare la 64 KiB.
   MASURAT: toata campania C2 HIL a rulat pe implicitul 1000 -- liniile
   'qdisc netem 8005: root refcnt 2 limit 1000 ...' din
-  /home/ubuntu/DATE_CAMPANIE/C2_HIL_WIFI64_20260803/orchestrator_20260803_235016.log
+  ~/DATE_CAMPANIE/C2_HIL_WIFI64_20260803/orchestrator_20260803_235016.log
 
 AVERTISMENT DE PERSISTENTA (verificat static la fiecare rulare, si in --dry):
   bench_core.netem_cmd (SURSA UNICA a regulii, folosita si de run_campaign.py pe M1 si
@@ -60,9 +60,9 @@ e OBLIGATORIU, iar --peer-ip separa adresa de test (cablul) de gazda ssh (care p
 merge pe alta cale, ex. Wi-Fi) -- daca nu se da, se deduce din --remote si se NOTEAZA.
 
 FOLOSIRE:
-  python3 hil_wired_preflight.py --remote ubuntu@10.0.0.2 --iface-remote eth0 --dry
-  python3 hil_wired_preflight.py --remote ubuntu@10.0.0.2 --iface-remote eth0 \\
-          --peer-ip 10.0.0.2 --raport ~/DATE_CAMPANIE/ANALIZA_C2/preflight.json
+  python3 hil_wired_preflight.py --remote ubuntu@192.0.2.20 --iface-remote eth0 --dry
+  python3 hil_wired_preflight.py --remote ubuntu@192.0.2.20 --iface-remote eth0 \\
+          --peer-ip 192.0.2.20 --raport ~/DATE_CAMPANIE/ANALIZA_C2/preflight.json
   python3 hil_wired_preflight.py --selftest      # doar parsere, NU atinge reteaua
 
 Interpretorul: /usr/bin/python3 (3.12). 'python3' din PATH poate fi venv/Anaconda.
@@ -1176,7 +1176,7 @@ FIX_EEE_DISABLED = """EEE settings for enp2s0:
 
 # Linii REALE de 'tc qdisc show', din jurnalul campaniei C2 (prefixul de timp al
 # orchestratorului e lasat INTENTIONAT, ca sa dovedeasca toleranta parserului):
-# /home/ubuntu/DATE_CAMPANIE/C2_HIL_WIFI64_20260803/orchestrator_20260803_235016.log
+# ~/DATE_CAMPANIE/C2_HIL_WIFI64_20260803/orchestrator_20260803_235016.log
 FIX_TC_NETEM_LIMIT_1000 = ("2026-08-03T23:55:00+03:00   | qdisc netem 8005: root "
                            "refcnt 2 limit 1000 loss gemodel p 15% r 85% 1-h 100% "
                            "1-k 0%\n")
@@ -1944,12 +1944,16 @@ def main(argv):
     ap.add_argument("--iface-remote", required=True,
                     help="NIC-ul cablat de pe M2 (OBLIGATORIU, fara implicit)")
     ap.add_argument("--remote", default=None,
-                    help="tinta ssh a lui M2, ex. ubuntu@10.0.0.2 (OBLIGATORIU)")
+                    help="tinta ssh a lui M2, ex. ubuntu@192.0.2.20 (OBLIGATORIU)")
     ap.add_argument("--peer-ip", default=None,
                     help="adresa lui M2 PE CABLU, pentru iperf3 (implicit: gazda din "
                          "--remote; da-o explicit daca ssh merge pe alta cale)")
     ap.add_argument("--prag-mbps", type=float, default=PRAG_MBPS,
-                    help="pragul P4 pe FIECARE interval de 1 s (implicit %.0f = ~90%% "
+                    # argparse formateaza help-ul INCA o data, cu un dict ca
+                    # operand: procentul literal trebuie sa ajunga la el ca '%%',
+                    # deci aici se scrie '%%%%'. Fara asta, '~90%% din' devine
+                    # conversia '%% d' si --help crapa cu TypeError.
+                    help="pragul P4 pe FIECARE interval de 1 s (implicit %.0f = ~90%%%% "
                          "din ce da o legatura gigabit sanatoasa)" % PRAG_MBPS)
     ap.add_argument("--mtu", type=int, default=1500,
                     help="MTU cerut pe ambele capete (implicit 1500)")
@@ -1979,7 +1983,7 @@ def main(argv):
         return 0
 
     if not a.remote:
-        print("EROARE: --remote e obligatoriu (ex: --remote ubuntu@10.0.0.2). "
+        print("EROARE: --remote e obligatoriu (ex: --remote ubuntu@192.0.2.20). "
               "Nu exista gazda implicita: bancul cablat NU are IP hardcodat.",
               file=sys.stderr)
         return 2
