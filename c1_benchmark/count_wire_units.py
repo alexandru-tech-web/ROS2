@@ -31,13 +31,13 @@ Instrumentul acesta citeste ambele formate, deci oricare varianta merge.
   # captura completa, pe nodul emitator sau receptor, cu marci de timp in ns
   sudo tcpdump -i enp2s0 -n -s 0 -B 65536 --time-stamp-precision=nano \\
        -w /tmp/c1_cyclone_p65536.pcap \\
-       'host 192.168.1.10 and host 192.168.1.11'
+       'host 192.0.2.10 and host 192.0.2.11'
 
   # varianta economica pentru rulari lungi: se retin doar antetele.
   # NUMARATOAREA RAMANE EXACTA (se foloseste orig_len din pcap si campul
   # totalLength din IP, nu lungimea captata); se pierde doar analiza RTPS
   # adanca si reconstructia batch-urilor Zenoh.
-  sudo tcpdump -i enp2s0 -n -s 128 -w /tmp/c1.pcap host 192.168.1.11
+  sudo tcpdump -i enp2s0 -n -s 128 -w /tmp/c1.pcap host 192.0.2.11
 
   # Zenoh: fara asta captura NU arata segmentele reale (vezi AVERTISMENT GSO)
   # DE RULAT PE BANC, NU AICI (regulile de proiect interzic ethtool/sudo):

@@ -1259,8 +1259,8 @@ SENS_SCURT = _sens([941.0] * 5, secunde=5.0)
 SENS_FARA_INTERVALE = _sens([])
 SENS_LENT = _sens([150.0] * 30, sent=150.0, recv=150.0)
 
-RUTA_CABLU = {"iface": "enp2s0", "src": "10.0.0.1", "via": None, "raw": ""}
-RUTA_WIFI = {"iface": "wlp4s0", "src": "192.168.1.14", "via": "192.168.1.1", "raw": ""}
+RUTA_CABLU = {"iface": "enp2s0", "src": "198.51.100.1", "via": None, "raw": ""}
+RUTA_WIFI = {"iface": "wlp4s0", "src": "203.0.113.14", "via": "203.0.113.1", "raw": ""}
 QD_CURAT = {"kind": "noqueue", "limit": None, "linie": "qdisc noqueue 0: root"}
 QD_NETEM = {"kind": "netem", "limit": 1000,
             "linie": "qdisc netem 8001: root limit 1000 delay 200ms"}
@@ -1520,8 +1520,8 @@ class _Args(object):
         self.iface_local = "enp2s0"
         self.iface_remote = "enp3s0"
         self.remote = "user@m2"
-        self.peer_ip = "10.0.0.2"
-        self.local_ip = "10.0.0.1"
+        self.peer_ip = "198.51.100.2"
+        self.local_ip = "198.51.100.1"
         self.prag_mbps = PRAG_MBPS
         self.iperf_dur = 30.0
         self.iperf_port = 5201
@@ -1568,8 +1568,8 @@ def _iperf_json(mbps, retrans, secunde=30.0, intervale=None):
 def _ruta_buna(host, cmd):
     """Ruta care iese pe interfata CABLATA a capatului interogat."""
     iface = "enp2s0" if host == "local" else "enp3s0"
-    tinta = "10.0.0.2" if host == "local" else "10.0.0.1"
-    sursa = "10.0.0.1" if host == "local" else "10.0.0.2"
+    tinta = "198.51.100.2" if host == "local" else "198.51.100.1"
+    sursa = "198.51.100.1" if host == "local" else "198.51.100.2"
     return (0, "%s dev %s src %s\n" % (tinta, iface, sursa), "")
 
 
@@ -1618,9 +1618,9 @@ def _demonstratie_banc_rupt():
 
     # --- P4: peer pe alt subnet (ruta iese pe Wi-Fi)
     ex = _ExecutorFals([("ip route get",
-                         (0, "192.168.1.50 via 192.168.1.1 dev wlp4s0 src 192.168.1.14\n",
+                         (0, "203.0.113.50 via 203.0.113.1 dev wlp4s0 src 203.0.113.14\n",
                           ""))])
-    ok, mesaj, _ = poarta4_iperf(ex, _Args(peer_ip="192.168.1.50"))
+    ok, mesaj, _ = poarta4_iperf(ex, _Args(peer_ip="203.0.113.50"))
     rezultate["P4 peer pe alt subnet"] = (ok, mesaj)
 
     # --- P4: netem preexistent pe ambele capete

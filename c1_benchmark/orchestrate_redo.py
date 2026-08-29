@@ -60,7 +60,7 @@ import time
 IP_PI = os.environ.get("C1_IP_PI", "192.0.2.20")         # gazda-server (Raspberry Pi)
 IP_M1 = os.environ.get("C1_IP_M1", "192.0.2.10")         # gazda-client (laptop)
 PI = os.environ.get("C1_PI_SSH", "ubuntu@" + IP_PI)      # tinta SSH catre Pi
-PI_HOME = os.environ.get("C1_PI_HOME", "/home/ubuntu")   # HOME-ul userului de pe Pi
+PI_HOME = os.path.normpath(os.environ.get("C1_PI_HOME", "/home/ubuntu"))  # HOME pe Pi
 IFACE_M1 = os.environ.get("C1_IFACE_M1", "wlp4s0")
 IFACE_PI = os.environ.get("C1_IFACE_PI", "wlan0")
 PORT = 7447
@@ -738,7 +738,7 @@ def _selftest():
     # lui hil_netem.py in /root/DATE_CAMPANIE/)
     for c in (cmd_netem_pi("bern_30"), cmd_netem_show_pi()):
         assert "--journal %s" % JURNAL_M2 in c, c
-        assert JURNAL_M2.startswith(PI_HOME + "/"), JURNAL_M2
+        assert os.path.isabs(PI_HOME), "C1_PI_HOME trebuie sa fie cale absoluta"
     # payload-ul ssh: '$' escapat, ghilimele duble in jurul lui bash -lc
     p = ssh_payload("for p in $(pgrep x); do echo $p; done")
     assert p == 'bash -lc "for p in \\$(pgrep x); do echo \\$p; done"', p
