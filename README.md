@@ -190,3 +190,10 @@ rigiditate adaptiva transmisa prin legatura (pasiva pana la 120 ms).
 [3] Eclipse Cyclone DDS, https://github.com/eclipse-cyclonedds/cyclonedds
 [4] ROS 2 Jazzy Jalisco, https://docs.ros.org/en/jazzy
 [5] tc-netem(8), Linux man-pages, iproute2.
+
+## 11. Licenta
+
+Licentierea este pe artefact, nu pe depozit. Artefactul articolului C1
+(`c1_benchmark/`) este publicat sub Apache-2.0 -- vezi `c1_benchmark/LICENSE`.
+Restul depozitului (contributiile C3/C4, inca nepublicate, si materialele de curs)
+ramane fara licenta de reutilizare: toate drepturile rezervate.
