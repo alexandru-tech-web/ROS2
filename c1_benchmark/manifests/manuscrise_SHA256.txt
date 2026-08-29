@@ -1,0 +1,9 @@
+# Manifest SHA256 -- manuscrise scoase din arbore
+# 7 fisiere. Format: sha256  dimensiune  cale-relativa-la-c1_benchmark/
+12ac788afffe73aeb0d03eb0723dd9fbb4ee943208a41e501f4e930e29f9fb50  693494  paper/Articol_C1_v4.docx
+2e34ecc42aed3214016265d7e9494013b002f43118b10b47b497d81e7d48c3a9  499916  paper/Draft_Articol_C1_2coloane_v2.docx
+0455de2a07f5d99023bdcc2b2924a5a910ef4e2ba01b5988e26f1d7b403b9a9e  501533  paper/Draft_Articol_C1_2coloane_v2_pre-swap.docx
+78adf1e53b69c21f3bc701f66033edb7bc0ba74a709a3ae315b48ac357f4994a  482125  paper/Draft_Articol_C1_2coloane_v3.docx
+3b2fc3c82d005898cf5fd84202cfa8fa6e79236bc82cb6ab5870bdcd05e3d0a7  475264  paper/Draft_Articol_C1_2coloane_v3_4.docx
+7d2fa81311fa7ba977f0910da4a381c5b1caa0d514814c351a24bb8c7a75ae7f  573079  paper/Draft_Articol_C1_2coloane_v3_5.docx
+8be05308aa36bdaf664916ad964445803e1888fb8875999f3530d36bc3ca0e32  501100  paper/Draft_Articol_C1_2coloane_v3_pre-image7.docx
