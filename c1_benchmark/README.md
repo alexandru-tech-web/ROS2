@@ -179,3 +179,25 @@ git add docs/
 git commit -m "C1: datele campaniei (sumar + figuri)"
 git tag c1-data-v1 && git push --tags && git push
 ```
+
+## 8. Disponibilitatea datelor
+
+Datele brute ale campaniei NU sunt in depozit: sunt rezultat de masurare, nu
+sursa. Ce este in depozit e dovada care le fixeaza:
+
+- `paper/MANIFEST_DATE.md` -- sursa de adevar: 720 fisiere summary canonice
+  (720 asteptate, 720 prezente), fiecare cu SHA256 si dimensiune, plus matricea
+  de completitudine pe celule. Orice copie a datelor se poate verifica fata de el.
+- `paper/campaign_summary.csv` -- agregatul din care se construiesc tabelele.
+
+Structura canonica:
+`<env>/date/<rmw>/<cond>/rep<N>/transport_p<P>_summary.json` (+ `.csv` brut),
+cu `env` in {SIL, HIL_WIFI}, `rep` 1..10 (SIL) / 1..5 (HIL), `P` in {64, 4096, 65536}.
+
+Setul de date se obtine de la autor, la cerere. Un depozit public cu DOI se
+creeaza la publicare (licenta de date recomandata: CC-BY-4.0; structura de
+arhiva e deja specificata in `paper/MANIFEST_DATE.md`). Pana atunci, manifestul
+SHA256 este ce face rezultatele verificabile: e un angajament la un set de date
+fix, luat inainte de recenzie, nu dupa.
+
+Formularea in engleza, pentru recenzori: `README_EN.md`, sectiunea 7.

@@ -26,7 +26,7 @@ not appear in loopback testing at all. That is the point of the paper: a
 loopback benchmark would have reported these two middlewares as equivalent.
 
 Source of these numbers: `paper/campaign_summary.csv`, aggregated from the raw
-campaign by `analyze_campaign.py`. N = 10 repetitions per cell.
+campaign by `analyze_campaign.py`. Repetitions per cell: **10 in SIL, 5 in HIL**.
 
 ## 2. What is measured
 
@@ -118,7 +118,36 @@ numbers and figures. It is immutable. `main` has moved on since -- most
 notably it adds the C2 condition set (`bern_*`, `ge_*`) which is **not** part
 of the C1 paper. To reproduce the paper, check out the tag.
 
-## 7. License
+## 7. Data availability
+
+The raw campaign data is **not stored in this repository** -- it is measurement
+output, not source, and keeping it in git would be wrong for both size and
+provenance reasons.
+
+What is in the repository is the evidence that fixes the data:
+
+- `paper/MANIFEST_DATE.md` -- the source of truth. It lists **720 canonical
+  summary files** (720 expected, 720 present) with a **SHA256** and a size for
+  each, plus a per-cell completeness matrix. Any copy of the data can be
+  checked against it byte for byte.
+- `paper/campaign_summary.csv` -- the aggregate the paper's tables are built
+  from.
+
+Canonical layout of the dataset:
+
+```
+<env>/date/<rmw>/<cond>/rep<N>/transport_p<P>_summary.json   (+ transport_p<P>.csv)
+env  in {SIL, HIL_WIFI}     rep  1..10 (SIL), 1..5 (HIL)     P in {64, 4096, 65536}
+```
+
+**Availability.** The dataset is available from the author on request. A public
+deposit with a DOI will be created at publication; the recommended data licence
+is CC-BY-4.0, and the archive structure is already specified in
+`paper/MANIFEST_DATE.md`. Until then, the SHA256 manifest is what makes the
+results checkable: it is a commitment to a fixed dataset made before review,
+not after.
+
+## 8. License
 
 Apache-2.0, see `LICENSE` in this directory. The rest of the monorepo is
 unpublished work and is not covered.
