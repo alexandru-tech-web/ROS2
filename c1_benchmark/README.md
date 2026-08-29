@@ -64,6 +64,8 @@ cd ~/ros2_ws/src/c1_benchmark
 # 0) verificarile fara ROS
 python3 test_bench_core.py                 # 13 verificari
 python3 analyze_campaign.py --selftest     # validarea fluxului de analiza
+python3 check_addresses.py                 # invariantul de adrese (RFC 5737)
+python3 manifest_tool.py --selftest        # unealta de manifest
 
 # 1) garda de mediu (obligatoriu inaintea oricarei campanii)
 ./preflight.sh                             # asteptat: VERDICT: GO

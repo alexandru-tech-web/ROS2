@@ -1628,7 +1628,7 @@ def _selftest():
     v = 0
 
     # ---- 1. un datagram UDP mic: exact 1 cadru, 1 datagram, 0 fragmente
-    cadre = [_fab_eth(_fab_ipv4("10.0.0.1", "10.0.0.2", PROTO_UDP, 111, 0,
+    cadre = [_fab_eth(_fab_ipv4("198.51.100.1", "198.51.100.2", PROTO_UDP, 111, 0,
                                 False, _fab_udp(7411, 7411, b"x" * 100)))]
     r = analizeaza_octeti(_fab_pcap(cadre), Optiuni())
     assert r["cadre"]["total"] == 1, r["cadre"]
@@ -1647,7 +1647,7 @@ def _selftest():
     #        fragmenteaza el insusi, la nivel DDSI, inainte de UDP.
     sarcina = _fab_udp(7411, 7411, b"A" * 65507)          # 65515 B L4
     assert len(sarcina) == 65515
-    fr = _fragmenteaza("10.0.0.1", "10.0.0.2", PROTO_UDP, 222, sarcina)
+    fr = _fragmenteaza("198.51.100.1", "198.51.100.2", PROTO_UDP, 222, sarcina)
     assert len(fr) == 45, len(fr)
     r = analizeaza_octeti(_fab_pcap(fr), Optiuni(numar_esantioane=1))
     assert r["cadre"]["total"] == 45
@@ -1663,9 +1663,9 @@ def _selftest():
 
     # ---- 3. doua fluxuri intercalate: gruparea dupa (src,dst,proto,ID)
     #        cazul greu: ACELASI IP ID pe amandoua, doar gazdele difera
-    a = _fragmenteaza("10.0.0.1", "10.0.0.2", PROTO_UDP, 777,
+    a = _fragmenteaza("198.51.100.1", "198.51.100.2", PROTO_UDP, 777,
                       _fab_udp(7411, 7411, b"a" * 4000))
-    b = _fragmenteaza("10.0.0.3", "10.0.0.4", PROTO_UDP, 777,
+    b = _fragmenteaza("198.51.100.3", "198.51.100.4", PROTO_UDP, 777,
                       _fab_udp(7411, 7411, b"b" * 4000))
     assert len(a) == 3 and len(b) == 3
     inter = [a[0], b[0], a[1], b[1], a[2], b[2]]
@@ -1677,7 +1677,7 @@ def _selftest():
     v += 4
 
     # ---- 3b. acelasi IP ID, ACEEASI pereche de gazde, secvential (reuz de ID)
-    c1 = _fragmenteaza("10.0.0.1", "10.0.0.2", PROTO_UDP, 900,
+    c1 = _fragmenteaza("198.51.100.1", "198.51.100.2", PROTO_UDP, 900,
                        _fab_udp(7411, 7411, b"c" * 4000))
     r = analizeaza_octeti(_fab_pcap(c1 + c1), Optiuni())
     assert r["udp"]["datagrame"] == 2, r["udp"]["datagrame"]
@@ -1687,13 +1687,13 @@ def _selftest():
     # ---- 4. un flux TCP cu segmente
     seg = []
     seq = 1000
-    seg.append(_fab_eth(_fab_ipv4("10.0.0.1", "10.0.0.2", PROTO_TCP, 1, 0,
+    seg.append(_fab_eth(_fab_ipv4("198.51.100.1", "198.51.100.2", PROTO_TCP, 1, 0,
                                   False, _fab_tcp(40000, 7447, seq, b"",
                                                   flags=0x02))))
     seq += 1
     for i in range(5):
         corp = bytes([65 + i]) * 1448
-        seg.append(_fab_eth(_fab_ipv4("10.0.0.1", "10.0.0.2", PROTO_TCP, 2 + i,
+        seg.append(_fab_eth(_fab_ipv4("198.51.100.1", "198.51.100.2", PROTO_TCP, 2 + i,
                                       0, False, _fab_tcp(40000, 7447, seq, corp))))
         seq += len(corp)
     r = analizeaza_octeti(_fab_pcap(seg), Optiuni())
@@ -1753,9 +1753,9 @@ def _selftest():
     # ---- 7. filtrarea pe port si pe gazda (aplicata pe DATAGRAM, nu pe cadru,
     #        fiindca fragmentele urmatoare nu au antet UDP)
     mix = list(fr)                                   # 45 cadre pe portul 7411
-    mix.append(_fab_eth(_fab_ipv4("10.0.0.9", "10.0.0.2", PROTO_TCP, 5, 0,
+    mix.append(_fab_eth(_fab_ipv4("198.51.100.9", "198.51.100.2", PROTO_TCP, 5, 0,
                                   False, _fab_tcp(50000, 22, 1, b"z" * 60))))
-    mix.append(_fab_eth(_fab_ipv4("10.0.0.1", "10.0.0.2", PROTO_UDP, 6, 0,
+    mix.append(_fab_eth(_fab_ipv4("198.51.100.1", "198.51.100.2", PROTO_UDP, 6, 0,
                                   False, _fab_udp(7400, 7400, b"d" * 40))))
     r = analizeaza_octeti(_fab_pcap(mix), Optiuni(exclude_port={22}))
     assert r["tcp"]["segmente"] == 0, r["tcp"]
@@ -1764,7 +1764,7 @@ def _selftest():
     r = analizeaza_octeti(_fab_pcap(mix), Optiuni(filtru_port=_parse_porturi("7411")))
     assert r["udp"]["datagrame"] == 1 and r["udp"]["fragmente_ip"] == 45, r["udp"]
     assert r["cadre"]["excluse_de_filtre"] == 2, r["cadre"]
-    r = analizeaza_octeti(_fab_pcap(mix), Optiuni(exclude_gazda={"10.0.0.9"}))
+    r = analizeaza_octeti(_fab_pcap(mix), Optiuni(exclude_gazda={"198.51.100.9"}))
     assert r["tcp"]["segmente"] == 0 and r["udp"]["datagrame"] == 2
     v += 7
 
@@ -1806,7 +1806,7 @@ def _selftest():
             if len(msg) < dims[i]:
                 msg += b"\x00" * (dims[i] - len(msg))
             msg = msg[:dims[i]]
-            out.extend(_fragmenteaza("10.0.0.1", "10.0.0.2", PROTO_UDP,
+            out.extend(_fragmenteaza("198.51.100.1", "198.51.100.2", PROTO_UDP,
                                      (1000 + 10 * sn if id_baza is None
                                       else id_baza) + i,
                                      _fab_udp(7411, 7411, msg)))
@@ -1843,7 +1843,7 @@ def _selftest():
     # ---- 9b. retransmisia: acelasi esantion, alt fragment -> se vede
     rex = _fab_rtps(guid, [_fab_data_frag(reader_user, writer_user, 1, 5, 1,
                                           1344, sample_size, b"\x00" * 1344)])
-    cadre_rex = cadre_cyc + _fragmenteaza("10.0.0.1", "10.0.0.2", PROTO_UDP,
+    cadre_rex = cadre_cyc + _fragmenteaza("198.51.100.1", "198.51.100.2", PROTO_UDP,
                                           2000, _fab_udp(7411, 7411, rex))
     r2 = analizeaza_octeti(_fab_pcap(cadre_rex), Optiuni(numar_esantioane=1))
     df2 = r2["rtps"]["data_frag"]
@@ -1858,7 +1858,7 @@ def _selftest():
     bi = _fab_rtps(guid, [_fab_data_frag(reader_user, writer_bi, 1, 1, 1, 1344,
                                          1344, b"\x00" * 1344)])
     r3 = analizeaza_octeti(
-        _fab_pcap([_fab_eth(_fab_ipv4("10.0.0.1", "10.0.0.2", PROTO_UDP, 3, 0,
+        _fab_pcap([_fab_eth(_fab_ipv4("198.51.100.1", "198.51.100.2", PROTO_UDP, 3, 0,
                                       False, _fab_udp(7410, 7410, bi)))]),
         Optiuni())
     assert r3["clase"]["discovery"]["datagrame"] == 1, r3["clase"]
@@ -1866,7 +1866,7 @@ def _selftest():
     # datagram doar cu HEARTBEAT -> control
     hb = _fab_rtps(guid, [_fab_heartbeat(reader_user, writer_user, 1, 5, 3)])
     r4 = analizeaza_octeti(
-        _fab_pcap([_fab_eth(_fab_ipv4("10.0.0.2", "10.0.0.1", PROTO_UDP, 4, 0,
+        _fab_pcap([_fab_eth(_fab_ipv4("198.51.100.2", "198.51.100.1", PROTO_UDP, 4, 0,
                                       False, _fab_udp(7411, 7411, hb)))]),
         Optiuni())
     assert r4["clase"]["control"]["datagrame"] == 1, r4["clase"]
@@ -1878,7 +1878,7 @@ def _selftest():
     flux = b1 + b2
     assert len(flux) == 65627, len(flux)
     ts_opt = b"\x01\x01\x08\x0a" + struct.pack(">II", 1, 2)   # NOP NOP TS
-    cadre_z = [_fab_eth(_fab_ipv4("10.0.0.1", "10.0.0.2", PROTO_TCP, 1, 0,
+    cadre_z = [_fab_eth(_fab_ipv4("198.51.100.1", "198.51.100.2", PROTO_TCP, 1, 0,
                                   False, _fab_tcp(40000, 7447, 1000, b"",
                                                   flags=0x02)))]
     seq = 1001
@@ -1886,7 +1886,7 @@ def _selftest():
     while poz < len(flux):
         corp = flux[poz:poz + 1448]
         cadre_z.append(_fab_eth(_fab_ipv4(
-            "10.0.0.1", "10.0.0.2", PROTO_TCP, 2 + poz // 1448, 0, False,
+            "198.51.100.1", "198.51.100.2", PROTO_TCP, 2 + poz // 1448, 0, False,
             _fab_tcp(40000, 7447, seq, corp, optiuni=ts_opt))))
         seq += len(corp)
         poz += len(corp)
@@ -1916,7 +1916,7 @@ def _selftest():
     seq = 1001
     for corp in (flux[:49152], flux[49152:]):
         cadre_g.append(_fab_eth(_fab_ipv4(
-            "10.0.0.1", "10.0.0.2", PROTO_TCP, 7, 0, False,
+            "198.51.100.1", "198.51.100.2", PROTO_TCP, 7, 0, False,
             _fab_tcp(40000, 7447, seq, corp, optiuni=ts_opt))))
         seq += len(corp)
     r = analizeaza_octeti(_fab_pcap(cadre_g), Optiuni(numar_esantioane=1))
@@ -1953,7 +1953,7 @@ def _selftest():
     v += 4
 
     # ---- 12. linktype-uri alternative: LINUX_SLL2 (tcpdump -i any) si RAW
-    cadru_ip = _fab_ipv4("10.0.0.1", "10.0.0.2", PROTO_UDP, 50, 0, False,
+    cadru_ip = _fab_ipv4("198.51.100.1", "198.51.100.2", PROTO_UDP, 50, 0, False,
                          _fab_udp(7411, 7411, b"q" * 30))
     sll2 = struct.pack(">HHIHBB", 0x0800, 0, 2, 1, 0, 6) + b"\x00" * 8 + cadru_ip
     r = analizeaza_octeti(_fab_pcap([sll2], linktype=276), Optiuni())
@@ -2064,17 +2064,17 @@ def _selftest():
     def _dem_b1():
         rez = {}
         # (a) ip.len == 0 -- semnatura clasica de TSO la tcpdump pe EMITATOR
-        c = _fab_eth(_fab_ipv4_len("10.0.0.1", "10.0.0.2", PROTO_UDP, 77,
+        c = _fab_eth(_fab_ipv4_len("198.51.100.1", "198.51.100.2", PROTO_UDP, 77,
                                    _fab_udp(7411, 7411, b"z" * 1000), 0))
         rez["ip.len == 0 (TSO la emitator)"] = analizeaza_octeti(
             _fab_pcap([c]), Optiuni(numar_esantioane=1))
         # (b) ip.len mai mare decat cadrul de pe fir -- coalescere la receptie
-        c = _fab_eth(_fab_ipv4_len("10.0.0.1", "10.0.0.2", PROTO_UDP, 78,
+        c = _fab_eth(_fab_ipv4_len("198.51.100.1", "198.51.100.2", PROTO_UDP, 78,
                                    _fab_udp(7411, 7411, b"z" * 1000), 65535))
         rez["ip.len > cadru (GRO/LRO)"] = analizeaza_octeti(
             _fab_pcap([c]), Optiuni(numar_esantioane=1))
         # (c) super-cadru de 22 KB pe o legatura cu MTU 1500
-        c = _fab_eth(_fab_ipv4("10.0.0.1", "10.0.0.2", PROTO_UDP, 79, 0, False,
+        c = _fab_eth(_fab_ipv4("198.51.100.1", "198.51.100.2", PROTO_UDP, 79, 0, False,
                                _fab_udp(7411, 7411, b"z" * 22000)))
         rez["super-cadru 22 KB pe MTU 1500"] = analizeaza_octeti(
             _fab_pcap([c]), Optiuni(numar_esantioane=1))
@@ -2128,12 +2128,12 @@ def _selftest():
         assert any("captura dubla" in e for e in d["erori_captura"])
         for sarcina_id, total_fals, semn in ((77, 0, "ip.len = 0"),
                                              (78, 65535, "depaseste cadrul")):
-            c = _fab_eth(_fab_ipv4_len("10.0.0.1", "10.0.0.2", PROTO_UDP, sarcina_id,
+            c = _fab_eth(_fab_ipv4_len("198.51.100.1", "198.51.100.2", PROTO_UDP, sarcina_id,
                                        _fab_udp(7411, 7411, b"z" * 1000), total_fals))
             x = analizeaza_octeti(_fab_pcap([c]), Optiuni(numar_esantioane=1))
             assert x["erori_captura"] and any(semn in e for e in x["erori_captura"])
             assert x["multiplicitate"] is None
-        big = _fab_eth(_fab_ipv4("10.0.0.1", "10.0.0.2", PROTO_UDP, 79, 0, False,
+        big = _fab_eth(_fab_ipv4("198.51.100.1", "198.51.100.2", PROTO_UDP, 79, 0, False,
                                  _fab_udp(7411, 7411, b"z" * 22000)))
         x = analizeaza_octeti(_fab_pcap([big]), Optiuni(numar_esantioane=1))
         assert x["erori_captura"] and any("peste MTU" in e for e in x["erori_captura"])
@@ -2153,14 +2153,14 @@ def _selftest():
         assert _mod({"5": 3, "6": 2}) == "5"
         # --- cai pe care bateria initiala nu le atingea deloc (descoperite de mutanti)
         # v1-02: datagram cu GAUR A la mijloc -> incomplet, nu 'complet'
-        f0 = _fab_eth(_fab_ipv4("10.0.0.1", "10.0.0.2", PROTO_UDP, 900, 0, True,
+        f0 = _fab_eth(_fab_ipv4("198.51.100.1", "198.51.100.2", PROTO_UDP, 900, 0, True,
                                 _fab_udp(7411, 7411, b"a" * 1472)))
-        f2 = _fab_eth(_fab_ipv4("10.0.0.1", "10.0.0.2", PROTO_UDP, 900, 2960, False,
+        f2 = _fab_eth(_fab_ipv4("198.51.100.1", "198.51.100.2", PROTO_UDP, 900, 2960, False,
                                 b"c" * 100))
         inc = analizeaza_octeti(_fab_pcap([f0, f2]), Optiuni(numar_esantioane=1))
         assert inc["udp"]["incomplete"] == 1, inc["udp"]
         # v1-03: VLAN QinQ (doua etichete) -> IP-ul trebuie gasit
-        interior = _fab_ipv4("10.0.0.1", "10.0.0.2", PROTO_UDP, 901, 0, False,
+        interior = _fab_ipv4("198.51.100.1", "198.51.100.2", PROTO_UDP, 901, 0, False,
                              _fab_udp(7411, 7411, b"q" * 100))
         qinq = (b"\xff" * 6 + b"\xee" * 6 + struct.pack(">HHHH", 0x88a8, 0x0064,
                                                          0x8100, 0x000a)

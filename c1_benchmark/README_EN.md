@@ -58,6 +58,8 @@ Requirements: ROS 2 Jazzy, Python 3.12, `tc` (iproute2), plus
 ```bash
 python3 test_bench_core.py             # unit tests for the pure core
 python3 analyze_campaign.py --selftest # end-to-end analysis flow on synthetic data
+python3 check_addresses.py             # address invariant (RFC 5737 blocks only)
+python3 manifest_tool.py --selftest    # manifest tool
 python3 run_campaign.py --dry          # print the campaign plan, change nothing
 ```
 

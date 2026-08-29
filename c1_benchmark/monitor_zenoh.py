@@ -36,7 +36,7 @@ STARI_SS = ("ESTAB", "SYN-SENT", "SYN-RECV", "FIN-WAIT-1", "FIN-WAIT-2", "TIME-W
 
 
 def _port_din_adresa(adr):
-    """Portul dintr-o adresa 'ip:port' ('1.2.3.4:7447', '[::1]:7447', '*:7447').
+    """Portul dintr-o adresa 'ip:port' ('192.0.2.1:7447', '[::1]:7447', '*:7447').
     None daca nu se poate citi."""
     if ":" not in adr:
         return None
@@ -175,7 +175,7 @@ def _selftest():
     ss_cu_stare = (
         "State      Recv-Q Send-Q      Local Address:Port      Peer Address:Port Process\n"
         "ESTAB      0      0           192.0.2.10:7447     192.0.2.30:51234\n"
-        "ESTAB      0      0           192.0.2.10:57342    160.79.104.10:443\n"
+        "ESTAB      0      0           192.0.2.10:57342    203.0.113.10:443\n"
         "ESTAB      0      0           192.0.2.10:44120    192.0.2.30:7447\n"
         "TIME-WAIT  0      0           192.0.2.10:44121    192.0.2.30:7447\n"
         "LISTEN     0      128         0.0.0.0:7447            0.0.0.0:*\n")
@@ -185,7 +185,7 @@ def _selftest():
     ss_fara_stare = (
         "Recv-Q Send-Q                Local Address:Port      Peer Address:Port Process\n"
         "0      0                     192.0.2.10:44120    192.0.2.30:7447\n"
-        "0      0                     192.0.2.10:57342    160.79.104.10:443\n")
+        "0      0                     192.0.2.10:57342    203.0.113.10:443\n")
     assert count_estab(ss_fara_stare) == 1, count_estab(ss_fara_stare)
     # 3. IPv6 si adrese cu '*'
     ss_v6 = ("State  Recv-Q Send-Q Local Address:Port Peer Address:Port\n"
