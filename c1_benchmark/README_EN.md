@@ -123,32 +123,39 @@ of the C1 paper. To reproduce the paper, check out the tag.
 
 ## 7. Data availability
 
-The raw campaign data is **not stored in this repository** -- it is measurement
-output, not source, and keeping it in git would be wrong for both size and
-provenance reasons.
+The raw campaign data is **not in this repository**. The campaigns reported in
+the paper are SIL 2026-06-24 and HIL 2026-07-01; the 720 canonical summary files
+live outside git.
 
-What is in the repository is the evidence that fixes the data:
+What is in the repository is the evidence that fixes them:
 
-- `paper/MANIFEST_DATE.md` -- the source of truth. It lists **720 canonical
-  summary files** (720 expected, 720 present) with a **SHA256** and a size for
-  each, plus a per-cell completeness matrix. Any copy of the data can be
-  checked against it byte for byte.
-- `paper/campaign_summary.csv` -- the aggregate the paper's tables are built
-  from.
+- `paper/MANIFEST_DATE.md` -- the source of truth, and the single place where the
+  counts are kept (how many files, what sizes, the per-cell completeness matrix).
+  Every entry carries a SHA256 and a size, so any copy of the data can be checked
+  byte for byte.
+- `paper/campaign_summary.csv` -- the aggregate the paper's tables are built from.
 
-Canonical layout of the dataset:
+Canonical layout:
 
 ```
 <env>/date/<rmw>/<cond>/rep<N>/transport_p<P>_summary.json   (+ transport_p<P>.csv)
 env  in {SIL, HIL_WIFI}     rep  1..10 (SIL), 1..5 (HIL)     P in {64, 4096, 65536}
 ```
 
-**Availability.** The dataset is available from the author on request. A public
-deposit with a DOI will be created at publication; the recommended data licence
-is CC-BY-4.0, and the archive structure is already specified in
-`paper/MANIFEST_DATE.md`. Until then, the SHA256 manifest is what makes the
-results checkable: it is a commitment to a fixed dataset made before review,
-not after.
+Integrity was verified on 2026-08-29 against the canonical source:
+**720/720 OK, 0 mismatches, 0 missing.**
+
+**Availability.** The dataset is available from the author on request. At
+submission a Zenodo deposit with a DOI will be created, as a snapshot of the
+corresponding code tag.
+
+**Data licence: TODO(Alexandru).** The `LICENSE` file (Apache-2.0) covers the
+code, not the data. Proposed for the campaign dataset: CC BY 4.0. That decision
+belongs to the author.
+
+Code and documentation in this repository use addresses from the documentation
+ranges (RFC 5737). The raw data keeps the addresses recorded at campaign time and
+is not rewritten: its provenance is left untouched.
 
 ## 8. License
 

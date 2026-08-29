@@ -182,22 +182,33 @@ git tag c1-data-v1 && git push --tags && git push
 
 ## 8. Disponibilitatea datelor
 
-Datele brute ale campaniei NU sunt in depozit: sunt rezultat de masurare, nu
-sursa. Ce este in depozit e dovada care le fixeaza:
+Datele brute ale campaniei NU sunt in depozit. Campaniile raportate in articol
+sunt SIL 2026-06-24 si HIL 2026-07-01; cele 720 de fisiere summary canonice stau
+in afara git.
 
-- `paper/MANIFEST_DATE.md` -- sursa de adevar: 720 fisiere summary canonice
-  (720 asteptate, 720 prezente), fiecare cu SHA256 si dimensiune, plus matricea
-  de completitudine pe celule. Orice copie a datelor se poate verifica fata de el.
+Ce este in depozit e dovada care le fixeaza:
+
+- `paper/MANIFEST_DATE.md` -- sursa de adevar si singurul loc unde se tin
+  numerele (cate fisiere, ce dimensiuni, matricea de completitudine pe celule).
+  Fiecare intrare are SHA256 si dimensiune, deci orice copie a datelor se poate
+  verifica octet cu octet.
 - `paper/campaign_summary.csv` -- agregatul din care se construiesc tabelele.
 
 Structura canonica:
 `<env>/date/<rmw>/<cond>/rep<N>/transport_p<P>_summary.json` (+ `.csv` brut),
 cu `env` in {SIL, HIL_WIFI}, `rep` 1..10 (SIL) / 1..5 (HIL), `P` in {64, 4096, 65536}.
 
-Setul de date se obtine de la autor, la cerere. Un depozit public cu DOI se
-creeaza la publicare (licenta de date recomandata: CC-BY-4.0; structura de
-arhiva e deja specificata in `paper/MANIFEST_DATE.md`). Pana atunci, manifestul
-SHA256 este ce face rezultatele verificabile: e un angajament la un set de date
-fix, luat inainte de recenzie, nu dupa.
+Integritatea a fost verificata la 2026-08-29 contra sursei canonice:
+**720/720 OK, 0 nepotriviri, 0 lipsa.**
+
+Setul de date se obtine de la autor, la cerere. La submisie se creeaza o depunere
+Zenodo cu DOI, printr-un snapshot al tagului de cod corespunzator.
+
+**Licenta datelor: TODO(Alexandru).** `LICENSE` (Apache-2.0) acopera codul, nu
+datele. Propunere pentru setul de campanie: CC BY 4.0. Decizia este a autorului.
+
+Codul si documentatia din acest depozit folosesc adrese din blocurile rezervate
+documentatiei (RFC 5737). Datele brute pastreaza adresele inregistrate la
+momentul campaniei si nu se rescriu: provenienta lor nu se atinge.
 
 Formularea in engleza, pentru recenzori: `README_EN.md`, sectiunea 7.

@@ -40,20 +40,39 @@ rmw_zenoh_cpp 0.2.9."
 
 ---
 
-## Documentul canonic al articolului
+## Descendenta: manuscris <-> cod <-> date
 
-In acest director exista mai multe versiuni `.docx`. Canonicul este:
+Nu exista un singur "canonic": exista o descendenta. Fiecare manuscris se
+citeste impreuna cu commitul de cod care i-a produs cifrele si cu manifestul
+datelor pe care le-a folosit.
 
-| Fisier | Statut |
-|--------|--------|
-| `Draft_Articol_C1_2coloane_v3_4.docx` | **CANONIC** -- corespunde tagului `c1-paper-v3.4` |
-| `Draft_Articol_C1_2coloane_v3.docx`, `..._v3_pre-image7.docx` | istoric, nu se citeaza |
-| `Draft_Articol_C1_2coloane_v2.docx`, `..._v2_pre-swap.docx` | istoric, nu se citeaza |
+| Manuscris | Data | Cod (commit / tag) | Manifest de date | Stare |
+|-----------|------|--------------------|------------------|-------|
+| `Draft_..._v3_4.docx` | 2026-07-08 | `ec88db1`, fixat de tagul **`c1-paper-v3.4`** | `paper/MANIFEST_DATE.md` (720) | canonic PENTRU TAG |
+| `Draft_..._v3_5.docx` | 2026-07-10 | `3dfa755` | `paper/MANIFEST_DATE.md` (720) | diagrame de arhitectura EN |
+| `Articol_C1_v4.docx` | 2026-07-18 | `a8ffc17` | `paper/MANIFEST_DATE.md` (720) | trimis coordonatorului 2026-07-18; dupa spusele autorului, 11 comentarii, in revizie (copia din git nu continea comentarii) |
+| `V5` | -- | tagul de submisie, inca necreat | idem | de produs la submisie |
 
-`main.tex` NU este articolul: se auto-declara schelet, cu `TODO` in text si in
-`references.bib`. Sursa de referinta este `.docx`-ul canonic de mai sus.
+`main.tex` nu intra in tabel: se auto-declara schelet, cu `TODO` in text si in
+`references.bib`.
 
----
+Manuscrisele NU mai sunt in arbore (depozitul e public, iar un artefact de cod
+nu are motiv sa distribuie drafturi). Raman accesibile prin istoric.
+
+## Seturi scoase din arbore
+
+Istoricul nu a fost rescris: fiecare set ramane accesibil la commiturile de
+dinaintea scoaterii.
+
+| Set | In git pana la | Acum la | Manifest | Verificat |
+|-----|----------------|---------|----------|-----------|
+| `c1_data/` (2651 fisiere, 154 MB) | `f1a0822` | `~/DATE_CAMPANIE/istoric/c1_data/` | `manifests/c1_data_SHA256.txt` | 2651/2651 |
+| `CAMPANII/` (506 fisiere, 4.7 MB) | `e30decd` | `~/DATE_CAMPANIE/istoric/CAMPANII/` | `manifests/CAMPANII_SHA256.txt` | 506/506 |
+| 7 manuscrise `.docx` (3.6 MB) | `7333d36` | `~/DATE_CAMPANIE/manuscrise/` | `manifests/manuscrise_SHA256.txt` | 7/7 |
+
+Niciunul dintre cele doua seturi de date nu continea vreunul dintre cele 720 de
+fisiere din `paper/MANIFEST_DATE.md` (0/720 fiecare): sunt campanii C1
+anterioare celei raportate in articol.
 
 ## Harta de nume a conditiilor de retea (C1 <-> C2)
 
