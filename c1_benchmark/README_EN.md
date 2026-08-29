@@ -124,15 +124,20 @@ of the C1 paper. To reproduce the paper, check out the tag.
 ## 7. Data availability
 
 The raw campaign data is **not in this repository**. The campaigns reported in
-the paper are SIL 2026-06-24 and HIL 2026-07-01; the 720 canonical summary files
-live outside git.
+the paper are SIL 2026-06-24 and HIL 2026-07-01; the canonical set lives outside git.
 
 What is in the repository is the evidence that fixes them:
 
-- `paper/MANIFEST_DATE.md` -- the source of truth, and the single place where the
-  counts are kept (how many files, what sizes, the per-cell completeness matrix).
-  Every entry carries a SHA256 and a size, so any copy of the data can be checked
-  byte for byte.
+- `paper/MANIFEST_DATE.txt` -- the source of truth, and the single place where the
+  counts are kept. Its header states how many files there are, per subtree and per
+  type, and how many rmw x condition x repetition cells they cover; the numbers are
+  not repeated here, so two places can never disagree. Every entry carries a
+  SHA256, so any copy of the data can be checked byte for byte:
+
+  ```bash
+  python3 manifest_tool.py check <data-root> paper/MANIFEST_DATE.txt
+  # expected: nepotriviri 0 | lipsa 0 | extra 0
+  ```
 - `paper/campaign_summary.csv` -- the aggregate the paper's tables are built from.
 
 Canonical layout:
@@ -142,8 +147,9 @@ Canonical layout:
 env  in {SIL, HIL_WIFI}     rep  1..10 (SIL), 1..5 (HIL)     P in {64, 4096, 65536}
 ```
 
-Integrity was verified on 2026-08-29 against the canonical source:
-**720/720 OK, 0 mismatches, 0 missing.**
+Integrity was verified on 2026-08-29 against the canonical source, using the
+`check` command above: **0 mismatches, 0 missing, 0 extra**, over every file in
+the manifest (their count is in the manifest header).
 
 **Availability.** The dataset is available from the author on request. At
 submission a Zenodo deposit with a DOI will be created, as a snapshot of the

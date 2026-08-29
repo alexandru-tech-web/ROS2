@@ -48,9 +48,9 @@ datelor pe care le-a folosit.
 
 | Manuscris | Data | Cod (commit / tag) | Manifest de date | Stare |
 |-----------|------|--------------------|------------------|-------|
-| `Draft_..._v3_4.docx` | 2026-07-08 | `ec88db1`, fixat de tagul **`c1-paper-v3.4`** | `paper/MANIFEST_DATE.md` (720) | canonic PENTRU TAG |
-| `Draft_..._v3_5.docx` | 2026-07-10 | `3dfa755` | `paper/MANIFEST_DATE.md` (720) | diagrame de arhitectura EN |
-| `Articol_C1_v4.docx` | 2026-07-18 | `a8ffc17` | `paper/MANIFEST_DATE.md` (720) | trimis coordonatorului 2026-07-18; dupa spusele autorului, 11 comentarii, in revizie (copia din git nu continea comentarii) |
+| `Draft_..._v3_4.docx` | 2026-07-08 | `ec88db1`, fixat de tagul **`c1-paper-v3.4`** | `paper/MANIFEST_DATE.txt` (720) | canonic PENTRU TAG |
+| `Draft_..._v3_5.docx` | 2026-07-10 | `3dfa755` | `paper/MANIFEST_DATE.txt` (720) | diagrame de arhitectura EN |
+| `Articol_C1_v4.docx` | 2026-07-18 | `a8ffc17` | `paper/MANIFEST_DATE.txt` (720) | trimis coordonatorului 2026-07-18; dupa spusele autorului, 11 comentarii, in revizie (copia din git nu continea comentarii) |
 | `V5` | -- | tagul de submisie, inca necreat | idem | de produs la submisie |
 
 `main.tex` nu intra in tabel: se auto-declara schelet, cu `TODO` in text si in
@@ -71,7 +71,7 @@ dinaintea scoaterii.
 | 7 manuscrise `.docx` (3.6 MB) | `7333d36` | `~/ARHIVA_PHD/manuscrise/` | `manifests/manuscrise_SHA256.txt` | 7/7 |
 
 Niciunul dintre cele doua seturi de date nu continea vreunul dintre cele 720 de
-fisiere din `paper/MANIFEST_DATE.md` (0/720 fiecare): sunt campanii C1 anterioare
+fisiere din `paper/MANIFEST_DATE.txt` (0/720 fiecare): sunt campanii C1 anterioare
 celei raportate in articol. Eticheta lui `CAMPANII/` a fost stabilita din lista de
 conditii, nu presupusa: 8 conditii C1 pe ambele rmw, niciuna C2.
 
@@ -82,6 +82,24 @@ campaniilor; materialul scos din arbore sta in `~/ARHIVA_PHD/`.
 la 2026-07-18 s-a intors cu comentarii; copia care era in git nu le continea.
 Cand ajunge la tine, arhiveaz-o in `~/ARHIVA_PHD/manuscrise/` cu SHA256 si data
 primirii, si adaug-o in tabelul de descendenta ca rand propriu.
+
+## Manifestul datelor: v1 -> v2
+
+| Versiune | Acopera | In depozit | Stare |
+|----------|---------|------------|-------|
+| v1 `paper/MANIFEST_DATE.md` | 720 fisiere summary `.json` | pana la `865964f`; ultima modificare `894f3c7` | inlocuit, ramane in istoric |
+| v2 `paper/MANIFEST_DATE.txt` | setul canonic COMPLET: `SIL/`, `HIL_WIFI/`, plus `README_SIL.md`, `README_HIL_WIFI.md`, `netem_journal_M2.log` | de la commitul F9-A | in vigoare |
+
+v2 adauga fata de v1 datele brute `.csv` de langa fiecare summary, figurile
+(`.png`, `.pdf`) si cele trei fisiere de la radacina. Toate cele 720 de intrari
+din v1 sunt in v2 cu **hash identic** (verificat: 0 absente, 0 hash-uri diferite),
+deci v2 este o extindere, nu o re-masurare.
+
+v2 este generat si verificat cu `manifest_tool.py`, deci cifrele stau intr-un
+singur loc -- antetul manifestului -- iar README-urile trimit acolo.
+
+Proza din v1 (matricea de completitudine, maparea campanie -> cod, structura de
+arhiva Zenodo propusa) ramane accesibila in istoric la `894f3c7`.
 
 ## Harta de nume a conditiilor de retea (C1 <-> C2)
 

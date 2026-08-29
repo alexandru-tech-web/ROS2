@@ -54,7 +54,7 @@ Doua neconcordante de FORMULARE (nu de cifra): Sec 4.1 ("11-13 ms") si Sec 3.2/e
 - pas 1 + 1d: AUDIT_CIFRE_ARTICOL.md (PASS integral + comanda tc netem)
 - pas 2: campaign_summary.csv + figuri_en/ + PAYLOAD_LOSS canonic
 - pas 3a: swap image6 (Fig.4) in docx; original pastrat ca _pre-swap.docx
-- pas 4: MANIFEST_DATE.md (sursa de adevar, 720 SHA256, matrice, structura Zenodo)
+- pas 4: MANIFEST_DATE.txt (sursa de adevar, 720 SHA256, matrice, structura Zenodo)
 - pas 5: VERSIUNI.md
 - pas 6: acest SUMAR_FINAL.md
 NEATINS (regula): datele brute ~/DATE_CAMPANIE/, codul c1_benchmark/*.py, textul articolului.

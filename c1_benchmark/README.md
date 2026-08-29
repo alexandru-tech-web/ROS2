@@ -183,23 +183,29 @@ git tag c1-data-v1 && git push --tags && git push
 ## 8. Disponibilitatea datelor
 
 Datele brute ale campaniei NU sunt in depozit. Campaniile raportate in articol
-sunt SIL 2026-06-24 si HIL 2026-07-01; cele 720 de fisiere summary canonice stau
-in afara git.
+sunt SIL 2026-06-24 si HIL 2026-07-01; setul canonic sta in afara git.
 
 Ce este in depozit e dovada care le fixeaza:
 
-- `paper/MANIFEST_DATE.md` -- sursa de adevar si singurul loc unde se tin
-  numerele (cate fisiere, ce dimensiuni, matricea de completitudine pe celule).
-  Fiecare intrare are SHA256 si dimensiune, deci orice copie a datelor se poate
-  verifica octet cu octet.
+- `paper/MANIFEST_DATE.txt` -- sursa de adevar si singurul loc unde se tin
+  numerele. Antetul lui spune cate fisiere sunt, pe subarbore si pe tip, si cate
+  celule rmw x conditie x repetitie acopera; nu le repetam aici, ca sa nu existe
+  doua locuri care se pot contrazice. Fiecare intrare are SHA256, deci orice
+  copie a datelor se verifica octet cu octet:
+
+  ```bash
+  python3 manifest_tool.py check <radacina-datelor> paper/MANIFEST_DATE.txt
+  # asteptat: nepotriviri 0 | lipsa 0 | extra 0
+  ```
 - `paper/campaign_summary.csv` -- agregatul din care se construiesc tabelele.
 
 Structura canonica:
 `<env>/date/<rmw>/<cond>/rep<N>/transport_p<P>_summary.json` (+ `.csv` brut),
 cu `env` in {SIL, HIL_WIFI}, `rep` 1..10 (SIL) / 1..5 (HIL), `P` in {64, 4096, 65536}.
 
-Integritatea a fost verificata la 2026-08-29 contra sursei canonice:
-**720/720 OK, 0 nepotriviri, 0 lipsa.**
+Integritatea a fost verificata la 2026-08-29 contra sursei canonice, cu comanda
+`check` de mai sus: **0 nepotriviri, 0 lipsa, 0 extra**, pe toate fisierele din
+manifest (numarul lor e in antetul manifestului).
 
 Setul de date se obtine de la autor, la cerere. La submisie se creeaza o depunere
 Zenodo cu DOI, printr-un snapshot al tagului de cod corespunzator.
