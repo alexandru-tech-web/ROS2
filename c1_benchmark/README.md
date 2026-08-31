@@ -189,15 +189,19 @@ sunt SIL 2026-06-24 si HIL 2026-07-01; setul canonic sta in afara git.
 
 Ce este in depozit e dovada care le fixeaza:
 
-- `paper/MANIFEST_DATE.txt` -- sursa de adevar si singurul loc unde se tin
+- `paper/MANIFEST_SHA256.txt` -- sursa de adevar si singurul loc unde se tin
   numerele. Antetul lui spune cate fisiere sunt, pe subarbore si pe tip, si cate
   celule rmw x conditie x repetitie acopera; nu le repetam aici, ca sa nu existe
   doua locuri care se pot contrazice. Fiecare intrare are SHA256, deci orice
   copie a datelor se verifica octet cu octet:
 
   ```bash
-  python3 manifest_tool.py check <radacina-datelor> paper/MANIFEST_DATE.txt
+  python3 manifest_tool.py check <radacina-datelor> paper/MANIFEST_SHA256.txt
   # asteptat: nepotriviri 0 | lipsa 0 | extra 0
+
+  # a doua cale, independenta de unealta noastra (din radacina datelor):
+  grep -v '^#' MANIFEST_SHA256.txt | sha256sum -c --quiet
+  # asteptat: nicio iesire, cod 0
   ```
 - `paper/campaign_summary.csv` -- agregatul din care se construiesc tabelele.
 

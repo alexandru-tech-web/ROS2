@@ -48,10 +48,29 @@ datelor pe care le-a folosit.
 
 | Manuscris | Data | Cod (commit / tag) | Manifest de date | Stare |
 |-----------|------|--------------------|------------------|-------|
-| `Draft_..._v3_4.docx` | 2026-07-08 | `ec88db1`, fixat de tagul **`c1-paper-v3.4`** | `paper/MANIFEST_DATE.txt` (720) | canonic PENTRU TAG |
-| `Draft_..._v3_5.docx` | 2026-07-10 | `3dfa755` | `paper/MANIFEST_DATE.txt` (720) | diagrame de arhitectura EN |
-| `Articol_C1_v4.docx` | 2026-07-18 | `a8ffc17` | `paper/MANIFEST_DATE.txt` (720) | trimis coordonatorului 2026-07-18; dupa spusele autorului, 11 comentarii, in revizie (copia din git nu continea comentarii) |
+| `Draft_..._v3_4.docx` | 2026-07-08 | `ec88db1`, fixat de tagul **`c1-paper-v3.4`** | `paper/MANIFEST_SHA256.txt` (720) | canonic PENTRU TAG |
+| `Draft_..._v3_5.docx` | 2026-07-10 | `3dfa755` | `paper/MANIFEST_SHA256.txt` (720) | diagrame de arhitectura EN |
+| `Articol_C1_v4.docx` | 2026-07-18 | `a8ffc17` | `paper/MANIFEST_SHA256.txt` (720) | trimis coordonatorului 2026-07-18; dupa spusele autorului, 11 comentarii, in revizie (copia din git nu continea comentarii) |
 | `V5` | -- | tagul de submisie, inca necreat | idem | de produs la submisie |
+
+### Setul de date <-> campanie <-> cod
+
+Recuperata din `MANIFEST_DATE.md` v1 (`894f3c7`), unde era sectiunea
+"Mapare reproductibilitate".
+
+| Set de date | Campanie | Data | Cod / invocare | Ancora git | Manifest |
+|-------------|----------|------|----------------|-----------|----------|
+| `SIL/` | SIL N=10 | 2026-06-24 | `run_campaign.py --reps 10` (metoda "fair" din working-tree, codificata ulterior ca `run_campaign_fair.sh`) | working-tree 06-24, **hash neinregistrat** -- NU `c61c1e2` (metoda fair postdateaza `c61c1e2`) | `paper/MANIFEST_SHA256.txt` |
+| `HIL_WIFI/` | HIL N=5 | 2026-07-01 | `run_campaign.py --mode hil` | `426bd77` (2026-06-26) | `paper/MANIFEST_SHA256.txt` |
+
+Diferenta `c61c1e2..426bd77` NU afecteaza cele 8 conditii studiate: reconstructia
+duala a lui `netem_cmd` da comenzi byte-identice, iar `rtt_stats`,
+`bench_client.py` si `bench_echo_server.py` sunt identice (dovada completa in
+`AUDIT_CIFRE_ARTICOL.md`, sec. 1e).
+
+**CAVEAT, pastrat din v1:** commitul per rulare NU a fost inregistrat. Maparea
+presupune working tree curat la rulare, ceea ce nu se poate verifica retroactiv.
+Arhiva SIL (`sil_N10_fair_20260624`) a fost recuperata din Trash la 2026-07-01.
 
 `main.tex` nu intra in tabel: se auto-declara schelet, cu `TODO` in text si in
 `references.bib`.
@@ -71,7 +90,7 @@ dinaintea scoaterii.
 | 7 manuscrise `.docx` (3.6 MB) | `7333d36` | `~/ARHIVA_PHD/manuscrise/` | `manifests/manuscrise_SHA256.txt` | 7/7 |
 
 Niciunul dintre cele doua seturi de date nu continea vreunul dintre cele 720 de
-fisiere din `paper/MANIFEST_DATE.txt` (0/720 fiecare): sunt campanii C1 anterioare
+fisiere din `paper/MANIFEST_SHA256.txt` (0/720 fiecare): sunt campanii C1 anterioare
 celei raportate in articol. Eticheta lui `CAMPANII/` a fost stabilita din lista de
 conditii, nu presupusa: 8 conditii C1 pe ambele rmw, niciuna C2.
 
@@ -88,10 +107,12 @@ primirii, si adaug-o in tabelul de descendenta ca rand propriu.
 | Versiune | Acopera | In depozit | Stare |
 |----------|---------|------------|-------|
 | v1 `paper/MANIFEST_DATE.md` | 720 fisiere summary `.json` | pana la `865964f`; ultima modificare `894f3c7` | inlocuit, ramane in istoric |
-| v2 `paper/MANIFEST_DATE.txt` | setul canonic COMPLET: `SIL/`, `HIL_WIFI/`, plus `README_SIL.md`, `README_HIL_WIFI.md`, `netem_journal_M2.log` | de la commitul F9-A | in vigoare |
+| v2 `paper/MANIFEST_SHA256.txt` | setul canonic COMPLET: `SIL/`, `HIL_WIFI/`, plus `README_SIL.md`, `README_HIL_WIFI.md`, `netem_journal_M2.log` | de la commitul F9-A | in vigoare |
 
-v2 adauga fata de v1 datele brute `.csv` de langa fiecare summary, figurile
-(`.png`, `.pdf`) si cele trei fisiere de la radacina. Toate cele 720 de intrari
+v1 hash-uia doar sumarele `.json`, nu si brutele `.csv` sau jurnalul netem; v2
+acopera integral subarborii declarati in antetul lui. Concret, v2 adauga datele
+brute `.csv` de langa fiecare summary, figurile (`.png`, `.pdf`) si cele trei
+fisiere de la radacina. Toate cele 720 de intrari
 din v1 sunt in v2 cu **hash identic** (verificat: 0 absente, 0 hash-uri diferite),
 deci v2 este o extindere, nu o re-masurare.
 

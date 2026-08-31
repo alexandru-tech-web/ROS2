@@ -1,6 +1,6 @@
 # Manifest SHA256 -- set canonic C1
-# Generat: 2026-08-29T18:12:56Z
-# Radacina: /home/ubuntu/DATE_CAMPANIE
+# Generat: 2026-08-29T18:23:48Z
+# Radacina logica: C1_CANONIC
 # subarbore: SIL
 # subarbore: HIL_WIFI
 # extra: README_SIL.md
@@ -10,7 +10,9 @@
 #   SIL/           965
 #   HIL_WIFI/      491
 # Pe tip: csv=722, json=720, log=1, md=2, pdf=7, png=7
-# Celule rmw x conditie: 32; repetitii: HIL_WIFI=5, SIL=10
+# celule rmw x conditie: 32 (16 per HIL_WIFI, 16 per SIL) | repetitii: HIL_WIFI=5, SIL=10
+# payload-uri: 3 (p=64,4096,65536) -> 32 x (5|10) x 3 = 720 json + 720 csv
+# in afara celulelor: csv=2, log=1, md=2, pdf=7, png=7
 # Format: sha256  cale-relativa-la-radacina
 3db28675f196bd08426594d1d205344defaaf08d13937551f8eba393bf6bc9f3  HIL_WIFI/date/cyclonedds/ideal/rep1/transport_p4096.csv
 474d479a41e35503682327f840023313e57883182040c32a9ecd2e7f82f64d70  HIL_WIFI/date/cyclonedds/ideal/rep1/transport_p4096_summary.json

@@ -130,15 +130,19 @@ the paper are SIL 2026-06-24 and HIL 2026-07-01; the canonical set lives outside
 
 What is in the repository is the evidence that fixes them:
 
-- `paper/MANIFEST_DATE.txt` -- the source of truth, and the single place where the
+- `paper/MANIFEST_SHA256.txt` -- the source of truth, and the single place where the
   counts are kept. Its header states how many files there are, per subtree and per
   type, and how many rmw x condition x repetition cells they cover; the numbers are
   not repeated here, so two places can never disagree. Every entry carries a
   SHA256, so any copy of the data can be checked byte for byte:
 
   ```bash
-  python3 manifest_tool.py check <data-root> paper/MANIFEST_DATE.txt
+  python3 manifest_tool.py check <data-root> paper/MANIFEST_SHA256.txt
   # expected: nepotriviri 0 | lipsa 0 | extra 0
+
+  # second, tool-independent path (from the data root):
+  grep -v '^#' MANIFEST_SHA256.txt | sha256sum -c --quiet
+  # expected: no output, exit 0
   ```
 - `paper/campaign_summary.csv` -- the aggregate the paper's tables are built from.
 
