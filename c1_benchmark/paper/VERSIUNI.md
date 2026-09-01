@@ -102,6 +102,50 @@ la 2026-07-18 s-a intors cu comentarii; copia care era in git nu le continea.
 Cand ajunge la tine, arhiveaz-o in `~/ARHIVA_PHD/manuscrise/` cu SHA256 si data
 primirii, si adaug-o in tabelul de descendenta ca rand propriu.
 
+## Provenienta instrumente (tc / kernel)
+
+Cules la 2026-09-01. `netem` traieste in kernel, iar `tc` (iproute2) il programeaza,
+deci ambele conteaza pentru cine reproduce canalele.
+
+### Laptop (gazda-client) -- VERIFICAT prin rulare
+
+| Ce | Comanda | Acum | La campanie (SIL 2026-06-24, HIL 2026-07-01) |
+|----|---------|------|----------------------------------------------|
+| `tc` | `tc -V` | `tc utility, iproute2-6.1.0, libbpf 1.3.0` (pachet `6.1.0-1ubuntu6.3`) | **acelasi** |
+| kernel | `uname -r` | `7.0.0-28-generic` | **`6.17.0-35-generic`** -- diferit |
+
+Deduse din jurnalele apt (`/var/log/apt/history.log*`):
+
+- `iproute2` a fost urcat ultima data la **2026-06-10 07:54** (`6.1.0-1ubuntu6.2` ->
+  `6.1.0-1ubuntu6.3`), adica INAINTE de ambele campanii. Nicio schimbare de atunci.
+  Deci `tc` din timpul campaniilor este bit-identic cu cel de azi.
+- kernelul `6.17.0-35-generic` a fost instalat la **2026-06-10 07:54**, deci era cel
+  care rula in ambele campanii -- consistent cu ce s-a inregistrat la 2026-07-07.
+  A fost inlocuit cu `7.0.0-28-generic` la **2026-08-01 18:05**, DUPA campanii.
+
+Consecinta onesta: `tc` se poate reproduce identic azi; kernelul NU. Cine reproduce
+pe aceasta masina ruleaza pe alt kernel decat cel al campaniei, iar diferenta nu e
+mica (6.17 -> 7.0). Nu am masurat daca schimbarea afecteaza `netem`; e o diferenta
+declarata, nu una evaluata.
+
+### Raspberry Pi (gazda-server) -- NEVERIFICAT
+
+Motiv: nu exista o cale de acces. `C1_PI_SSH` nu e setat in mediu, iar valoarea
+implicita din `orchestrate_redo.py` este `ubuntu@192.0.2.20` -- o adresa din
+TEST-NET-1, pusa intentionat la F6/F7 ca sa scoatem adresele private din artefact.
+Incercare rulata: `ssh ubuntu@192.0.2.20 "tc -V; uname -r"` ->
+`ssh: connect to host 192.0.2.20 port 22: Connection timed out`.
+
+Ca sa se completeze, se ruleaza pe Pi, cu adresa reala:
+
+```bash
+C1_PI_SSH=<user>@<adresa-reala> ssh "$C1_PI_SSH" 'tc -V; uname -r; \
+  zgrep -hE "iproute2|linux-image" /var/log/apt/history.log*'
+```
+
+Randurile Pi din tabelul de mai sus raman `[DE COMPLETAT]`, ca in restul acestui
+fisier: nu le umplem cu valorile laptopului.
+
 ## Manifestul datelor: v1 -> v2
 
 | Versiune | Acopera | In depozit | Stare |
