@@ -109,8 +109,10 @@ unui termen per esantion. Misiune: timpul de finalizare, acoperirea finala,
 rata de finalizare (cenzurata la dreapta de bugetul de timp).
 
 **Reproducibilitate.** Fiecare rulare scrie un manifest JSON (seed, versiuni, conditie);
-datele brute se arhiveaza in `~/c1_archive/` (in afara depozitului); in depozit intra
-numai sumarele CSV si figurile. Inaintea oricarei campanii: `./preflight.sh`
+datele brute stau in afara depozitului: setul canonic al campaniei in `~/DATE_CAMPANIE/`,
+campaniile anterioare si manuscrisele in `~/ARHIVA_PHD/`. In depozit intra numai sumarele
+CSV, figurile si manifestele SHA256 (`c1_benchmark/manifests/`,
+`c1_benchmark/paper/MANIFEST_SHA256.txt`). Inaintea oricarei campanii: `c1_benchmark/preflight.sh`
 (detecteaza qdisc rezidual si procese vii).
 
 ## 5. Mediul software
@@ -166,8 +168,14 @@ Observatia centrala (loopback): CycloneDDS are latenta de coada mare dar PREDICT
 teleoperare in timp real, unde conteaza predictibilitatea, CycloneDDS este net preferabil
 pe loopback. Versiunea initiala arata Zenoh aparent imun la pierdere mica -- artefact de
 stare reziduala, care NU se foloseste. Comparatia autoritara necesita HIL pe doua masini
-fizice. Conditiile `ideal` / `loss_5` / `lat200_jit50` nu au inca cifre consolidate
-(TODO: de completat din campania reala).
+fizice -- si ea S-A FACUT: campania HIL a rulat pe 2026-07-01 (SIL: 2026-06-24), pe
+laptop plus un Raspberry Pi 4. Conditiile `ideal` / `loss_5` / `lat200_jit50` au cifre
+consolidate in `c1_benchmark/paper/campaign_summary.csv`; tabelul lor intra in text la
+submisie, ca sa existe un singur loc unde se tin. Extragere:
+
+    grep -E "^(SIL|HIL),(ideal|loss_5|lat200_jit50)," \
+      c1_benchmark/paper/campaign_summary.csv
+    # coloane: env,condition,rmw,loss_pct,rtt_p95_ms
 
 In domeniul tele-impedantei, simularea demonstreaza ca amortizarea pe viteza intarziata
 destabilizeaza bucla de la ~10-20 ms; solutia validata este amortizarea locala cu
