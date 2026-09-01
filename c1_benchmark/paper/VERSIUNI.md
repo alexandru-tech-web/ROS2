@@ -237,8 +237,13 @@ traieste in kernel) si `iproute2` (comanda `tc` care le programeaza).
 | Ce | Valoare | Provenienta |
 |----|---------|-------------|
 | `uname -r` | `6.17.0-35-generic` | cules de pe laptop la 2026-07-07, DUPA campanie (SIL 2026-06-24, HIL 2026-07-01); nu e o amprenta luata in timpul rularii |
-| `tc -V` (iproute2) | TODO(Alexandru) | nu apare in niciun antet CSV, manifest sau jurnal din artefact -- nu a fost cules |
+| `tc -V` (iproute2) | `tc utility, iproute2-6.1.0, libbpf 1.3.0` (pachet `6.1.0-1ubuntu6.3`) | cules prin rulare la 2026-09-01; vezi sectiunea "Provenienta instrumente" pentru dovada ca e neschimbat de dinaintea campaniilor |
 
-`tc -V` nu se poate reconstitui din ce exista in depozit, asa ca ramane TODO in
-loc sa fie completat cu o valoare presupusa. Culegerea e o singura comanda pe
-masina de campanie, daca mai e in aceeasi stare.
+`tc -V` a fost cules ulterior prin rulare, nu reconstituit din depozit: vezi
+sectiunea "Provenienta instrumente (tc / kernel)" de mai sus, unde se arata si
+ca `iproute2` nu s-a schimbat de la ultimul upgrade dinaintea campaniilor
+(2026-06-10), deci valoarea de azi este cea din campanie.
+
+Randul pentru Raspberry Pi ramane `[DE COMPLETAT]`: gazda nu e accesibila fara
+adresa reala, iar aceasta nu se pastreaza in artefact. Comanda de completare
+este in aceeasi sectiune.
