@@ -1,5 +1,10 @@
 # FAPTE_C3.md -- gate de fapte, etapa 1 (C3: gateway de selectie a transportului)
 
+DOMENIU: acest fisier este gate-ul de fapte al ETAPEI 1 si ramane la ce s-a masurat la
+2026-08-06. NU descrie starea curenta a pachetului -- de atunci au aparut nucleul,
+IPC-ul, agentii, nodul gateway si sonda de canal, toate verificate pe loopback. Pentru
+starea curenta: `README.md`. Pentru pori si decizii: `~/PHD/BORD/DECIZII.md`.
+
 Regula C1/C2, aplicata din prima zi: FAPTELE inainte de orice cod, fiecare cifra cu
 comanda care o produce. Nimic din ce urmeaza nu e citat din documentatie sau din issue-uri;
 totul e masurat pe masina asta, la data de mai jos. Harness-ul e in `gate/` (nu face parte

@@ -5,28 +5,63 @@ la compilare. Linkul isi schimba starea (rata de pierdere L si lungimea rafalelo
 transportul potrivit se schimba odata cu ea. Gateway-ul estimeaza starea ONLINE si comuta
 intre stive, folosind o politica derivata din masuratorile C2, nu din intuitie.
 
-## Starea: ETAPA 1 (nucleu pur)
+## Starea: nucleu + noduri + sonda, verificate pe loopback
 
-In pachet exista DOAR nucleul, si el nu stie ce e ROS-ul:
+Pachetul a trecut de mult de nucleul pur. Ce exista azi:
 
     c3_gateway/core/estimator.py   L si B online (EWMA), cu incertitudine si flag de stabilitate
     c3_gateway/core/policy.py      politica = TABELA pe (L, B, payload), incarcata din JSON
-    c3_gateway/core/switching.py   masina de stare: histerezis asimetric + dwell-time
-    c3_gateway/core/channel.py     canal Gilbert-Elliott determinist (pentru teste)
+    c3_gateway/core/switching.py   masina de stare: histerezis asimetric + dwell-time + veto
+    c3_gateway/core/canal_ge.py    canal Gilbert-Elliott determinist (pentru teste)
+    c3_gateway/core/overhead.py    contabilitatea traficului de sonde
     c3_gateway/core/policy_table.json   DATE, generate din tabelele C2 (nu scrise de mana)
 
-Interdictii respectate in `core/`: fara `rclpy`, fara `socket`, fara `os.environ`. Verificat
-automat de `test/test_core_pur.py` -- daca cineva strecoara un import interzis, testul pica.
+    c3_gateway/ipc/                canal IPC local: interfata unica, UDS SEQPACKET si shm ring
+    c3_gateway/agent/transport_agent.py   un agent per RMW; IESE cu cod nenul daca RMW-ul
+                                          confirmat nu e cel cerut
+    c3_gateway/nodes/gateway_node.py      nodul gateway; decizie per topic, ZERO politica in nod
+    c3_gateway/sonda/sonda_canal.py       sonda de canal transport-neutra (rol sursa / reflector)
+    launch/c3_gateway.launch.py           gateway + cei doi agenti, fiecare pe RMW-ul lui
 
-NU exista noduri ROS si nici cod de retea in etapa asta. `entry_points` e gol, intentionat.
+Interdictiile din `core/` (fara `rclpy`, `socket`, `rosidl`, `std_msgs`, `rmw`, `launch`) sunt
+verificate mecanic de I4 din `test/test_c3_core.py` -- daca cineva strecoara un import
+interzis, testul pica.
 
-## Cum se verifica (fara ROS, fara retea)
+`entry_points` din `setup.py` este INCA gol, deci `ros2 run c3_gateway ...` NU merge:
+procesele se pornesc prin `ros2 launch` sau direct cu `/usr/bin/python3 <cale>`. Comentariul
+din `setup.py` mai spune "ETAPA 1: NICIUN nod" si a ramas in urma fata de arbore.
 
-    python3 test/test_c3_core.py          # suita completa: selfteste + teste de integrare
+## Cum se verifica
+
+Fara ROS si fara retea:
+
+    python3 test/test_c3_core.py                        # suita nucleului
+    python3 test/test_nodes_fara_politica.py            # nodurile nu contin politica
     python3 c3_gateway/core/estimator.py --selftest
     python3 c3_gateway/core/policy.py --selftest
     python3 c3_gateway/core/switching.py --selftest
-    python3 c3_gateway/core/channel.py --selftest
+    python3 c3_gateway/core/canal_ge.py --selftest
+    python3 c3_gateway/core/overhead.py --selftest
+    python3 c3_gateway/ipc/channel.py --selftest
+    python3 c3_gateway/sonda/sonda_canal.py --selftest
+
+Lantul intreg, local (porneste gateway + doi agenti + doua ecouri, dureaza cateva minute):
+
+    python3 test/test_integrare_offline.py
+
+Smoke pe loopback, cu launch-ul real:
+
+    ros2 launch launch/c3_gateway.launch.py jurnal:=<dir> eticheta:=smoke reflector_local:=true
+
+`reflector_local:=true` porneste reflectorul sondei pe aceeasi masina. Implicit e `false`,
+si pe buna dreptate: pierderea masurata asa e cea de pe loopback, nu de pe link -- bun
+pentru probe de mecanism, NU pentru campanie.
+
+TEST STRICAT, cunoscut: `test/test_dwell_mediana.py` iese cu cod 1
+(`AttributeError: 'Estimare' object has no attribute 'n_trimise'`, la
+`switching.py:119`). Cauza: vetoul a primit viabilitate binara la commitul `6dc7f3b`, iar
+testul, adaugat inainte la `5338027`, a ramas pe interfata veche. Nu e o regresie de
+comportament: `test_c3_core.py` si `test_integrare_offline.py` trec.
 
 ## De unde vin cifrele
 
@@ -39,8 +74,13 @@ NU exista noduri ROS si nici cod de retea in etapa asta. `entry_points` e gol, i
 - `gate/` -- harness-ul de masura al gate-ului. Foloseste rclpy, deci NU e parte din pachetul
   instalat; e pastrat ca sa fie reproductibile cifrele din FAPTE_C3.md.
 
-## Ce urmeaza (etapa 2, NU acum)
+## Ce urmeaza
 
-Noduri subtiri peste nucleu (un nod de estimare care consuma numere de secventa, un nod de
-decizie care publica transportul ales), launch cu stive paralele per RMW (Arhitectura B,
-confirmata in gate), si abia apoi masuratori pe HIL.
+Etapa de noduri subtiri si launch cu stive paralele per RMW (Arhitectura B) este FACUTA si
+verificata pe loopback. Ce ramane:
+
+- masuratori pe HIL, pe doua masini, cu degradare pe link real (nu pe loopback);
+- `entry_points` populat, daca se decide ca `ros2 run` merita in loc de `ros2 launch`;
+- `test/test_dwell_mediana.py` adus pe interfata de viabilitate binara.
+
+Starea si portile acestor elemente se tin in registrul `~/PHD/BORD/DECIZII.md`.
