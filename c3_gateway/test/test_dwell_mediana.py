@@ -27,7 +27,8 @@ sys.path.insert(0, os.path.join(PACHET, "tools"))
 from canal_ge import CanalGE                                       # noqa: E402
 from estimator import ALPHA_B, ALPHA_L, EstimatorLink              # noqa: E402
 from policy import Politica                                        # noqa: E402
-from switching import ASEZARE_ESANTIOANE, Comutator               # noqa: E402
+from switching import (ASEZARE_ESANTIOANE, Comutator,             # noqa: E402
+                       MIN_ESANTIOANE_CANDIDAT, Viabilitate)      # noqa: E402
 
 GRILA = [(5, 1), (5, 3), (5, 8), (15, 1), (15, 3), (15, 8), (30, 1), (30, 3), (30, 8)]
 SURSE = [(0, 1), (30, 8)]          # se vine de la 'ideal' si de la extrema opusa
@@ -57,7 +58,10 @@ def _decizie_comutator(pol, payload, estimare):
     """Decizia REALA a gateway-ului pentru o estimare data: comutator proaspat, ambele cai
     raportate ca sanatoase, timp mult peste dwell (deci dwell-ul nu blocheaza nimic).
     Ce ramane sunt exact franele care conteaza: marja, incertitudinea si vetoul."""
-    sanatos = type(estimare)(0.05, 2.0, 0.005, 2000, 100, True)
+    # Viabilitatea e BINARA de la 6dc7f3b ("vetoul primeste viabilitate binara"): nu mai e
+    # un Estimare, ci cate sonde s-au trimis si cate s-au intors. "Sanatos" = destule sonde
+    # ca sa nu fie candidat necunoscut, si toate intoarse.
+    sanatos = Viabilitate(MIN_ESANTIOANE_CANDIDAT * 5, MIN_ESANTIOANE_CANDIDAT * 5)
     com = Comutator(pol, payload)
     stari = {t: sanatos for t in pol.transporturi()}
     t, _ = com.decide(estimare, 100000.0, stari)

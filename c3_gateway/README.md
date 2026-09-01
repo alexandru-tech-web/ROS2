@@ -57,11 +57,12 @@ Smoke pe loopback, cu launch-ul real:
 si pe buna dreptate: pierderea masurata asa e cea de pe loopback, nu de pe link -- bun
 pentru probe de mecanism, NU pentru campanie.
 
-TEST STRICAT, cunoscut: `test/test_dwell_mediana.py` iese cu cod 1
-(`AttributeError: 'Estimare' object has no attribute 'n_trimise'`, la
-`switching.py:119`). Cauza: vetoul a primit viabilitate binara la commitul `6dc7f3b`, iar
-testul, adaugat inainte la `5338027`, a ramas pe interfata veche. Nu e o regresie de
-comportament: `test_c3_core.py` si `test_integrare_offline.py` trec.
+    python3 test/test_dwell_mediana.py                  # mediana e valida pentru dwell
+
+Toate testele din `test/` ies cu cod 0.
+
+Lansarea se face prin `ros2 launch`; `ros2 run` nu e configurat (`entry_points` gol) --
+intra in DoD-ul valului V1.
 
 ## De unde vin cifrele
 
@@ -81,6 +82,5 @@ verificata pe loopback. Ce ramane:
 
 - masuratori pe HIL, pe doua masini, cu degradare pe link real (nu pe loopback);
 - `entry_points` populat, daca se decide ca `ros2 run` merita in loc de `ros2 launch`;
-- `test/test_dwell_mediana.py` adus pe interfata de viabilitate binara.
 
 Starea si portile acestor elemente se tin in registrul `~/PHD/BORD/DECIZII.md`.
