@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>c6_safety</name>
+  <version>0.0.1</version>
+  <description>C6: nucleu pur pentru garda de siguranta a roverului teleoperat.
+  Model de uniciclu cu limita de acceleratie si intarziere de actuator; distanta
+  de franare. Fara ROS in nucleu.</description>
+  <maintainer email="gheorghitaalexandruu@gmail.com">Alexandru Gheorghita</maintainer>
+  <license>Apache-2.0</license>
+
+  <exec_depend>rclpy</exec_depend>
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
