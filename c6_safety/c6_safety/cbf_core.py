@@ -73,6 +73,17 @@ def h_val(x, o_hat, params, marja_extra=0.0):
     return d - r_eff, n, r_eff
 
 
+def marja_inchidere(v, v_o, a_max, A_ef):
+    """ERATA 4 (17.09): r_eff = r + (v + v_o)^2/(2a) + v_o*A_ef, cu VITEZA DE INCHIDERE
+    v + v_o (roverul franeaza, pericolul vine cu v_o spre el; ipoteza v_o < v_max).
+    h_val aduna deja d_fr(v) = v^2/(2a), deci marja_extra = restul:
+        (v + v_o)^2/(2a) - v^2/(2a) + v_o*A_ef = v_o*v/a + v_o^2/(2a) + v_o*A_ef.
+    Fata de ERATA 3 (v_o*(A_ef + v/a)) difera cu constanta v_o^2/(2a): la retragere
+    (v < 0) ERATA 3 dadea marja NEGATIVA (S3: V=2, d_min 0.9996 pe ideal), patratul nu.
+    d r_eff / dv = (v + v_o)/a, acelasi ca la ERATA 3; la v_o = 0 se reduce la v^2/(2a)."""
+    return (v + v_o) ** 2 / (2.0 * a_max) - v ** 2 / (2.0 * a_max) + v_o * A_ef
+
+
 def _desfa(x):
     if hasattr(x, "x"):
         return x.x, x.y, x.theta, x.v
@@ -103,8 +114,8 @@ class SafetyFilter(object):
         p = self.p
         if r_eff_fix is None:
             h, n, _ = h_val(x, o_hat, p, marja_extra)
-            # ERATA 3: r_eff = r + v^2/(2a) + v_o*(A_ef + v/a), deci
-            # d r_eff / dv = v/a + v_o/a. Al doilea termen vine prin dmarja_dv.
+            # ERATA 4: r_eff = r + (v + v_o)^2/(2a) + v_o*A_ef, deci
+            # d r_eff / dv = (v + v_o)/a = v/a + v_o/a. Al doilea termen vine prin dmarja_dv.
             dfr = v / p.a_max + dmarja_dv
         else:
             d_, n, _ = h_val(x, o_hat, p, 0.0)
