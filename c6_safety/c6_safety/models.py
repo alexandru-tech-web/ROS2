@@ -25,10 +25,16 @@ class RoverModel(Protocol):
 
 
 class Unicycle(object):
+    """Plantul F (clamp). tau_act != 0 DOAR pentru testul de robustete (g)."""
     nume = "unicycle"
 
+    def __init__(self, tau_act=0.0):
+        self.tau_act = tau_act
+        if tau_act:
+            self.nume = "unicycle_lag%.2f" % tau_act
+
     def step(self, state, cmd, dt):
-        return rover_dyn.step(state, cmd, dt)
+        return rover_dyn.step(state, cmd, dt, tau_act=self.tau_act)
 
 
 class SkidSteerAdapter(object):

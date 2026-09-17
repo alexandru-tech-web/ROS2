@@ -12,7 +12,8 @@ class Params:
     # --- vehicul (caiet v0.1 sec. 2) ---
     dt: float = 0.05          # s; propus in caiet v0.1 sec. 2 (20 Hz); de fixat in N-C6
     a_max: float = 1.0        # m/s^2; propus in caiet v0.1 sec. 2; de fixat in N-C6
-    tau_act: float = 0.2      # s; propus in caiet v0.1 sec. 2; de fixat in N-C6
+    tau_act: float = 0.0      # s; ERATA v0.2, 17.09: plantul e clamp pur, lag = lucru
+                              # viitor; 0.2 se foloseste DOAR de testul de robustete (g)
     v_max: float = 1.0        # m/s; propus in caiet v0.1 sec. 2; de fixat in N-C6
     omega_max: float = 1.5    # rad/s; propus in caiet v0.1 sec. 2; de fixat in N-C6
     l: float = 0.2            # m, punctul de control; propus in caiet v0.1 sec. 2; de fixat in N-C6

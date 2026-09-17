@@ -30,7 +30,7 @@ import sys
 # --- parametri de model (C6, etapa 0) ------------------------------------
 DT = 0.05            # s, pasul de integrare
 A_MAX = 1.0          # m/s^2, acceleratie si deceleratie maxime
-TAU_ACT = 0.2        # s, constanta de timp a actuatorului
+TAU_ACT = 0.0        # s; ERATA v0.2 (17.09): plantul e clamp pur, lag = lucru viitor
 V_MAX = 1.0          # m/s
 OMEGA_MAX = 1.5      # rad/s
 
@@ -58,12 +58,15 @@ def satureaza(x, limita):
     return max(-limita, min(limita, x))
 
 
-def d_fr(v, a_max=A_MAX, tau_act=TAU_ACT):
-    """Distanta de franare de la viteza v: drumul din intarziere plus franarea.
+def d_fr(v, a_max=A_MAX, tau_act=None):
+    """Distanta de franare de la viteza v pe plantul cu clamp: v^2 / (2 a_max).
 
-    Margine SUPERIOARA. Negativ tratat ca modul: distanta nu are semn."""
+    ERATA v0.2 (17.09): termenul v*tau_act a fost SCOS. Plantul e clamp pur, deci
+    franarea incepe imediat; un termen de lag in marja ar fi o marja pentru un
+    fenomen pe care modelul nu il are. Parametrul tau_act ramane in semnatura
+    doar ca sa nu rupa apelantii; e ignorat. Negativ tratat ca modul."""
     v = abs(float(v))
-    return v * tau_act + (v * v) / (2.0 * a_max)
+    return (v * v) / (2.0 * a_max)
 
 
 def step(state, cmd, dt=DT, tau_act=None):
@@ -84,9 +87,10 @@ def step(state, cmd, dt=DT, tau_act=None):
     v_cmd = satureaza(v_cmd, V_MAX)
     omega = satureaza(omega_cmd, OMEGA_MAX)
 
-    if tau_act is None:
-        dv = satureaza(v_cmd - state.v, A_MAX * dt)
+    if not tau_act:
+        dv = satureaza(v_cmd - state.v, A_MAX * dt)          # F: clamp pur
     else:
+        # DOAR pentru testul (g): plant cu lag, filtrul ramane cel de pe clamp
         dv = satureaza((v_cmd - state.v) / tau_act, A_MAX) * dt
     v_nou = state.v + dv
 

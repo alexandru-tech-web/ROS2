@@ -45,7 +45,7 @@ def punct_control(state, l):
             state.y + l * math.sin(state.theta))
 
 
-def run_episode(params, model, channel, safety_filter=None):
+def run_episode(params, model, channel, safety_filter=None, react=False):
     st = rover_dyn.Stare(x=params.start[0], y=params.start[1], theta=params.start[2])
     ox, oy = params.obst
     gx, gy = params.goal
@@ -59,7 +59,7 @@ def run_episode(params, model, channel, safety_filter=None):
     n_pasi = int(round(params.T_max / params.dt))
 
     for _ in range(n_pasi):
-        v_op, w_op = operator_core.op_cmd(st, params)
+        v_op, w_op = operator_core.op_cmd(st, params, t=t, react=react)
         channel.trimite((v_op, w_op), t)
         cmd, aoi = channel.primeste(t)
 
