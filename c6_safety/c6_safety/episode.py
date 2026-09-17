@@ -50,6 +50,7 @@ def run_episode(params, model, channel, safety_filter=None, react=False):
     ox, oy = params.obst
     gx, gy = params.goal
 
+    op = operator_core.Operator(params, react=react)
     trace = []
     V = n_inf = n_blocat = 0
     d_min = float("inf")
@@ -59,7 +60,7 @@ def run_episode(params, model, channel, safety_filter=None, react=False):
     n_pasi = int(round(params.T_max / params.dt))
 
     for _ in range(n_pasi):
-        v_op, w_op = operator_core.op_cmd(st, params, t=t, react=react)
+        v_op, w_op = op.cmd(st, t)
         channel.trimite((v_op, w_op), t)
         cmd, aoi = channel.primeste(t)
 
@@ -107,6 +108,7 @@ def run_episode(params, model, channel, safety_filter=None, react=False):
                "B": round(n_blocat / float(n), 6) if n else None,
                "n_inf": n_inf,
                "n_pasi": n,
+               "n_reactii": op.n_reactii,
                "model": getattr(model, "nume", type(model).__name__)}
     return metrics, trace
 

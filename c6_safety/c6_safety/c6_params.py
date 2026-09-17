@@ -31,3 +31,10 @@ class Params:
     k_v: float = 0.5          # castig P pe viteza; propus in caiet v0.1 sec. 3; de fixat in N-C6
     k_w: float = 2.0          # castig P pe orientare; propus in caiet v0.1 sec. 3; de fixat in N-C6
     seed: int = 1             # propus in caiet v0.1 sec. 7; de fixat in N-C6
+
+    # --- ERATA v0.2 (17.09): marjele bratelor S2b ---
+    # A1: marja_extra = 0 (CBF ne-constient de retea)
+    # A2: marja_extra = v_o_max * A_haz          (contributia, Lema 1)
+    # A3: r_eff = r + d_fr(v_max) + v_o_max * AoI_max  (cel mai rau caz, fix)
+    v_o_max: float = 0.0      # m/s; [DE FIXAT de Alexandru in DECIZIE v0.2 -- lipseste inca]
+    f_haz: float = 0.0        # Hz;  [DE FIXAT de Alexandru in DECIZIE v0.2 -- lipseste inca]

@@ -151,7 +151,7 @@ def ca_safety_filter(sf, marja_extra=0.0, o_hat=None):
 
 
 # --- selftest ------------------------------------------------------------
-def _ruleaza(params, gamma, seed=1, react=True, tau_act=0.0):
+def _ruleaza(params, gamma, seed=1, react=False, tau_act=0.0):
     import channel_core
     import episode
     import models
@@ -200,13 +200,13 @@ def _selftest(dir_iesire=None):
     P = Params()
     rez = []
 
-    m0, _ = episode.run_episode(P, models.Unicycle(), channel_core.IdealChannel(P), react=True)
+    m0, _ = episode.run_episode(P, models.Unicycle(), channel_core.IdealChannel(P), react=False)
     m, tr, sf = _ruleaza(P, GAMMA_IMPLICIT)
     print("  eps_lin = %.3e  (Lema 2, din Params)" % sf.eps_lin)
 
     ok_a = (m["V"] == 0 and m["n_inf"] == 0 and m["T_G"] is not None)
     rez.append(("a", "PASS" if ok_a else "FAIL",
-                "V=%d n_inf=%d T_G=%s B=%.3f (fara filtru, react: T_G=%s V=%d)"
+                "V=%d n_inf=%d T_G=%s B=%.3f (fara filtru, orb: T_G=%s V=%d)"
                 % (m["V"], m["n_inf"], m["T_G"], m["B"], m0["T_G"], m0["V"])))
     rez.append(("b", "PASS" if (m["J_int"] > 0 and m["d_min"] >= P.r - 0.01) else "FAIL",
                 "J_int=%.4f d_min=%.4f (fara filtru: %.3f)" % (m["J_int"], m["d_min"], m0["d_min"])))
@@ -258,9 +258,9 @@ def _selftest(dir_iesire=None):
     rez.append(("g", "RAPORTAT", "plant cu lag tau=0.2, filtru pe clamp: V=%d d_min=%.3f T_G=%s "
                 "(asteptat V >> 0)" % (mg["V"], mg["d_min"], mg["T_G"])))
 
-    mh, _, _ = _ruleaza(P, GAMMA_IMPLICIT, react=False)
-    rez.append(("h", "RAPORTAT", "react=False: V=%d T_G=%s B=%.3f (operator paralizat)"
-                % (mh["V"], mh["T_G"], mh["B"])))
+    mh, _, _ = _ruleaza(P, GAMMA_IMPLICIT, react=True)
+    rez.append(("h", "RAPORTAT", "react=True (pe blocaj): V=%d T_G=%s B=%.3f n_reactii=%d"
+                % (mh["V"], mh["T_G"], mh["B"], mh["n_reactii"])))
 
     for c, v, cif in rez:
         print("  (%s) %-8s %s" % (c, v, cif))
