@@ -4,7 +4,8 @@ import csv
 import json
 import os
 
-COLOANE = ("t", "x", "y", "theta", "v", "omega", "v_op", "omega_op", "AoI_cmd", "h")
+COLOANE = ("t", "x", "y", "theta", "v", "omega", "v_op", "omega_op", "AoI_cmd", "h",
+           "r_eff", "feasible", "kkt_res")
 
 
 def scrie(dir_iesire, metrics, trace, eticheta="episod"):

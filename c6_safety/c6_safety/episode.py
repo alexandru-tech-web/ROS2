@@ -13,8 +13,9 @@ p este PUNCTUL DE CONTROL, nu centrul: p = (x, y) + l*(cos theta, sin theta),
 caiet sec. 2. Toate distantele (obstacol si tinta) se masoara pe p, altfel
 metricile nu ar fi cele definite.
 
-FARA ROS, FARA netem, FARA QP. Filtrul vine in S2; pana atunci safety_filter=None
-si vehiculul executa exact ce a primit prin canal.
+FARA ROS, FARA netem. safety_filter e un callable (st, cmd, params) -> (u, info,
+infezabil); vezi cbf_core.ca_safety_filter. Fara el, vehiculul executa exact ce a
+primit prin canal.
 
 Rulare: python3 episode.py --selftest
 """
@@ -31,7 +32,7 @@ if _AICI not in sys.path:
 import channel_core                                          # noqa: E402
 import models                                                # noqa: E402
 import operator_core                                         # noqa: E402
-import rover_core                                            # noqa: E402
+import rover_dyn                                            # noqa: E402
 from c6_params import Params                                 # noqa: E402
 
 V_BLOCAT = 0.05      # m/s, caiet sec. 8
@@ -45,7 +46,7 @@ def punct_control(state, l):
 
 
 def run_episode(params, model, channel, safety_filter=None):
-    st = rover_core.Stare(x=params.start[0], y=params.start[1], theta=params.start[2])
+    st = rover_dyn.Stare(x=params.start[0], y=params.start[1], theta=params.start[2])
     ox, oy = params.obst
     gx, gy = params.goal
 
@@ -62,10 +63,16 @@ def run_episode(params, model, channel, safety_filter=None):
         channel.trimite((v_op, w_op), t)
         cmd, aoi = channel.primeste(t)
 
-        h = None
+        h = r_eff = feasible = kkt = None
         if safety_filter is not None:
-            cmd, h, infez = safety_filter(st, cmd, params)
+            cmd, info, infez = safety_filter(st, cmd, params)
             n_inf += int(infez)
+            if isinstance(info, dict):
+                h, feasible, kkt = info.get("h"), info.get("feasible"), info.get("kkt_res")
+                r_eff = params.r + rover_dyn.d_fr(st.v, params.a_max, params.tau_act) \
+                    + info.get("marja_extra", 0.0)
+            else:
+                h = info
 
         st = model.step(st, cmd, params.dt)
         t += params.dt
@@ -82,7 +89,8 @@ def run_episode(params, model, channel, safety_filter=None):
 
         trace.append({"t": round(t, 4), "x": st.x, "y": st.y, "theta": st.theta,
                       "v": st.v, "omega": st.omega, "v_op": v_op, "omega_op": w_op,
-                      "AoI_cmd": aoi, "h": h})
+                      "AoI_cmd": aoi, "h": h, "r_eff": r_eff,
+                      "feasible": feasible, "kkt_res": kkt})
 
         if T_G is None and d_g < params.goal_tol:
             T_G = round(t, 4)

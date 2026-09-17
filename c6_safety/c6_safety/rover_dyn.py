@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""rover_core.py -- nucleul PUR al gardei de siguranta C6. Fara ROS, fara retea.
+"""rover_dyn.py -- nucleul PUR al gardei de siguranta C6. Fara ROS, fara retea.
 
 MODEL: uniciclu cu doua limitari care conteaza pentru o garda de siguranta.
 
@@ -22,7 +22,7 @@ Starea si comanda sunt tupluri simple, iar `step` NU muta starea primita: se
 intoarce una noua. Asa un apelant poate explora mai multe comenzi din aceeasi
 stare fara sa o strice.
 
-Rulare: python3 rover_core.py --selftest
+Rulare: python3 rover_dyn.py --selftest
 """
 import math
 import sys
@@ -66,29 +66,35 @@ def d_fr(v, a_max=A_MAX, tau_act=TAU_ACT):
     return v * tau_act + (v * v) / (2.0 * a_max)
 
 
-def step(state, cmd, dt=DT):
-    """Un pas de integrare. Intoarce o stare NOUA; nu o modifica pe cea primita.
+def step(state, cmd, dt=DT, tau_act=None):
+    """Un pas. Intoarce o stare NOUA; nu o modifica pe cea primita.
 
-    state: Stare. cmd: (v_cmd, omega_cmd). dt: secunde."""
+    IMPLICIT (tau_act=None): EXACT modelul F din nota matematica M0, sec. 1:
+        p_{k+1}     = p_k + dt * v_k * (cos th_k, sin th_k)     (Euler explicit, cu v_k)
+        th_{k+1}    = th_k + dt * omega_k
+        v_{k+1}     = v_k + clamp(v_cmd - v_k, -a_max dt, +a_max dt)
+    Intarzierea de actuator NU e in dinamica: intra ca MARJA, prin d_fr(v).
+    Asa filtrul CBF (liniarizat pe F) si certificatul M1 (x_{k+1} == F) vorbesc
+    despre acelasi obiect.
+
+    OPTIONAL (tau_act dat): intarziere de ordinul intai, taiata la a_max --
+    plantul "mai real" din S0. Pastrat pentru teste de robustete; NU e modelul
+    pe care se face teoria, si asta e o limita declarata (M0 sec. 7)."""
     v_cmd, omega_cmd = float(cmd[0]), float(cmd[1])
     v_cmd = satureaza(v_cmd, V_MAX)
-    omega_cmd = satureaza(omega_cmd, OMEGA_MAX)
+    omega = satureaza(omega_cmd, OMEGA_MAX)
 
-    # intarziere de ordinul intai, taiata la a_max
-    dv = (v_cmd - state.v) / TAU_ACT
-    dv = satureaza(dv, A_MAX)
-    v = state.v + dv * dt
+    if tau_act is None:
+        dv = satureaza(v_cmd - state.v, A_MAX * dt)
+    else:
+        dv = satureaza((v_cmd - state.v) / tau_act, A_MAX) * dt
+    v_nou = state.v + dv
 
-    # omega urmeaza aceeasi intarziere, dar limita dura ramane OMEGA_MAX
-    d_om = (omega_cmd - state.omega) / TAU_ACT
-    omega = satureaza(state.omega + d_om * dt, OMEGA_MAX)
-
-    # integrare de uniciclu, cu orientarea la mijlocul pasului
-    theta_mij = state.theta + 0.5 * omega * dt
-    return Stare(x=state.x + v * math.cos(theta_mij) * dt,
-                 y=state.y + v * math.sin(theta_mij) * dt,
+    # pozitia cu v_k si th_k (Euler explicit), exact ca F
+    return Stare(x=state.x + state.v * math.cos(state.theta) * dt,
+                 y=state.y + state.v * math.sin(state.theta) * dt,
                  theta=state.theta + omega * dt,
-                 v=v, omega=omega)
+                 v=v_nou, omega=omega)
 
 
 # --- selftest ------------------------------------------------------------
@@ -155,7 +161,7 @@ def _selftest():
     print("  (d) step nu modifica starea primita")
     n += 1
 
-    print("SELFTEST rover_core OK (%d verificari)." % n)
+    print("SELFTEST rover_dyn OK (%d verificari)." % n)
     return 0
 
 
