@@ -31,48 +31,55 @@ from c6_params import Params                                 # noqa: E402
 BRATE = ("A0", "A1", "A2", "A3")
 
 
-def filtru_pentru(brat, params, gamma=None):
-    """(safety_filter callable sau None, SafetyFilter sau None)."""
+def filtru_pentru(brat, params, gamma=None, tau_act=0.0):
+    """(safety_filter callable sau None, SafetyFilter sau None).
+
+    ERATA 3: marja_extra = v_o * (A_ef + v/a_max), d_fr(v) = v^2/(2a) in TOATE bratele.
+      A1: A_ef = 0            A2: A_ef = min(A, A_max)            A3: A_ef = A_max
+    A2 peste A_max -> stare sigura u=(0,0), n_ws. Cu tau_act (doar g'): A_ef += tau_act."""
     if brat == "A0":
         return None, None
     sf = cbf_core.SafetyFilter(params, gamma)
-    if brat == "A1":
-        return cbf_core.ca_safety_filter(sf, marja_extra=0.0), sf
-    if brat == "A2":
-        # ERATA 2: marja PLAFONATA la v_o*A_max; peste A_max -> stare sigura u=(0,0), n_ws
-        baza = cbf_core.ca_safety_filter(sf)
-        def f(st, cmd, p, ctx=None):
-            ctx = ctx or {}
-            a = ctx.get("A_haz")
-            if a is None or a > p.AoI_max:
+    v_o, a = params.v_o_max, params.a_max
+    dmv = v_o / a                                   # d(marja)/dv, ERATA 3
+
+    def f(st, cmd, p, ctx=None):
+        ctx = ctx or {}
+        A = ctx.get("A_haz")
+        if brat == "A1":
+            A_ef, dm = 0.0, 0.0
+        elif brat == "A2":
+            if A is None or A > p.AoI_max:
                 sf.n_ws += 1
-                info = {"h": None, "feasible": None, "kkt_res": None, "marja_extra": None, "ws": True}
-                return (0.0, 0.0), info, False
-            m = p.v_o_max * min(a, p.AoI_max)
-            dm = p.v_o_max if a < p.AoI_max else 0.0          # plafonata: nu mai creste
-            u, info = sf.apply(st, cmd, ctx["o_hat"], m, None, dm)
-            return u, info, (not info["feasible"])
-        return f, sf
-    if brat == "A3":
-        r_fix = params.r + rover_dyn.d_fr(params.v_max, params.a_max) + params.v_o_max * params.AoI_max_A3
-        return cbf_core.ca_safety_filter(sf, r_eff_fix=r_fix), sf
-    raise ValueError(brat)
+                return (0.0, 0.0), {"h": None, "feasible": None, "kkt_res": None,
+                                    "marja_extra": None, "ws": True}, False
+            A_ef, dm = min(A, p.AoI_max), (v_o if A < p.AoI_max else 0.0)
+        else:                                       # A3
+            A_ef, dm = p.AoI_max, 0.0
+        A_ef += tau_act
+        m = v_o * (A_ef + st.v / a)
+        o = ctx.get("o_hat") if ctx.get("o_hat") is not None else p.obst
+        u, info = sf.apply(st, cmd, o, m, None, dm, dmv)
+        return u, info, (not info["feasible"])
+    return f, sf
 
 
-def ruleaza_brat(brat, params, seed, canal=None, react=False, tau_act=0.0, hazard=None):
+def ruleaza_brat(brat, params, seed, canal=None, react=False, tau_act=0.0, hazard=None, gamma=None):
     """(metrics, trace, certificat). canal=None -> DelayLoss(0.2, 0.05, 0.15, seed)."""
     if canal is None:
         canal = channel_core.DelayLossChannel(0.2, 0.05, 0.15, seed=seed, T_hold=params.T_hold)
     hz = hazard if hazard is not None else episode.Hazard(params)
-    f, sf = filtru_pentru(brat, params)
+    f, sf = filtru_pentru(brat, params, gamma, tau_act)
     m, tr = episode.run_episode(params, models.Unicycle(tau_act), canal,
                                 safety_filter=f, react=react, hazard=hz)
     m["n_inf"] = sf.n_inf if sf else 0
     m["n_ws"] = getattr(sf, "n_ws", 0) if sf else 0
     m["brat"] = brat
     m["seed"] = seed
-    gamma = sf.gamma if sf else cbf_core.GAMMA_IMPLICIT
-    c = certif_core.certify(tr, params, hz.o_true, gamma)
+    g = sf.gamma if sf else cbf_core.GAMMA_IMPLICIT
+    # o_true pentru certificat: din urma (valabil si pentru urmarire, unde nu e analitic)
+    poz = {q["t"]: (q["o_true_x"], q["o_true_y"]) for q in tr}
+    c = certif_core.certify(tr, params, lambda t: poz.get(t, hz.o_true(t)), g)
     return m, tr, c
 
 
@@ -81,123 +88,114 @@ def _rand(m, c):
         m["V"], m["d_min"], m["J_int"], m["T_G"], m["B"], m["n_inf"], c["verdict"])
 
 
+def _traiectorie(tr, P, k0, k1, pas=10):
+    import math
+    L = ["    %5s %6s %6s %6s %6s %6s %6s" % ("t", "x", "v", "y_haz", "h_A", "d_real", "feas")]
+    for k in range(k0, min(k1, len(tr)), pas):
+        q = tr[k]
+        d = math.hypot(q["x"] + P.l * math.cos(q["theta"]) - q["o_true_x"],
+                       q["y"] + P.l * math.sin(q["theta"]) - q["o_true_y"])
+        L.append("    %5.2f %6.2f %6.3f %6.2f %6s %6.3f %s"
+                 % (q["t"], q["x"], q["v"], q["o_true_y"],
+                    "-" if q["h"] is None else "%.3f" % q["h"], d, q["feasible"]))
+    return "\n".join(L)
+
+
 def _selftest(dir_iesire=None):
     P = Params()
     SEEDS = (1, 2, 3, 4, 5)
-    rez = []
-    tab = {}
-    urme = {}
+    rez, tab, urme = [], {}, {}
 
-    # pasul 2 (ERATA 2): pe A0 ideal, pericolul si roverul chiar se intalnesc
-    m_id, tr_id, _ = ruleaza_brat("A0", P, 1, canal=channel_core.IdealChannel(P))
-    print("  scenariu ERATA 2: t_cross=%.1f s -> pericol din %s, v_o=%.1f, f_haz=%.0f Hz"
-          % (P.t_cross, tuple(round(x, 2) for x in P.hazard_start), P.v_o_max, P.f_haz))
-    print("  intalnire pe A0 ideal: d_min REAL = %.3f %s r = %.1f  (V=%d, T_G=%s)"
-          % (m_id["d_min"], "<" if m_id["d_min"] < P.r else ">=", P.r, m_id["V"], m_id["T_G"]))
+    def bloc(scen, brate, seeds=SEEDS, react=False):
+        Ps = Params(scenariu=scen)
+        for b in brate:
+            for s in seeds:
+                m, tr, c = ruleaza_brat(b, Ps, s, react=react)
+                tab[(scen, b, s)] = (m, c)
+                urme[(scen, b, s)] = tr
+        return Ps
 
-    for brat in BRATE:
-        for s in SEEDS:
-            m, tr, c = ruleaza_brat(brat, P, s)
-            tab[(brat, s)] = (m, c)
-            urme[(brat, s)] = tr
-    print("  %-4s %-4s %s" % ("brat", "seed", "V   d_min  J_int  T_G    B     n_inf n_ws  cert(i/ii)"))
-    for brat in BRATE:
-        for s in SEEDS:
-            m, c = tab[(brat, s)]
-            print("  %-4s %-4d %-3d %.3f  %.4f %-6s %.3f %-5d %-5d %d/%d %s"
-                  % (brat, s, m["V"], m["d_min"], m["J_int"], m["T_G"], m["B"], m["n_inf"],
-                     m["n_ws"], c["incalcari_i"], c["incalcari_ii"], c["verdict"]))
+    Pt = bloc("traversare", BRATE)
+    Pu = bloc("urmarire", ("A1", "A2"))
+    m_id, _, _ = ruleaza_brat("A0", Pt, 1, canal=channel_core.IdealChannel(Pt))
+    print("  traversare: t_cross=%.1f -> start %s; urmarire: start %s, spre rover; v_o=%.1f, f_haz=%.0f Hz"
+          % (P.t_cross, tuple(round(x, 2) for x in Pt.hazard_start), Pu.hazard_start, P.v_o_max, P.f_haz))
+    print("  A0 ideal traversare: d_min REAL=%.3f (<r: %s), V=%d" % (m_id["d_min"], m_id["d_min"] < P.r, m_id["V"]))
+    print("  %-11s %-4s %-4s %s" % ("scenariu", "brat", "seed", "V   d_min  J_int  T_G    B     n_inf n_ws  (i)/(ii)"))
+    for (scen, b, s), (m, c) in sorted(tab.items()):
+        print("  %-11s %-4s %-4d %-3d %.3f  %.4f %-6s %.3f %-5d %-5d %d/%d %s"
+              % (scen, b, s, m["V"], m["d_min"], m["J_int"], m["T_G"], m["B"], m["n_inf"], m["n_ws"],
+                 c["incalcari_i"], c["incalcari_ii"], c["verdict"]))
 
-    def V(b): return [tab[(b, s)][0]["V"] for s in SEEDS]
-    def C(b, k): return [tab[(b, s)][1][k] for s in SEEDS]
+    def V(scen, b): return [tab[(scen, b, s)][0]["V"] for s in SEEDS]
+    def C(scen, b, k): return [tab[(scen, b, s)][1][k] for s in SEEDS]
+    def N(scen, b, k): return [tab[(scen, b, s)][0][k] for s in SEEDS]
 
-    n_a0 = sum(1 for v in V("A0") if v >= 1)
-    rez.append(("a", "PASS" if n_a0 >= 4 else "FAIL", "A0: V>=1 in %d/5 (V=%s)" % (n_a0, V("A0"))))
+    n_a0 = sum(1 for v in V("traversare", "A0") if v >= 1)
+    rez.append(("a", "PASS" if n_a0 >= 4 else "FAIL", "A0 traversare: V>=1 in %d/5, V=%s" % (n_a0, V("traversare", "A0"))))
+    ok_b = (all(v == 0 for v in V("traversare", "A2")) and all(x == 0 for x in C("traversare", "A2", "incalcari_i"))
+            and all(x == 0 for x in C("traversare", "A2", "incalcari_ii")))
+    rez.append(("b", "PASS" if ok_b else "FAIL", "A2 traversare: V=%s (i)=%s (ii)fez=%s n_inf=%s n_ws=%s"
+                % (V("traversare", "A2"), C("traversare", "A2", "incalcari_i"), C("traversare", "A2", "incalcari_ii"),
+                   N("traversare", "A2", "n_inf"), N("traversare", "A2", "n_ws"))))
+    ok_i = all(v == 0 for v in V("urmarire", "A2")) and all(x == 0 for x in C("urmarire", "A2", "incalcari_i"))
+    rez.append(("i", "PASS" if ok_i else "FAIL", "A2 urmarire (corolarul): V=%s (i)=%s n_inf=%s n_ws=%s"
+                % (V("urmarire", "A2"), C("urmarire", "A2", "incalcari_i"), N("urmarire", "A2", "n_inf"), N("urmarire", "A2", "n_ws"))))
+    rez.append(("c", "RAPORTAT", "A1: traversare V=%s | urmarire V=%s" % (V("traversare", "A1"), V("urmarire", "A1"))))
+    rez.append(("e", "RAPORTAT", "A3 traversare: V=%s n_inf=%s (S2b.1: 111-117)" % (V("traversare", "A3"), N("traversare", "A3", "n_inf"))))
 
-    ok_b = (all(v == 0 for v in V("A2")) and all(x == 0 for x in C("A2", "incalcari_i"))
-            and all(x == 0 for x in C("A2", "incalcari_ii")))
-    rez.append(("b", "PASS" if ok_b else "FAIL",
-                "A2: V=%s; (i)=%s; (ii) pe fezabili=%s; n_inf=%s; n_ws=%s"
-                % (V("A2"), C("A2", "incalcari_i"), C("A2", "incalcari_ii"),
-                   [tab[("A2", s)][0]["n_inf"] for s in SEEDS], [tab[("A2", s)][0]["n_ws"] for s in SEEDS])))
-
-    rez.append(("c", "RAPORTAT", "A1: V=%s (fara prag la v_o=0.5)" % V("A1")))
-
-    hz0 = episode.Hazard(P, v_o=0.0, start=P.obst)
-    m_ref, _, _ = ruleaza_brat("A1", P, 1, canal=channel_core.IdealChannel(P), hazard=hz0)
-    sf = cbf_core.SafetyFilter(P)
-    m_s21, _ = episode.run_episode(P, models.Unicycle(), channel_core.IdealChannel(P),
+    hz0 = episode.Hazard(P, v_o=0.0, start=P.obst, scenariu="traversare")
+    P0 = Params(v_o_max=0.0)
+    m_ref, _, _ = ruleaza_brat("A1", P0, 1, canal=channel_core.IdealChannel(P0), hazard=hz0)
+    sf = cbf_core.SafetyFilter(P0)
+    m_s21, _ = episode.run_episode(P0, models.Unicycle(), channel_core.IdealChannel(P0),
                                    safety_filter=cbf_core.ca_safety_filter(sf), react=False)
     dif = max(abs(m_ref[k] - m_s21[k]) for k in ("d_min", "J_int"))
     dif_t = abs((m_ref["T_G"] or 0) - (m_s21["T_G"] or 0))
     rez.append(("d", "PASS" if max(dif, dif_t) <= 1e-9 else "FAIL",
-                "v_o=0, pericol fix la obst == S2.1(a): dif max %.1e (T_G %s, d_min %.4f, J_int %.4f)"
+                "v_o=0 pericol fix == S2.1(a): dif max %.1e (T_G %s d_min %.4f J_int %.4f)"
                 % (max(dif, dif_t), m_ref["T_G"], m_ref["d_min"], m_ref["J_int"])))
 
-    rez.append(("e", "RAPORTAT", "A3: V=%s cert=%s n_inf=%s -- explicat la pasul 1 (dh/dv=0 cu r_eff fix)"
-                % (V("A3"), C("A3", "verdict"), [tab[("A3", s)][0]["n_inf"] for s in SEEDS])))
-
-    nr = []
-    for s in SEEDS:
-        mf, _, _ = ruleaza_brat("A2", P, s, react=True)
-        nr.append(mf["n_reactii"])
+    nr = [ruleaza_brat("A2", Pt, s, react=True)[0]["n_reactii"] for s in SEEDS]
     n_f = sum(1 for x in nr if x >= 1)
-    rez.append(("f", "PASS" if n_f >= 4 else "FAIL", "A2 react=True: n_reactii=%s -> >=1 in %d/5" % (nr, n_f)))
+    rez.append(("f", "PASS" if n_f >= 4 else "FAIL", "A2 react=True traversare: n_reactii=%s -> %d/5" % (nr, n_f)))
+    mg, _, cg = ruleaza_brat("A2", Pu, 1, tau_act=0.2)
+    rez.append(("g'", "RAPORTAT", "A2 urmarire, plant lag 0.2: V=%d d_min=%.3f n_inf=%d cert=%s" % (mg["V"], mg["d_min"], mg["n_inf"], cg["verdict"])))
+    m10, _, _ = ruleaza_brat("A2", Pt, 1, gamma=1.0)
+    m03 = tab[("traversare", "A2", 1)][0]
+    rez.append(("h", "RAPORTAT", "A2 traversare seed 1: gamma 1.0 n_inf=%d V=%d | 0.3 n_inf=%d V=%d" % (m10["n_inf"], m10["V"], m03["n_inf"], m03["V"])))
 
-    mg, _, cg = ruleaza_brat("A2", P, 1, tau_act=0.2)
-    rez.append(("g'", "RAPORTAT", "A2 pe plant lag 0.2, seed 1: V=%d d_min=%.3f n_inf=%d cert=%s"
-                % (mg["V"], mg["d_min"], mg["n_inf"], cg["verdict"])))
-
-    m10, _, _ = _ruleaza_gamma(P, 1, 1.0)
-    m03 = tab[("A2", 1)][0]
-    rez.append(("h", "RAPORTAT", "A2 seed 1: gamma=1.0 n_inf=%d V=%d J_int=%.4f | gamma=0.3 n_inf=%d V=%d J_int=%.4f"
-                % (m10["n_inf"], m10["V"], m10["J_int"], m03["n_inf"], m03["V"], m03["J_int"])))
-
-    # 6. sweep mic de sanatate
-    print("\n  sweep v_o (A1, A2; seed 1-3): V per seed")
-    print("  %-6s %-14s %s" % ("v_o", "A1", "A2"))
-    for vo in (1.0, 1.5):
-        Pv = Params(v_o_max=vo)
-        r1 = [ruleaza_brat("A1", Pv, s)[0]["V"] for s in (1, 2, 3)]
-        r2 = [ruleaza_brat("A2", Pv, s)[0]["V"] for s in (1, 2, 3)]
-        print("  %-6.1f %-14s %s" % (vo, r1, r2))
+    print("\n  sweep URMARIRE (seed 1-3): V / d_min / n_inf")
+    print("  %-5s %-34s %s" % ("v_o", "A1", "A2"))
+    for vo in (0.5, 1.0, 1.5):
+        Pv = Params(v_o_max=vo, scenariu="urmarire")
+        r = {}
+        for b in ("A1", "A2"):
+            ms = [ruleaza_brat(b, Pv, s)[0] for s in (1, 2, 3)]
+            r[b] = "V=%s dmin=%s ninf=%s" % ([m["V"] for m in ms], [round(m["d_min"], 2) for m in ms], [m["n_inf"] for m in ms])
+        print("  %-5.1f %-34s %s" % (vo, r["A1"], r["A2"]))
 
     print()
     for k, v, cif in rez:
         print("  (%s) %-8s %s" % (k, v, cif))
+    picate = [k for k, v, _ in rez if v == "FAIL" and k in ("a", "b", "i", "d")]
+    for k in picate:
+        if k in ("b", "i"):
+            scen = "traversare" if k == "b" else "urmarire"
+            s_p = next(s for s in SEEDS if tab[(scen, "A2", s)][0]["V"] > 0 or tab[(scen, "A2", s)][1]["incalcari_i"] > 0)
+            print("  traiectoria primului seed picat, (%s) %s seed %d:" % (k, scen, s_p))
+            print(_traiectorie(urme[(scen, "A2", s_p)], P, 80, 200))
     if dir_iesire:
         import io_core
-        for (brat, s), tr in urme.items():
-            m, c = tab[(brat, s)]
-            io_core.scrie(dir_iesire, m, tr, "s2b1_%s_seed%d" % (brat, s), certificat=c)
+        for (scen, b, s), tr in urme.items():
+            m, c = tab[(scen, b, s)]
+            io_core.scrie(dir_iesire, m, tr, "s2b2_%s_%s_seed%d" % (scen, b, s), certificat=c)
         print("  urme + certificate in %s (%d rulari)" % (dir_iesire, len(urme)))
-    picate = [k for k, v, _ in rez if v == "FAIL" and k in ("a", "b", "d")]
     if picate:
         print("SELFTEST brate: FAIL pe obligatorii %s" % picate)
         return 1
     print("SELFTEST brate OK.")
     return 0
-
-
-def _ruleaza_gamma(params, seed, gamma):
-    canal = channel_core.DelayLossChannel(0.2, 0.05, 0.15, seed=seed, T_hold=params.T_hold)
-    hz = episode.Hazard(params)
-    sf = cbf_core.SafetyFilter(params, gamma)
-    f, _ = filtru_pentru("A2", params, gamma)
-    # filtru_pentru creeaza propriul sf; refolosim structura dar cu gamma dat
-    sf2 = cbf_core.SafetyFilter(params, gamma)
-    def f2(st, cmd, p, ctx=None):
-        ctx = ctx or {}
-        a = ctx.get("A_haz")
-        if a is None or a > p.AoI_max:
-            sf2.n_ws += 1
-            return (0.0, 0.0), {"h": None, "feasible": None, "kkt_res": None, "marja_extra": None}, False
-        u, info = sf2.apply(st, cmd, ctx["o_hat"], p.v_o_max * min(a, p.AoI_max), None,
-                            p.v_o_max if a < p.AoI_max else 0.0)
-        return u, info, (not info["feasible"])
-    m, tr = episode.run_episode(params, models.Unicycle(), canal, safety_filter=f2, hazard=hz)
-    m["n_inf"] = sf2.n_inf
-    return m, tr, sf2
 
 
 if __name__ == "__main__":

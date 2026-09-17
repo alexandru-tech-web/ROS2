@@ -18,5 +18,10 @@ Ce e pe disc, tot fara ROS si fara retea (`python3 <fisier> --selftest`):
                       ca in caiet v0.1 sec. 8; `--selftest` ruleaza 6 cazuri
 - `io_core.py`     -- trace CSV + metrics JSON
 
-Ce NU e aici: noduri ROS (S3), netem (S3), campania (S4), pericol mobil (S2b).
+- `brate.py`       -- A0/A1/A2/A3 pe pericol MOBIL (traversare | urmarire), ERATA 3:
+                      marja v_o*(A_ef + v/a_max); certificat per rulare; `--selftest` (a)-(i)
+- `certif_core.py` -- certificatul M1: (i) h_true, (ii) DT-CBF pe fezabili, (iii) KKT,
+                      (iv) re-simulare F; 2 controale negative in selftest
+
+Ce NU e aici: noduri ROS (S3), netem (S3), campania (S4).
 `entry_points` e gol intentionat; lansarea prin `ros2 run` nu e configurata.

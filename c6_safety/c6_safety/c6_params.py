@@ -45,6 +45,7 @@ class Params:
     hazard_end_y: float = 2.0           # se opreste la (6, +2)
     AoI_max: float = 1.0      # s; ERATA 2: plafonul marjei A2 [de fixat]; peste el -> stare sigura (n_ws)
     AoI_max_A3: float = 0.5   # s; = T_hold, varsta presupusa de A3 (ERATA v0.2)
+    scenariu: str = "traversare"   # ERATA 3: "traversare" | "urmarire"
 
     @property
     def hazard_start(self):

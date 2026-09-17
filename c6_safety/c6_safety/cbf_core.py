@@ -91,7 +91,8 @@ class SafetyFilter(object):
         s_max = (p.v_max + p.l * p.omega_max) * p.dt
         self.eps_lin = s_max ** 2 / (2.0 * p.r)              # Lema 2
 
-    def constrangere_cbf(self, x, o_hat, marja_extra=0.0, r_eff_fix=None, dmarja_dt=0.0):
+    def constrangere_cbf(self, x, o_hat, marja_extra=0.0, r_eff_fix=None, dmarja_dt=0.0,
+                         dmarja_dv=0.0):
         """(a_v, a_w, b) astfel incat a_v v_cmd + a_w omega >= b este DT-CBF liniarizata.
         r_eff_fix (A3): r_eff e o CONSTANTA, deci dh/dv = 0 -- fara termenul d_fr'(v).
         dmarja_dt (A2): CBF VARIABIL IN TIMP, M0 sec. 5. Intre doua pachete varsta A creste
@@ -102,7 +103,9 @@ class SafetyFilter(object):
         p = self.p
         if r_eff_fix is None:
             h, n, _ = h_val(x, o_hat, p, marja_extra)
-            dfr = v / p.a_max                                # d_fr'(v), plant cu clamp
+            # ERATA 3: r_eff = r + v^2/(2a) + v_o*(A_ef + v/a), deci
+            # d r_eff / dv = v/a + v_o/a. Al doilea termen vine prin dmarja_dv.
+            dfr = v / p.a_max + dmarja_dv
         else:
             d_, n, _ = h_val(x, o_hat, p, 0.0)
             h = d_ + p.r + rover_dyn.d_fr(v, p.a_max) - r_eff_fix   # ||p_c-o|| - r_eff_fix
@@ -114,11 +117,12 @@ class SafetyFilter(object):
         b = -self.gamma * h - p.dt * c_pos - dfr * v + self.eps_lin + dmarja_dt * p.dt
         return a_v, a_w, b, h
 
-    def apply(self, x, u_op, o_hat, marja_extra=0.0, r_eff_fix=None, dmarja_dt=0.0):
+    def apply(self, x, u_op, o_hat, marja_extra=0.0, r_eff_fix=None, dmarja_dt=0.0,
+              dmarja_dv=0.0):
         """(u, info). info = {h, h_next_pred, feasible, obj, kkt_res, eps_lin, marja_extra}."""
         p = self.p
         px, py, th, v = _desfa(x)
-        a_v, a_w, b, h = self.constrangere_cbf(x, o_hat, marja_extra, r_eff_fix, dmarja_dt)
+        a_v, a_w, b, h = self.constrangere_cbf(x, o_hat, marja_extra, r_eff_fix, dmarja_dt, dmarja_dv)
 
         A = sp.csc_matrix(np.array([[a_v, a_w],
                                     [1.0, 0.0],

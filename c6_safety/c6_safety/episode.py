@@ -46,16 +46,37 @@ def punct_control(state, l):
 
 
 class Hazard(object):
-    """Pericolul mobil (caiet v0.2): pleaca din hazard_start, merge pe +y cu v_o_max,
-    se opreste la hazard_end_y. o_true(t) e ADEVARUL; roverul vede doar ce vine pe
-    canal, la f_haz, cu intarziere."""
+    """Pericolul mobil, doua scenarii (ERATA 3):
+      "traversare": pleaca din hazard_start, merge pe +y cu v_o, se opreste la hazard_end_y
+                    (analitic in t);
+      "urmarire":   se misca spre pozitia CURENTA a roverului cu v_o (integrat pas cu pas;
+                    are nevoie de pozitia roverului, deci episode il face sa avanseze).
+    o_true(t) e ADEVARUL; roverul vede doar ce vine pe canal, la f_haz, cu intarziere."""
 
-    def __init__(self, params, v_o=None, start=None):
+    def __init__(self, params, v_o=None, start=None, scenariu=None):
         self.p = params
         self.v_o = params.v_o_max if v_o is None else v_o
         self.x0, self.y0 = start if start is not None else params.hazard_start
+        self.scenariu = scenariu or params.scenariu
+        self.x, self.y = self.x0, self.y0          # pozitia curenta (urmarire)
+        self.istoric = {}                           # t -> (x, y), pentru certificat
+
+    def avanseaza(self, rover_xy, t, dt):
+        """Un pas de urmarire; in traversare nu face nimic (pozitia e analitica)."""
+        if self.scenariu == "urmarire":
+            dx, dy = rover_xy[0] - self.x, rover_xy[1] - self.y
+            d = math.hypot(dx, dy)
+            if d > 1e-9:
+                pas = min(self.v_o * dt, d)
+                self.x += pas * dx / d
+                self.y += pas * dy / d
+        self.istoric[round(t, 4)] = self.o_true(t)
 
     def o_true(self, t):
+        if self.scenariu == "urmarire":
+            if round(t, 4) in self.istoric:
+                return self.istoric[round(t, 4)]
+            return (self.x, self.y)
         y = self.y0 + self.v_o * t
         y = max(min(y, self.p.hazard_end_y), self.y0) if self.v_o >= 0 else y
         return (self.x0, y)
@@ -107,6 +128,8 @@ def run_episode(params, model, channel, safety_filter=None, react=False, hazard=
         st_pre = st
         st = model.step(st, cmd, params.dt)
         t += params.dt
+        if hazard is not None:
+            hazard.avanseaza((st.x, st.y), t, params.dt)
 
         px, py = punct_control(st, params.l)
         ox, oy = o_true(t)                       # V si d_min pe pericolul ADEVARAT
