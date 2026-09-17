@@ -38,6 +38,14 @@ class Params:
     # A3: r_eff = r + d_fr(v_max) + v_o_max * AoI_max  (cel mai rau caz, fix)
     v_o_max: float = 0.5      # m/s; DECIZIE v0.2 (nucleu; sweep 1.0, 1.5)
     f_haz: float = 5.0        # Hz;  DECIZIE v0.2 (nucleu; sweep 2)
-    hazard_start: tuple = (6.0, -2.0)   # caiet v0.2: traverseaza drumul roverului pe +y
+    # ERATA 2 v0.2: pericolul porneste din -v_o*t_cross ca sa traverseze y=0 cand roverul
+    # ajunge la x=6 (S2b: pornit din -2 trecea la t=4 s, roverul ajungea la 7.7 s -> A0 trivial sigur)
+    t_cross: float = 7.5      # s; [de fixat]
+    hazard_x: float = 6.0
     hazard_end_y: float = 2.0           # se opreste la (6, +2)
-    AoI_max: float = 0.5      # s; = T_hold (ERATA v0.2), varsta maxima presupusa de A3
+    AoI_max: float = 1.0      # s; ERATA 2: plafonul marjei A2 [de fixat]; peste el -> stare sigura (n_ws)
+    AoI_max_A3: float = 0.5   # s; = T_hold, varsta presupusa de A3 (ERATA v0.2)
+
+    @property
+    def hazard_start(self):
+        return (self.hazard_x, -self.v_o_max * self.t_cross)

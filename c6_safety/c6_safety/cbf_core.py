@@ -84,6 +84,7 @@ class SafetyFilter(object):
         self.p = params
         self.gamma = GAMMA_IMPLICIT if gamma is None else float(gamma)
         self.n_inf = 0
+        self.n_ws = 0            # stari sigure la informatie prea veche (A2, ERATA 2)
         p = params
         self.W = np.diag([1.0 / p.v_max ** 2, 1.0 / p.omega_max ** 2])
         self._P = sp.csc_matrix(2.0 * self.W)

@@ -35,6 +35,7 @@ def certify(trace, params, o_true, gamma, eps=EPS):
     """o_true: callable t -> (ox, oy). gamma: cel folosit de filtru."""
     n = len(trace)
     inc = {"i": 0, "ii": 0, "iii": 0, "iv": 0}
+    n_fez = 0
     min_h_true = float("inf")
     min_rez = float("inf")
     for k, q in enumerate(trace):
@@ -47,8 +48,13 @@ def certify(trace, params, o_true, gamma, eps=EPS):
         if h_true < 0:
             inc["i"] += 1
 
-        # (ii) DT-CBF pe h-ul filtrului, intre pasi consecutivi
-        if k + 1 < n and q.get("h") is not None and trace[k + 1].get("h") is not None:
+        # (ii) DT-CBF pe h-ul filtrului, DOAR pe pasii fezabili (ERATA 2): teorema
+        #      cere fezabilitate; pe un pas infezabil nu exista u care sa o satisfaca,
+        #      iar caderea lui h_A e semnalul, nu incalcarea. Se numara separat.
+        if q.get("feasible") is True:
+            n_fez += 1
+        if (k + 1 < n and q.get("feasible") is True and q.get("h") is not None
+                and trace[k + 1].get("h") is not None):
             rez = trace[k + 1]["h"] - (1.0 - gamma) * q["h"]
             min_rez = min(min_rez, rez)
             if rez < -eps:
@@ -74,7 +80,11 @@ def certify(trace, params, o_true, gamma, eps=EPS):
             inc["iv"] += 1
 
     verdict = "PASS" if all(v == 0 for v in inc.values()) else "FAIL"
-    return {"pasi": n, "incalcari_i": inc["i"], "incalcari_ii": inc["ii"],
+    n_inf = sum(1 for q in trace if q.get("feasible") is False)
+    n_ws = sum(1 for q in trace if q.get("feasible") is None and q.get("h") is None
+               and q.get("u_v") == 0.0 and q.get("u_w") == 0.0 and q.get("A_haz") is not None)
+    return {"pasi": n, "pasi_fezabili": n_fez, "n_inf": n_inf, "n_ws": n_ws,
+            "incalcari_i": inc["i"], "incalcari_ii": inc["ii"],
             "incalcari_iii": inc["iii"], "incalcari_iv": inc["iv"],
             "min_h_true": None if min_h_true == float("inf") else round(min_h_true, 6),
             "min_rezid_cbf": None if min_rez == float("inf") else round(min_rez, 9),
