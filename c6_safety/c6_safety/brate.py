@@ -5,7 +5,8 @@
   A1  filtru pe o_hat, marja_extra = 0: CBF ne-constient de retea (baseline SotA)
   A2  A_ef = min(A_haz, A_max): contributia (Lema 1, M0 sec. 4)
   A3  A_ef = A_max: cel mai rau caz, scump
-  toate cu r_eff = r + (v + v_o)^2/(2a) + v_o*A_ef (ERATA 4, viteza de inchidere)
+  toate cu r_eff = r + (v + v_o)^2/(2a) + v_o*A_ef + delta_DT (ERATA 4 viteza de inchidere,
+  ERATA 5 rezerva de fezabilitate). H2: pericolul NU urmareste; urmarirea e doar raportata.
 
 V si d_min se calculeaza pe o(t) ADEVARAT (episode.py), certificatul M1 pe fiecare
 rulare. Selftestele ruleaza TOATE pe react=False (ERATA v0.2), cu exceptia (f).
@@ -124,7 +125,8 @@ def _selftest(dir_iesire=None):
 
     Pt = bloc("traversare", ("A0", "A1", "A2", "A3"), canale=("ideal", "DL"))
     Pu = bloc("urmarire", ("A1", "A2"), canale=("ideal", "DL"))
-    print("  ERATA 4: r_eff = r + (v + v_o)^2/(2a) + v_o*A_ef; DL = DelayLoss(0.2,0.05,0.15); seed 1-5; react=False")
+    print("  ERATA 4+5: r_eff = r + (v + v_o)^2/(2a) + v_o*A_ef + delta_DT; DL = DelayLoss(0.2,0.05,0.15); seed 1-5; react=False")
+    print("  delta_DT = (v_o dt + eps_lin)/gamma = %.5f m (rezerva de fezabilitate, Lema 3)" % cbf_core.SafetyFilter(P).delta_DT)
     print("  traversare: t_cross=%.1f -> start %s; urmarire: start %s; v_o=%.1f, f_haz=%.0f Hz"
           % (P.t_cross, tuple(round(x, 2) for x in Pt.hazard_start), Pu.hazard_start, P.v_o_max, P.f_haz))
     print("  %-11s %-5s %-4s %-4s %s" % ("scenariu", "canal", "brat", "seed", "V    d_min  J_int  T_G    n_inf n_ws  v_min  (i)/(ii) cert"))
@@ -143,20 +145,25 @@ def _selftest(dir_iesire=None):
     rez.append(("j", "PASS" if ok else "FAIL", "A2 IDEAL traversare: V=%s (i)=%s n_inf=%s d_min=%s"
                 % (V("traversare", "ideal", "A2"), C("traversare", "ideal", "A2", "incalcari_i"),
                    N("traversare", "ideal", "A2", "n_inf"), [round(x, 3) for x in N("traversare", "ideal", "A2", "d_min")])))
-    ok = zero(V("urmarire", "ideal", "A2"))
-    rez.append(("k", "PASS" if ok else "FAIL", "A2 IDEAL urmarire: V=%s n_inf=%s d_min=%s"
-                % (V("urmarire", "ideal", "A2"), N("urmarire", "ideal", "A2", "n_inf"), [round(x, 3) for x in N("urmarire", "ideal", "A2", "d_min")])))
+    # ERATA 5 / H2: urmarirea NU mai e in DoD (S3.1: cursa decisa de cm, apoi evadare) -- doar raportata
+    rez.append(("k", "RAPORTAT", "urmarire IDEAL: A1 V=%s d_min=%s | A2 V=%s d_min=%s"
+                % (V("urmarire", "ideal", "A1"), [round(x, 2) for x in N("urmarire", "ideal", "A1", "d_min")],
+                   V("urmarire", "ideal", "A2"), [round(x, 2) for x in N("urmarire", "ideal", "A2", "d_min")])))
     ok = zero(V("traversare", "DL", "A2")) and zero(C("traversare", "DL", "A2", "incalcari_i"))
     rez.append(("b", "PASS" if ok else "FAIL", "A2 DL traversare: V=%s (i)=%s n_inf=%s n_ws=%s"
                 % (V("traversare", "DL", "A2"), C("traversare", "DL", "A2", "incalcari_i"),
                    N("traversare", "DL", "A2", "n_inf"), N("traversare", "DL", "A2", "n_ws"))))
-    ok = zero(V("urmarire", "DL", "A2"))
-    rez.append(("i", "PASS" if ok else "FAIL", "A2 DL urmarire: V=%s n_inf=%s" % (V("urmarire", "DL", "A2"), N("urmarire", "DL", "A2", "n_inf"))))
+    rez.append(("i", "RAPORTAT", "urmarire DL: A1 V=%s d_min=%s | A2 V=%s d_min=%s"
+                % (V("urmarire", "DL", "A1"), [round(x, 2) for x in N("urmarire", "DL", "A1", "d_min")],
+                   V("urmarire", "DL", "A2"), [round(x, 2) for x in N("urmarire", "DL", "A2", "d_min")])))
+    ok = zero(N("traversare", "DL", "A2", "n_inf"))
+    rez.append(("m", "PASS" if ok else "FAIL", "A2 DL traversare n_inf=%s (efectul rezervei delta_DT)"
+                % N("traversare", "DL", "A2", "n_inf")))
     n_a0 = sum(1 for v in V("traversare", "DL", "A0") if v >= 1)
     rez.append(("a", "PASS" if n_a0 >= 4 else "FAIL", "A0 traversare DL: V>=1 in %d/5, V=%s; ideal V=%s"
                 % (n_a0, V("traversare", "DL", "A0"), V("traversare", "ideal", "A0"))))
-    rez.append(("c", "RAPORTAT", "A1 DL: traversare V=%s | urmarire V=%s" % (V("traversare", "DL", "A1"), V("urmarire", "DL", "A1"))))
-    rez.append(("e", "RAPORTAT", "A3 traversare: ideal V=%s n_inf=%s | DL V=%s n_inf=%s"
+    rez.append(("c", "RAPORTAT", "A1 traversare: ideal V=%s | DL V=%s" % (V("traversare", "ideal", "A1"), V("traversare", "DL", "A1"))))
+    rez.append(("e", "RAPORTAT", "A3 traversare: ideal V=%s n_inf=%s | DL V=%s n_inf=%s (S3.1, fara rezerva: [0,2,77,2,1])"
                 % (V("traversare", "ideal", "A3"), N("traversare", "ideal", "A3", "n_inf"),
                    V("traversare", "DL", "A3"), N("traversare", "DL", "A3", "n_inf"))))
 
@@ -169,18 +176,12 @@ def _selftest(dir_iesire=None):
                                    safety_filter=cbf_core.ca_safety_filter(sf), react=False)
     dif = max(abs(m_ref[k] - m_s21[k]) for k in ("d_min", "J_int"))
     dif_t = abs((m_ref["T_G"] or 0) - (m_s21["T_G"] or 0))
+    # cu delta_DT = eps_lin/gamma la v_o=0 (~0.007 m), cifrele S2.1(a) (T_G 44.3, d_min 1.0029,
+    # J_int 1.0833) se deplaseaza cu acest offset; ce se cere identic e brate == ca_safety_filter
     rez.append(("d", "PASS" if max(dif, dif_t) <= 1e-9 else "FAIL",
-                "v_o=0 pericol fix == S2.1(a): dif max %.1e (T_G %s d_min %.4f J_int %.4f)"
-                % (max(dif, dif_t), m_ref["T_G"], m_ref["d_min"], m_ref["J_int"])))
-
-    # (l) retragere: urmaritor la v_o = 0.75 < v_max, canal ideal: roverul chiar da inapoi si nu e prins
-    Pl = Params(scenariu="urmarire", v_o_max=0.75)
-    rl = [ruleaza_brat("A2", Pl, s, canal=channel_core.IdealChannel(Pl)) for s in SEEDS]
-    vmin_l = [round(min(q["v"] for q in tr), 3) for _, tr, _ in rl]
-    ok = all(v < 0 for v in vmin_l) and all(m["V"] == 0 for m, _, _ in rl)
-    rez.append(("l", "PASS" if ok else "FAIL", "A2 urmarire ideal v_o=0.75: v_min=%s V=%s n_inf=%s"
-                % (vmin_l, [m["V"] for m, _, _ in rl], [m["n_inf"] for m, _, _ in rl])))
-    urme[("urmarire_vo075", "ideal", "A2", 1)] = rl[0][1]
+                "v_o=0 pericol fix, brate == ca_safety_filter: dif max %.1e; cu offset delta_DT=%.5f: "
+                "T_G %s d_min %.4f J_int %.4f (S2.1: 44.3, 1.0029, 1.0833)"
+                % (max(dif, dif_t), sf.delta_DT, m_ref["T_G"], m_ref["d_min"], m_ref["J_int"])))
 
     nr = [ruleaza_brat("A2", Pt, s, react=True)[0]["n_reactii"] for s in SEEDS]
     n_f = sum(1 for x in nr if x >= 1)
@@ -194,14 +195,13 @@ def _selftest(dir_iesire=None):
     print()
     for k, v, cif in rez:
         print("  (%s) %-8s %s" % (k, v, cif))
-    OBLIG = ("j", "k", "b", "i", "a", "d", "l")
+    OBLIG = ("j", "b", "m", "a", "d")
     picate = [k for k, v, _ in rez if v == "FAIL" and k in OBLIG]
     for k in picate:
-        if k in ("j", "k", "b", "i", "l"):
-            scen, cn = {"j": ("traversare", "ideal"), "k": ("urmarire", "ideal"), "b": ("traversare", "DL"),
-                        "i": ("urmarire", "DL"), "l": ("urmarire_vo075", "ideal")}[k]
-            seeds = SEEDS if k != "l" else (1,)
-            s_p = next((s for s in seeds if (k == "l") or tab[(scen, cn, "A2", s)][0]["V"] > 0), 1)
+        if k in ("j", "b", "m"):
+            scen, cn = {"j": ("traversare", "ideal"), "b": ("traversare", "DL"), "m": ("traversare", "DL")}[k]
+            s_p = next((s for s in SEEDS if tab[(scen, cn, "A2", s)][0]["V"] > 0
+                        or tab[(scen, cn, "A2", s)][0]["n_inf"] > 0), 1)
             tr = urme[(scen, cn, "A2", s_p)]
             k_inf = next((i for i, q in enumerate(tr) if q["feasible"] is False), len(tr) - 1)
             print("  traiectoria primului seed picat, (%s) %s %s seed %d, in jurul primului pas infezabil k=%d:" % (k, scen, cn, s_p, k_inf))
@@ -209,9 +209,8 @@ def _selftest(dir_iesire=None):
     if dir_iesire:
         import io_core
         for (scen, cn, b, s), tr in urme.items():
-            if (scen, cn, b, s) in tab:
-                m, c = tab[(scen, cn, b, s)]
-                io_core.scrie(dir_iesire, m, tr, "s31_%s_%s_%s_seed%d" % (scen, cn, b, s), certificat=c)
+            m, c = tab[(scen, cn, b, s)]
+            io_core.scrie(dir_iesire, m, tr, "s32_%s_%s_%s_seed%d" % (scen, cn, b, s), certificat=c)
         print("  urme + certificate in %s" % dir_iesire)
     if picate:
         print("SELFTEST brate: FAIL pe obligatorii %s" % picate)

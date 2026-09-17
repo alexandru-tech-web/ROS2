@@ -5,7 +5,8 @@ NOTATIE (ASCII)
   stare    x = (px, py, theta, v)
   intrare  u = (v_cmd, omega)
   punct de control  p_c = p + l * (cos theta, sin theta)
-  h(x) = ||p_c - o_hat|| - r_eff,   r_eff = r + d_fr(v) + marja_extra
+  h(x) = ||p_c - o_hat|| - r_eff,   r_eff = r + d_fr(v) + marja_extra + delta_DT
+         delta_DT = (v_o dt + eps_lin)/gamma, rezerva de fezabilitate (ERATA 5, Lema 3)
          d_fr(v) = v^2 / (2 a_max) + v tau_act          (rover_dyn.d_fr)
          marja_extra e PARAMETRU: 0 in S2; v_o * AoI in S2b.
 
@@ -101,6 +102,12 @@ class SafetyFilter(object):
         self._P = sp.csc_matrix(2.0 * self.W)
         s_max = (p.v_max + p.l * p.omega_max) * p.dt
         self.eps_lin = s_max ** 2 / (2.0 * p.r)              # Lema 2
+        # ERATA 5: rezerva de fezabilitate (Lema 3). Intre doua pachete h_A scade cu v_o*dt
+        # indiferent de u; QP-ul ramane fezabil doar daca h_A >= (v_o dt + eps_lin)/gamma.
+        # Un CBF cu gamma-decay lasa h -> 0 (S3.1: h ~ 0.005, apoi infezabil), deci
+        # pragul intra in r_eff: bariera h = ||p_c - o_hat|| - r_eff atinge 0 exact cand
+        # distanta reala ajunge la r + delta_DT, iar de acolo QP-ul are inca loc de un pas.
+        self.delta_DT = (p.v_o_max * p.dt + self.eps_lin) / self.gamma
 
     def constrangere_cbf(self, x, o_hat, marja_extra=0.0, r_eff_fix=None, dmarja_dt=0.0,
                          dmarja_dv=0.0):
@@ -113,13 +120,14 @@ class SafetyFilter(object):
         px, py, th, v = _desfa(x)
         p = self.p
         if r_eff_fix is None:
-            h, n, _ = h_val(x, o_hat, p, marja_extra)
+            h, n, self.r_eff_ultim = h_val(x, o_hat, p, marja_extra + self.delta_DT)
             # ERATA 4: r_eff = r + (v + v_o)^2/(2a) + v_o*A_ef, deci
             # d r_eff / dv = (v + v_o)/a = v/a + v_o/a. Al doilea termen vine prin dmarja_dv.
             dfr = v / p.a_max + dmarja_dv
         else:
             d_, n, _ = h_val(x, o_hat, p, 0.0)
-            h = d_ + p.r + rover_dyn.d_fr(v, p.a_max) - r_eff_fix   # ||p_c-o|| - r_eff_fix
+            self.r_eff_ultim = r_eff_fix + self.delta_DT
+            h = d_ + p.r + rover_dyn.d_fr(v, p.a_max) - self.r_eff_ultim   # ||p_c-o|| - r_eff_fix
             dfr = 0.0
         c_pos = n[0] * v * math.cos(th) + n[1] * v * math.sin(th)
         a_w = p.dt * (n[0] * (-p.l * math.sin(th)) + n[1] * (p.l * math.cos(th)))
@@ -164,7 +172,8 @@ class SafetyFilter(object):
                   if feasible else None)
         return u, {"h": h, "h_next_pred": h_next, "feasible": feasible,
                    "obj": obj, "kkt_res": kkt, "eps_lin": self.eps_lin,
-                   "marja_extra": marja_extra}
+                   "marja_extra": marja_extra, "delta_DT": self.delta_DT,
+                   "r_eff": self.r_eff_ultim}
 
 
 def ca_safety_filter(sf, marja_extra=0.0, o_hat=None, marja_fn=None, r_eff_fix=None,

@@ -119,9 +119,7 @@ def run_episode(params, model, channel, safety_filter=None, react=False, hazard=
             n_inf += int(infez)
             if isinstance(info, dict):
                 h, feasible, kkt = info.get("h"), info.get("feasible"), info.get("kkt_res")
-                me = info.get("marja_extra")
-                r_eff = (None if me is None else
-                         params.r + rover_dyn.d_fr(st.v, params.a_max) + me)   # None = stare sigura (n_ws)
+                r_eff = info.get("r_eff")                  # None = stare sigura (n_ws)
             else:
                 h = info
 

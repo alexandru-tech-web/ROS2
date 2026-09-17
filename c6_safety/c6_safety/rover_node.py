@@ -124,8 +124,7 @@ class RoverNode(Node):
             cmd, info, infez = self.filtru(self.st, cmd, P, ctx)
             self.n_inf += int(infez)
             h, feasible, kkt = info.get("h"), info.get("feasible"), info.get("kkt_res")
-            me = info.get("marja_extra")
-            r_eff = None if me is None else P.r + rover_dyn.d_fr(self.st.v, P.a_max) + me
+            r_eff = info.get("r_eff")
 
         st_pre = self.st
         self.st = self.model.step(self.st, cmd, P.dt)
