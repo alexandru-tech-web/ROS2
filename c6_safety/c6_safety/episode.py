@@ -74,6 +74,7 @@ def run_episode(params, model, channel, safety_filter=None, react=False):
             else:
                 h = info
 
+        st_pre = st
         st = model.step(st, cmd, params.dt)
         t += params.dt
 
@@ -87,10 +88,12 @@ def run_episode(params, model, channel, safety_filter=None, react=False):
         if st.v < V_BLOCAT and v_op > V_OP_ACTIV:
             n_blocat += 1
 
-        trace.append({"t": round(t, 4), "x": st.x, "y": st.y, "theta": st.theta,
+        trace.append({"t": round(t, 4), "x_pre": st_pre.x, "y_pre": st_pre.y,
+                      "theta_pre": st_pre.theta, "v_pre": st_pre.v, "x": st.x, "y": st.y, "theta": st.theta,
                       "v": st.v, "omega": st.omega, "v_op": v_op, "omega_op": w_op,
                       "AoI_cmd": aoi, "h": h, "r_eff": r_eff,
-                      "feasible": feasible, "kkt_res": kkt})
+                      "feasible": feasible, "kkt_res": kkt,
+                      "u_v": cmd[0], "u_w": cmd[1]})
 
         if T_G is None and d_g < params.goal_tol:
             T_G = round(t, 4)
@@ -187,5 +190,14 @@ if __name__ == "__main__":
         d = sys.argv[sys.argv.index("--outputs") + 1]
     if "--selftest" in sys.argv:
         sys.exit(_selftest(d))
+    if "--certify" in sys.argv:
+        import cbf_core, certif_core, io_core
+        P = Params(); sf = cbf_core.SafetyFilter(P)
+        m, tr = run_episode(P, models.Unicycle(), channel_core.IdealChannel(P),
+                            safety_filter=cbf_core.ca_safety_filter(sf), react=True)
+        c = certif_core.certify(tr, P, lambda t: P.obst, sf.gamma)
+        if d:
+            io_core.scrie(d, m, tr, "certificat", certificat=c)
+        print(json.dumps(c, indent=2, sort_keys=True)); sys.exit(0 if c["verdict"] == "PASS" else 1)
     m, tr = run_episode(Params(), models.Unicycle(), channel_core.IdealChannel(Params()))
     print(json.dumps(m, indent=2, sort_keys=True))
