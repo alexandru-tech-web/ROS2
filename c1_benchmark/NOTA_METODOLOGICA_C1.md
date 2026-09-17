@@ -72,7 +72,21 @@ Inainte de fiecare rulare:
 - De citat acum: comportamentul CycloneDDS sub pierdere/latenta; fizica round-trip.
 - De obtinut din HIL (doua masini): comparatia Zenoh vs DDS pe legatura reala.
 
-## 7. Rezultat N=10 (referinta loopback, campanie curata P2P)
+## 7. Campanii arhivate: rezultat N=10 (referinta loopback, campanie curata P2P)
+
+ARHIVA (G3, 17.09.2026): campania de loopback N=10 din iunie 2026 NU se citeaza in
+articol si nu mai apare in README-ul depozitului; singurul loc citabil este
+`paper/campaign_summary.csv` (SIL + HIL, HIL agregat pe N=5). Tabelul compact care
+statea in README-ul radacinii (p95 RTT [ms], CV = std/medie, payload 4096 B):
+
+| Conditie | p95 DDS [ms] | CV DDS | p95 Zenoh [ms] | CV Zenoh | pierdere DDS | pierdere Zenoh |
+|----------|--------------|--------|----------------|----------|--------------|----------------|
+| loss_15    | 1019 | 10% | 560  | 23%  | 1.4%  | 8.5%  |
+| loss_25    | 2145 | 3%  | 5392 | 100% | 26.5% | 34.1% |
+| loss_30    | 2317 | 2%  | 8709 | 63%  | 41.0% | 57.8% |
+| lat200_l15 | 2548 | 1%  | 3893 | 49%  | 36.0% | 20.8% |
+
+Tabelul complet, cu CI95 si min-max:
 
 Campanie echitabila: ambele RMW peer-to-peer, mediu curat inainte de fiecare,
 N=10 (9 pentru zenoh/loss_30), payload 4096 B. p95 [ms], CV = std/medie:

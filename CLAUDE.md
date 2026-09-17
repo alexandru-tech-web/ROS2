@@ -107,7 +107,7 @@ rezultate. Daca un push esueaza, prima suspiciune: date brute / fisiere >100 MB.
 - Conventie URDF exoschelet: rotatie pozitiva pe axa Y = extensie; flexie = negativ.
 
 ## 7. Harta repo-ului
-- c1_benchmark/  -- sursa A1 (SSRR 2026): bench_core (+test_bench_core, 11 teste),
+- c1_benchmark/  -- sursa A1 (JIRS, submisie 30.11.2026): bench_core (+test_bench_core, 11 teste),
   netem, run_campaign, analyze_campaign, reproduce_pdia (ML), ml_dataset.csv,
   paper/ (main.tex, ipoteze H1-H4). Verificari fara ROS:
   `python3 test_bench_core.py`; `python3 analyze_campaign.py --selftest`.

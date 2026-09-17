@@ -2,7 +2,7 @@
 
 Benchmark `rmw_zenoh` vs. `rmw_cyclonedds_cpp` sub degradare de retea controlata
 (tc netem), pe doua straturi: transport (RTT pe ecou) si misiune SAR completa.
-Pachet-sursa al articolului A1 (tinta: SSRR 2026).
+Pachet-sursa al articolului A1 (tinta: JIRS; submisie 30.11.2026).
 
 ## 1. Fluxul de proces
 

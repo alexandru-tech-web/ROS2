@@ -1,211 +1,153 @@
 # Contributii la dezvoltarea sistemelor robotice prin controlul de la distanta in timp real
 
-Depozit de cercetare doctorala -- IMSAR. Cod, protocoale experimentale si date sintetice
-pentru evaluarea middleware-ului ROS 2 (`rmw_zenoh` vs. `rmw_cyclonedds_cpp`) in conditii
-de retea degradata, cu aplicatie in robotica Search and Rescue (SAR) si tele-reabilitare.
+Depozit de cercetare doctorala (IMSAR). Cod, protocoale experimentale si sumare de
+campanie pentru teleoperarea robotilor peste retele degradate. Documentat in romana,
+fara diacritice.
 
-> **In English:** this is a doctoral research monorepo, documented in Romanian.
-> For the C1 paper artifact (ROS 2 middleware benchmark under network
-> degradation), see [`c1_benchmark/README_EN.md`](c1_benchmark/README_EN.md).
-
----
+> **In English:** doctoral research monorepo, documented in Romanian. For the C1
+> artifact (ROS 2 middleware benchmark under network degradation) see
+> [`c1_benchmark/README_EN.md`](c1_benchmark/README_EN.md).
 
 ## Rezumat
 
-Studiile comparative existente asupra protocoalelor pub/sub (Zenoh, DDS, MQTT, Kafka)
-raporteaza performanta exclusiv in conditii ideale de retea [1]. Prezentul depozit
-operationalizeaza evaluarea in regimuri degradate realiste pentru misiuni SAR
-(pierdere de pachete, latenta, jitter, combinatii), pe doua straturi de masura:
-(i) stratul de transport -- microbenchmark RTT pe ecou; (ii) stratul de misiune --
-roi de drone simulat cu metrici operationale (timp de finalizare, acoperire).
-Suplimentar, depozitul contine emulatorul software al unui banc fizic cu sase
-servomotoare ABB cuplate in perechi (trei articulatii), destinat validarii hardware
-a controlului de impedanta prin legaturi degradate (tele-impedanta adaptiva).
+Teza, intr-o fraza: teleoperarea in timp real peste o retea degradata nu se rezolva
+alegand un middleware, ci masurand degradarea, modeland-o, comutand pe ea si
+garantand siguranta cu informatia care chiar ajunge la robot.
 
-## Directii de cercetare
+Drumul contributiilor, pe aceeasi coloana:
 
-- **Roiuri SAR.** Roi de patru drone autonome cu GCS, degradare de retea injectabila
-  si metrici de misiune (acoperire, victime, timp) -- `sar_swarm`, `sar_plugins`.
-- **Benchmark middleware (C1).** Microbenchmark de transport `rmw_zenoh` vs.
-  `rmw_cyclonedds_cpp` sub `tc netem`, plus stratul aplicativ adaptiv la legatura
-  -- `c1_benchmark`, `link_adaptive`.
-- **Retea MESH multi-hop.** Recuperarea telemetriei intr-un roi partitionat prin
-  relay hop-by-hop -- `mesh_plugin`.
-- **Exoschelet / tele-reabilitare.** Validarea hardware a impedantei adaptive prin
-  legaturi degradate -- `joint_emulator`, `rehab_exo_description`, `servo_control`.
+    C1 masoara  ->  C2 modeleaza  ->  C3 comuta  ->  C5 arbitreaza  ->  C6 garanteaza
 
-> **Datele experimentale NU sunt versionate.** Rezultatele campaniilor (`results_c1/`,
-> `sar_swarm/results/`, `teleop_rover/results/campaign_*/`, `stats_out/`, mediile
-> virtuale) se regenereaza cu scripturile si se arhiveaza in afara depozitului. In git
-> intra doar codul, scripturile de analiza, documentatia si cateva figuri reprezentative
-> din `*/docs/`.
+- **C1 masoara**: benchmark `rmw_zenoh_cpp` vs `rmw_cyclonedds_cpp` sub `tc netem`, pe
+  loopback (SIL) si pe doua masini (HIL, Raspberry Pi 4 prin Wi-Fi).
+- **C2 modeleaza**: pierderi in rafala (Gilbert-Elliott) calibrate din campania HIL.
+- **C3 comuta**: gateway si mesh multi-hop care aleg calea in functie de starea legaturii.
+- **C5 arbitreaza**: arbitrajul intre operator si automat (stare sigura activa) -- planificat,
+  fara cod in depozit.
+- **C6 garanteaza**: filtru de siguranta (DT-CBF) pe rover, cu marja din varsta informatiei
+  (Age of Information) despre pericol; certificat de rulare pe fiecare episod.
+- **C4** (exoschelet de reabilitare, tele-impedanta) este un livrabil in afara coloanei.
 
-## 1. Obiective
+## Contributii si stare
 
-| ID | Obiectiv | Pachet principal |
-|----|----------|------------------|
-| O1 | Cuantificarea degradarii transportului ROS 2 (RTT, pierdere) sub conditii netem | `c1_benchmark` |
-| O2 | Masurarea impactului la nivel de misiune SAR (timp, acoperire, finalizare) | `sar_swarm`, `sar_plugins` |
-| O3 | Validarea hardware a impedantei adaptive la calitatea legaturii | `joint_emulator`, `rehab_exo_description` |
+| Contributie | Pachet(e) | Stare | Artefact-cheie | Ultimul commit |
+|---|---|---|---|---|
+| C1 masoara | `c1_benchmark` (+ `sar_swarm`, `sar_plugins` ca strat de misiune) | INGHETAT (cod); articol in revizie, tinta JIRS, submisie 30.11.2026 | `c1_benchmark/paper/campaign_summary.csv`, `paper/main.tex`, taguri `c1-paper-v3.4`, `c1-data-v2` | `88ecc48` 2026-09-01 |
+| C2 modeleaza | `c2_analysis`, `c2_planning` | INGHETAT (manuscris V5 canonic, fixat prin amprenta SHA) | `c2_analysis/FAPTE_C2.md`, `MANIFEST_DATE_C2.md`, `c2_planning/CALIBRARE_GE_C2.md` | `2085405` 2026-08-13 |
+| C3 comuta | `c3_gateway`, `mesh_plugin` | INGHETAT | `c3_gateway/` (FAPTE_C3, smoke e2e), `mesh_plugin/mesh_core.py` | `604c696` 2026-09-01 |
+| C5 arbitreaza | -- | PLANIFICAT | -- | -- |
+| C6 garanteaza | `c6_safety` | VIU | `cbf_core.py`, `certif_core.py`, `brate.py`, noduri `operator_node`/`rover_node`, `launch/c6_smoke.launch.py` | `929f6ea` 2026-09-17 |
+| C4 (in afara coloanei) | `rehab_exo_description`, `joint_emulator`, `servo_control` | INGHETAT / demonstrator | tag `rehab-v0.3.0`; `docs/material_teza/cm_rmw_mismatch/` | `ad283c9` 2026-08-22 |
 
-## 2. Arhitectura sistemului
+## Taxonomia pachetelor (toate folderele din radacina)
 
-```mermaid
-graph TB
-    subgraph "Stratul de transport (O1)"
-        C1[c1_benchmark<br/>microbenchmark RTT]
-    end
-    subgraph "Stratul de aplicatie (O2)"
-        SW[sar_swarm<br/>roi 3 drone + GCS]
-        SP[sar_plugins<br/>canal radio, baterie,<br/>acoperire, victime]
-    end
-    subgraph "Stratul hardware (O3)"
-        JE[joint_emulator<br/>banc 6 servo ABB]
-        RE[rehab_exo_description<br/>exoschelet URDF]
-    end
-    SC[servo_control<br/>demonstrator Gazebo]
-    NET[tc netem<br/>degradare fizica] --> C1
-    NET --> SW
-    SP -- /sar/linkstate --> SW
-    C1 -. metodologie comuna .-> JE
-    JE -- geamanul fizic --> RE
-```
+Stari: VIU = se lucreaza; INGHETAT = nu se modifica (cod sursa al unui articol sau al unei
+decizii); ARHIVAT = pastrat, nemodificat, fara plan; MOSTENIRE = inlocuit de o contributie
+ulterioara, pastrat pentru istoric.
 
-Degradarea de retea este aplicata FIZIC (`tc qdisc ... netem`) pe interfata de test;
-injectoarele simulate raman dezactivate in campanii (`scenario:=none.yaml`), astfel
-incat diferentele masurate apartin exclusiv middleware-ului.
+| Folder | Tip | Rol | Stare | Ultimul commit | README |
+|---|---|---|---|---|---|
+| [`c1_benchmark`](c1_benchmark/README.md) | script | benchmark transport + misiune (C1); `selector_core.py` (selector invatat, ISI) | INGHETAT | 2026-09-01 | da |
+| `c2_analysis` | script | analiza campaniei C2: metrici de rafala, figuri, tabele, audit (C2) | INGHETAT | 2026-08-13 | nu (`FAPTE_C2.md`, `MANIFEST_DATE_C2.md`) |
+| `c2_planning` | doc+script | calibrarea Gilbert-Elliott si runbook-ul campaniei C2 | INGHETAT | 2026-08-01 | nu (`RUNBOOK_CAMPANIE_C2.md`) |
+| [`c3_gateway`](c3_gateway/README.md) | ament | gateway-ul de comutare a caii (C3) | INGHETAT | 2026-09-01 | da |
+| [`c6_safety`](c6_safety/README.md) | ament_python | garda de siguranta DT-CBF: core-uri pure + noduri subtiri (C6) | VIU | 2026-09-17 | da |
+| [`curs_ml`](curs_ml/README.md) | educational | curs ML, 23 module | ARHIVAT | 2026-06-29 | da |
+| [`curs_ros2`](curs_ros2/README.md) | educational | curs ROS 2 (11 module cu cod in `curs_ros2/curs_ros2/`) | ARHIVAT | 2026-06-29 | da |
+| [`curs_ros2_interfaces`](curs_ros2_interfaces/README.md) | ament | interfete custom pentru curs | ARHIVAT | 2026-06-29 | da |
+| `docs` | dovezi | `material_teza/cm_rmw_mismatch/`: jurnale de dovada pentru clasa "RMW nepotrivit" | ARHIVAT (dovada) | 2026-08-21 | nu (are `cm_rmw_mismatch/README.md`) |
+| [`joint_emulator`](joint_emulator/README.md) | script | emulatorul bancului cu 6 servomotoare (C4) | INGHETAT | 2026-06-29 | da |
+| [`link_adaptive`](link_adaptive/README.md) | ament | strat adaptiv la starea legaturii (NOMINAL/DEGRADED/CRITICAL), precursor al C3 | MOSTENIRE | 2026-06-29 | da |
+| `log` | -- | iesire colcon, NEVERSIONAT (`.gitignore`) | -- | -- | -- |
+| [`mesh_plugin`](mesh_plugin/README.md) | ament | mesh multi-hop peste roi, relay hop-by-hop (C3) | INGHETAT | 2026-06-29 | da |
+| [`rehab_exo_description`](rehab_exo_description/README.md) | ament | exoscheletul de reabilitare: URDF, launch, failsafe (C4) | INGHETAT | 2026-08-22 | da |
+| [`sar_plugins`](sar_plugins/README.md) | script | plugin-uri de mediu: canal radio, baterie, acoperire, victime | INGHETAT | 2026-06-29 | da |
+| [`sar_swarm`](sar_swarm/README.md) | script | roiul SAR: 4 drone (d1-d4) + GCS, injector, SIL | INGHETAT | 2026-06-29 | da |
+| `scratchpad` | temporar | auditul C4 din 2026-08-18 (3 fisiere) | ARHIVAT; propus la mutare in ARHIVA (vezi raport G3) | 2026-08-21 | nu |
+| [`servo_control`](servo_control/README.md) | ament | demonstratorul istoric: motor Gazebo cu tastatura | MOSTENIRE | 2026-06-29 | da |
+| `stats_out` | -- | figuri/CSV de statistica, NEVERSIONAT (`.gitignore`) | -- | -- | -- |
+| [`teleop_rover`](teleop_rover/README.md) | script | roverul teleoperat (4 roti, perceptie, go-to-goal); plantul imprumutat de C6 | INGHETAT | 2026-06-29 | da |
 
-## 3. Taxonomia pachetelor
+Fisiere in radacina: `CLAUDE.md` (instructiuni de lucru), `CONTRIBUTING.md`, ghiduri
+(`GHID_INTERFERENTA_RF.md`, `GHID_INVATARE.md`, `PARAMETRI_SI_TRANSFER_REAL.md`,
+`PROIECT_ECOSISTEM_EDUCATIONAL.md`, `TEHNOLOGII.md`), `check_repo.sh`, `smoke_all.sh`.
 
-Fiecare nume trimite la README-ul pachetului.
+## Metodologie
 
-| Pachet | Tip | Rol | Verificari |
-|--------|-----|-----|------------|
-| [`c1_benchmark`](c1_benchmark/README.md) | script | benchmark transport + misiune, articolul A1 (SSRR 2026) | 11 + selftest figuri |
-| [`sar_swarm`](sar_swarm/README.md) | script | roiul SAR: 4 drone, GCS, injector, sonda, ecran de misiune | >100 (3 suite) |
-| [`sar_plugins`](sar_plugins/README.md) | script | plugin-uri de mediu: canal, baterie, acoperire, victime | 55 |
-| [`mesh_plugin`](mesh_plugin/README.md) | ament | retea MESH multi-hop peste roi (relay hop-by-hop, ETX) | selftest 31 |
-| [`link_adaptive`](link_adaptive/README.md) | ament | strat adaptiv la starea legaturii (NOMINAL/DEGRADED/CRITICAL) | selftest 22/22 |
-| [`joint_emulator`](joint_emulator/README.md) | script | bancul cu 6 servomotoare: impedanta, encodere, vizualizare | 34 |
-| [`teleop_rover`](teleop_rover/README.md) | script | roverul teleoperat: link degradat, pilot/manual, perceptie + go-to-goal | 22 + SIL |
-| [`rehab_exo_description`](rehab_exo_description/README.md) | ament | exoscheletul de reabilitare (URDF, launch, failsafe) | tag `rehab-v0.3.0` |
-| [`servo_control`](servo_control/README.md) | ament | demonstratorul istoric: motor Gazebo cu comanda tastatura | -- |
-| [`curs_ros2`](curs_ros2/README.md) | ament | exercitii de curs ROS 2 (14 module) | test/ (lint + logica) |
-| [`curs_ros2_interfaces`](curs_ros2_interfaces/README.md) | ament | interfete custom (msg/srv/action) pentru curs | -- |
+- **Bancul.** Degradarea se aplica FIZIC cu `tc qdisc ... netem` pe interfata de test (`lo`
+  pentru SIL; Wi-Fi intre laptop si Raspberry Pi 4 pentru HIL). Conditiile poarta acelasi
+  nume in toate campaniile (`ideal`, `loss_5`, `loss_15`, `lat200_jit50`, ...). Se raporteaza
+  configurat vs masurat (ping) pentru fiecare interfata.
+- **Repetitii.** N=5 pe celula in campaniile citate (C1 HIL, planul C6); C2 a folosit 10 repetitii
+  per celula (`c2_analysis/FAPTE_C2.md`).
+- **Manifeste.** Fiecare rulare scrie un manifest JSON (comanda, git hash + dirty, kernel,
+  `tc qdisc show`, amprente SHA256 ale iesirilor). Pentru C1: `c1_benchmark/manifests/`,
+  `paper/MANIFEST_SHA256.txt`. Pentru C6: `~/PHD/BORD/tools/ruleaza.py` scrie
+  `~/DATE_CAMPANIE/<run_id>/manifest.json` si o linie in registrul de rulari.
+- **Adrese.** Orice adresa IP din documentatie este din blocurile RFC 5737 (`192.0.2.0/24`,
+  `198.51.100.0/24`, `203.0.113.0/24`); adresele reale nu intra in depozit.
+- **Datele brute NU sunt versionate** (`.gitignore`): campaniile stau in `~/DATE_CAMPANIE/`,
+  arhivele in `~/ARHIVA_PHD/`. In git intra doar cod, sumare CSV, figuri si manifeste.
+- **Lantul de dezvoltare.** Nucleu pur cu `_selftest()` -> nod ROS subtire (JSON pe
+  `std_msgs/String`) -> SIL -> pachet ament -> verificare pre-push (`smoke_all.sh`).
 
-## 4. Metodologia experimentala
+## Rezultate
 
-**Conditiile de retea** (aplicate cu `tc netem` pe interfata de test):
+Singurul loc citabil pentru C1 este `c1_benchmark/paper/campaign_summary.csv`
+(coloane `env,condition,rmw,loss_pct,rtt_p95_ms`; SIL si HIL; HIL agregat pe N=5). Cele
+opt cifre-titlu se extrag cu:
 
-| Conditie | Parametri netem |
-|----------|-----------------|
-| `ideal` | fara qdisc |
-| `loss_5` / `loss_15` / `loss_30` | `loss 5%` / `loss 15%` / `loss 30%` |
-| `lat200_jit50` | `delay 200ms 50ms` |
-| `lat200_l15` | `delay 200ms` + `loss 15%` |
+    grep -E "^(SIL|HIL),lat200_jit50," c1_benchmark/paper/campaign_summary.csv
 
-**Metrici.** Transport: RTT (p50/p95/p99) pe ecou si pierderea end-to-end in limita
-unui termen per esantion. Misiune: timpul de finalizare, acoperirea finala,
-rata de finalizare (cenzurata la dreapta de bugetul de timp).
+adica p95 RTT si pierderea pentru fiecare RMW, pe HIL (7696.9 ms / 96.3 % zenoh vs
+635.2 ms / 14.7 % cyclonedds) si pe SIL (475.7 / 1.3 % vs 484.2 / 1.8 %): raportul 12x
+apare pe legatura fizica si nu se vede pe loopback.
 
-**Reproducibilitate.** Fiecare rulare scrie un manifest JSON (seed, versiuni, conditie);
-datele brute stau in afara depozitului: setul canonic al campaniei in `~/DATE_CAMPANIE/`,
-campaniile anterioare si manuscrisele in `~/ARHIVA_PHD/`. In depozit intra numai sumarele
-CSV, figurile si manifestele SHA256 (`c1_benchmark/manifests/`,
-`c1_benchmark/paper/MANIFEST_SHA256.txt`). Inaintea oricarei campanii: `c1_benchmark/preflight.sh`
-(detecteaza qdisc rezidual si procese vii).
+Campaniile anterioare (loopback N=10, iunie 2026) sunt ARHIVA: tabelul lor sta in
+`c1_benchmark/NOTA_METODOLOGICA_C1.md`, sectiunea "Campanii arhivate", si nu se citeaza.
 
-## 5. Mediul software
+Rezultatele C6 sunt SIL, N=1 pana la campania S4; se citesc din rapoartele de unitate
+(`~/PHD/RAPOARTE/`), nu de aici.
+
+## Mediu
 
 | Componenta | Versiune |
-|------------|----------|
+|---|---|
 | Sistem de operare | Ubuntu 24.04 LTS |
 | ROS 2 | Jazzy Jalisco |
-| Simulator | Gazebo (ros_gz) |
 | Middleware comparat | `rmw_zenoh_cpp`, `rmw_cyclonedds_cpp` |
-| Limbaj | Python 3.12 |
+| Simulator | Gazebo (ros_gz), pornit headless |
+| Limbaj | Python 3.12 (`/usr/bin/python3`; C6 in `~/ros2_ws/.venv_c6` cu OSQP) |
 | Emulare retea | iproute2 / tc netem |
 
-## 6. Compilare si verificare
+## Compilare si verificare
 
-```bash
-# garda: nu se construieste peste o campanie in mers
-pgrep -af "run_campaign|bench_|rmw_zenohd" && echo "STOP" || echo "liber"
+    # garda: nu se construieste peste o campanie in mers
+    pgrep -af "run_campaign|bench_|rmw_zenohd|c6_smoke" && echo "STOP" || echo "liber"
 
-cd ~/ros2_ws
-source /opt/ros/jazzy/setup.bash
-colcon build --symlink-install
-source install/setup.bash
+    cd ~/ros2_ws
+    source /opt/ros/jazzy/setup.bash
+    colcon build --symlink-install --cmake-args -DPython3_EXECUTABLE=/usr/bin/python3
+    source install/setup.bash
 
-# testul de fum al intregului depozit (fara ROS, sigur oricand)
-cd ~/ros2_ws/src && ./smoke_all.sh
-```
+    # testul de fum al depozitului (fara ROS)
+    cd ~/ros2_ws/src && ./smoke_all.sh
 
-## 7. Conventii de dezvoltare
+Selftestele C6, fara ROS: `python3 c6_safety/c6_safety/<modul>.py --selftest`
+(`rover_dyn`, `cbf_core`, `episode`, `certif_core`, `brate`).
 
-1. Logica pura, testata izolat, precede nodurile ROS (noduri subtiri; mesaje JSON pe `std_msgs/String`).
-2. Datele de iesire ale nodurilor: CSV in `~/sar_data/`; rezultatele campaniilor: in afara pachetelor.
-3. Un singur publisher pe `/sar/linkstate` (nodul de canal radio SAU injectorul de defecte).
-4. Comentariile din cod: romana fara diacritice. Commit imediat dupa fiecare jalon verificat.
-5. Inghet de cod pe `c1_benchmark` si `sar_swarm` in perioada premergatoare submisiei.
+## Conventii
 
-## 8. Rezultate sintetice (campania C1)
+1. Cod, `.md` si `.tex` = ASCII pur (fara diacritice; verificare `grep -nP '[^\x00-\x7F]'`).
+2. Logica pura, testata izolat, precede nodul ROS; nodurile nu contin logica.
+3. Un singur publisher pe `/sar/linkstate`.
+4. `git add` DOAR cu cai explicite; niciodata `git add -A`. Datele brute nu intra in git.
+5. Pachetele INGHETATE nu se modifica; corectiile intra ca fisiere-frate sau in pachetul viu.
+6. Tagurile sunt imutabile.
 
-Cifre din campania curata peer-to-peer (mediu curat inainte de fiecare rulare), N=10
-(9 pentru zenoh/loss_30), payload 4096 B; sursa: `c1_benchmark/NOTA_METODOLOGICA_C1.md`.
-p95 RTT in ms, CV = std/medie:
+## Licenta
 
-| Conditie | p95 DDS [ms] | CV DDS | p95 Zenoh [ms] | CV Zenoh | pierdere DDS | pierdere Zenoh |
-|----------|--------------|--------|----------------|----------|--------------|----------------|
-| loss_15    | 1019 | 10% | 560  | 23%  | 1.4%  | 8.5%  |
-| loss_25    | 2145 | 3%  | 5392 | 100% | 26.5% | 34.1% |
-| loss_30    | 2317 | 2%  | 8709 | 63%  | 41.0% | 57.8% |
-| lat200_l15 | 2548 | 1%  | 3893 | 49%  | 36.0% | 20.8% |
-
-Observatia centrala (loopback): CycloneDDS are latenta de coada mare dar PREDICTIBILA
-(CV sub 20%, monotona cu pierderea), pe cand Zenoh are latenta mare SI imprevizibila
-(CV 50-100%; la loss_25, variatie de un ordin de marime intre rulari identice). Pentru
-teleoperare in timp real, unde conteaza predictibilitatea, CycloneDDS este net preferabil
-pe loopback. Versiunea initiala arata Zenoh aparent imun la pierdere mica -- artefact de
-stare reziduala, care NU se foloseste. Comparatia autoritara necesita HIL pe doua masini
-fizice -- si ea S-A FACUT: campania HIL a rulat pe 2026-07-01 (SIL: 2026-06-24), pe
-laptop plus un Raspberry Pi 4. Conditiile `ideal` / `loss_5` / `lat200_jit50` au cifre
-consolidate in `c1_benchmark/paper/campaign_summary.csv`; tabelul lor intra in text la
-submisie, ca sa existe un singur loc unde se tin. Extragere:
-
-    grep -E "^(SIL|HIL),(ideal|loss_5|lat200_jit50)," \
-      c1_benchmark/paper/campaign_summary.csv
-    # coloane: env,condition,rmw,loss_pct,rtt_p95_ms
-
-In domeniul tele-impedantei, simularea demonstreaza ca amortizarea pe viteza intarziata
-destabilizeaza bucla de la ~10-20 ms; solutia validata este amortizarea locala cu
-rigiditate adaptiva transmisa prin legatura (pasiva pana la 120 ms).
-
-## 9. Pornirea rapida a fiecarei aplicatii
-
-| Aplicatie | Comanda de pornire | Documentatia |
-|---|---|---|
-| Benchmark transport (C1) | `python3 run_campaign.py --iface lo --reps 2 --out ~/c1_results` | `c1_benchmark/README.md` |
-| Roiul SAR | `ros2 launch launch/sar_ros.launch.py scenario:=baseline.yaml` | `sar_swarm/README.md` |
-| Etajul de misiune | `ros2 launch nodes/mission_sar.launch.py profile:=open_field` | `sar_plugins/README.md` |
-| Bancul cu 6 servo | 4 terminale: emulator + encodere + RViz + panou | `joint_emulator/README.md` |
-| Exoscheletul (exercitii) | `ros2 launch rehab_exo_description gazebo.launch.py` | `rehab_exo_description/README.md` |
-| Tele-reabilitarea | `ros2 launch rehab_exo_description telerehab.launch.py telerehab:=true` | `rehab_exo_description/README.md` |
-| Roverul teleoperat | `ros2 launch ./launch/teleop.launch.py lat:=200 mode:=pilot` | `teleop_rover/README.md` |
-| Motorul demonstrator | `ros2 launch servo_control servo_launch.py` | `servo_control/README.md` |
-
-## 10. Referinte
-
-[1] W.-Y. Liang, Y. Yuan, H.-J. Lin, "A Performance Study on the Throughput and
-    Latency of Zenoh, MQTT, Kafka, and DDS", arXiv:2303.09419, 2023.
-[2] Eclipse Zenoh, https://zenoh.io
-[3] Eclipse Cyclone DDS, https://github.com/eclipse-cyclonedds/cyclonedds
-[4] ROS 2 Jazzy Jalisco, https://docs.ros.org/en/jazzy
-[5] tc-netem(8), Linux man-pages, iproute2.
-
-## 11. Licenta
-
-Licentierea este pe artefact, nu pe depozit. Artefactul articolului C1
-(`c1_benchmark/`) este publicat sub Apache-2.0 -- vezi `c1_benchmark/LICENSE`.
-Restul depozitului (contributiile C3/C4, inca nepublicate, si materialele de curs)
-ramane fara licenta de reutilizare: toate drepturile rezervate.
+Licentierea este pe artefact, nu pe depozit. Artefactul C1 (`c1_benchmark/`) este publicat
+sub Apache-2.0 (`c1_benchmark/LICENSE`); `c6_safety` declara Apache-2.0 in `package.xml`.
+Restul depozitului (C2, C3, C4, materialele de curs) ramane fara licenta de reutilizare:
+toate drepturile rezervate.
