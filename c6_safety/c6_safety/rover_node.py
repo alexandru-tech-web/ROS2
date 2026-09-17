@@ -168,7 +168,11 @@ class RoverNode(Node):
              "n_rx_cmd": self.n_rx_cmd, "n_rx_haz": self.n_rx_haz,
              "tick_ms_mediu": round(statistics.mean(per), 2) if per else None,
              "tick_ms_max": round(max(per), 2) if per else None,
-             "transport": "ros2/" + os.environ.get("RMW_IMPLEMENTATION", "?"), "qos": self.get_parameter("qos").value}
+             "transport": "ros2/" + os.environ.get("RMW_IMPLEMENTATION", "?"), "qos": self.get_parameter("qos").value,
+             # schema_v2 (F1): ce inainte se recupera din manifest / eticheta
+             "schema": "v2", "scenariu": self.P.scenariu, "v_o_max": self.P.v_o_max,
+             "react": bool(self.get_parameter("react").value), "dt": self.P.dt, "T_max": self.P.T_max,
+             "gamma": self.sf.gamma if self.sf else None, "delta_DT": self.sf.delta_DT if self.sf else None}
         g = self.sf.gamma if self.sf else cbf_core.GAMMA_IMPLICIT
         poz = {q["t"]: (q["o_true_x"], q["o_true_y"]) for q in self.trace}
         c = certif_core.certify(self.trace, self.P, lambda t: poz.get(t, self.haz.o_true(t)), g)
