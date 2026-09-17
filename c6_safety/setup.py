@@ -9,6 +9,7 @@ setup(
     data_files=[
         ("share/ament_index/resource_index/packages", ["resource/" + PACHET]),
         ("share/" + PACHET, ["package.xml"]),
+        ("share/" + PACHET + "/launch", ["launch/c6_smoke.launch.py"]),
     ],
     install_requires=["setuptools"],
     zip_safe=True,
@@ -16,6 +17,9 @@ setup(
     maintainer_email="gheorghitaalexandruu@gmail.com",
     description="C6: nucleu pur pentru garda de siguranta a roverului teleoperat.",
     license="Apache-2.0",
-    # Nucleu pur in aceasta etapa: niciun nod ROS, deci entry_points gol INTENTIONAT.
-    entry_points={"console_scripts": []},
+    # S3: doua noduri SUBTIRI peste core; toata logica ramane in modulele fara ROS.
+    entry_points={"console_scripts": [
+        "operator_node = c6_safety.operator_node:main",
+        "rover_node = c6_safety.rover_node:main",
+    ]},
 )

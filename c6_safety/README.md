@@ -23,5 +23,25 @@ Ce e pe disc, tot fara ROS si fara retea (`python3 <fisier> --selftest`):
 - `certif_core.py` -- certificatul M1: (i) h_true, (ii) DT-CBF pe fezabili, (iii) KKT,
                       (iv) re-simulare F; 2 controale negative in selftest
 
-Ce NU e aici: noduri ROS (S3), netem (S3), campania (S4).
-`entry_points` e gol intentionat; lansarea prin `ros2 run` nu e configurata.
+## Nodurile ROS 2 (S3) -- subtiri, fara logica
+
+- `operator_node.py` -- partea GCS: publica `/c6/cmd_op` (20 Hz) si `/c6/hazard` (f_haz),
+                        JSON pe `std_msgs/String` cu `t_tx` = ceasul nodului la emitere
+                        (rolul lui header.stamp); asculta `/c6/pose` (INTARZIAT prin lo)
+- `rover_node.py`    -- plant F + filtru (`brate.filtru_pentru`) + certificat; A_cmd si
+                        A_haz = acum - t_tx (acelasi ceas pe loopback, DECLARAT); la final
+                        scrie `<outputs>/<eticheta>_{trace.csv,metrics.json,certificate.json}`
+                        si iese; timpul de simulare e nominal (k*dt), perioada reala a
+                        tick-ului intra in metrics (`tick_ms_mediu/max`)
+- `launch/c6_smoke.launch.py` -- ambele noduri sub `~/ros2_ws/.venv_c6/bin/python` (osqp e
+                        acolo, nu in /usr/bin/python3), RMW global `rmw_cyclonedds_cpp`,
+                        se opreste cand iese rover_node. Argumente: brat, scenariu (S3: doar
+                        traversare), v_o_max, seed, react, f_haz, qos (reliable|best_effort),
+                        outputs, eticheta, rmw, python
+
+Build: `cd ~/ros2_ws && colcon build --packages-select c6_safety --cmake-args
+-DPython3_EXECUTABLE=/usr/bin/python3`. Netem pe lo: `~/PHD/BORD/tools/netem_lo.py`;
+smoke complet: `~/PHD/BORD/tools/s3_smoke.py` (prin `ruleaza.py`, urmele in rulare).
+
+Ce NU e aici: campania (S4); scenariul "urmarire" in noduri (cere pozitia roverului la
+GCS, care ajunge intarziata -- decizie in S4).
