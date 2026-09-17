@@ -8,6 +8,8 @@ fara diacritice.
 > artifact (ROS 2 middleware benchmark under network degradation) see
 > [`c1_benchmark/README_EN.md`](c1_benchmark/README_EN.md).
 
+Datele si documentele stau in `../DATE`, `../DOC`, `../GRAFICE` (in afara git; structura in `../README_STRUCTURA.md`).
+
 ## Rezumat
 
 Teza, intr-o fraza: teleoperarea in timp real peste o retea degradata nu se rezolva
@@ -82,12 +84,12 @@ Fisiere in radacina: `CLAUDE.md` (instructiuni de lucru), `CONTRIBUTING.md`, ghi
   per celula (`c2_analysis/FAPTE_C2.md`).
 - **Manifeste.** Fiecare rulare scrie un manifest JSON (comanda, git hash + dirty, kernel,
   `tc qdisc show`, amprente SHA256 ale iesirilor). Pentru C1: `c1_benchmark/manifests/`,
-  `paper/MANIFEST_SHA256.txt`. Pentru C6: `~/PHD/BORD/tools/ruleaza.py` scrie
-  `~/DATE_CAMPANIE/<run_id>/manifest.json` si o linie in registrul de rulari.
+  `paper/MANIFEST_SHA256.txt`. Pentru C6: `../DOC/BORD/tools/ruleaza.py` scrie
+  `../DATE/campanii/<run_id>/manifest.json` si o linie in registrul de rulari.
 - **Adrese.** Orice adresa IP din documentatie este din blocurile RFC 5737 (`192.0.2.0/24`,
   `198.51.100.0/24`, `203.0.113.0/24`); adresele reale nu intra in depozit.
-- **Datele brute NU sunt versionate** (`.gitignore`): campaniile stau in `~/DATE_CAMPANIE/`,
-  arhivele in `~/ARHIVA_PHD/`. In git intra doar cod, sumare CSV, figuri si manifeste.
+- **Datele brute NU sunt versionate** (`.gitignore`): campaniile stau in `../DATE/campanii/`,
+  arhivele in `../ARHIVA/`. In git intra doar cod, sumare CSV, figuri si manifeste.
 - **Lantul de dezvoltare.** Nucleu pur cu `_selftest()` -> nod ROS subtire (JSON pe
   `std_msgs/String`) -> SIL -> pachet ament -> verificare pre-push (`smoke_all.sh`).
 
@@ -107,7 +109,7 @@ Campaniile anterioare (loopback N=10, iunie 2026) sunt ARHIVA: tabelul lor sta i
 `c1_benchmark/NOTA_METODOLOGICA_C1.md`, sectiunea "Campanii arhivate", si nu se citeaza.
 
 Rezultatele C6 sunt SIL, N=1 pana la campania S4; se citesc din rapoartele de unitate
-(`~/PHD/RAPOARTE/`), nu de aici.
+(`../DOC/RAPOARTE/`), nu de aici.
 
 ## Mediu
 

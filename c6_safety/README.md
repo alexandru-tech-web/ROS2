@@ -42,8 +42,8 @@ Ce e pe disc, tot fara ROS si fara retea (`python3 <fisier> --selftest`):
                         outputs, eticheta, rmw, python
 
 Build: `cd ~/ros2_ws && colcon build --packages-select c6_safety --cmake-args
--DPython3_EXECUTABLE=/usr/bin/python3`. Netem pe lo: `~/PHD/BORD/tools/netem_lo.py`;
-smoke complet: `~/PHD/BORD/tools/s3_smoke.py` (prin `ruleaza.py`, urmele in rulare).
+-DPython3_EXECUTABLE=/usr/bin/python3`. Netem pe lo: `../DOC/BORD/tools/netem_lo.py`;
+smoke complet: `../DOC/BORD/tools/s3_smoke.py` (prin `ruleaza.py`, urmele in `../DATE/campanii/<run_id>/`).
 
 Ce NU e aici: campania (S4); scenariul "urmarire" in noduri (cere pozitia roverului la
 GCS, care ajunge intarziata -- decizie in S4).

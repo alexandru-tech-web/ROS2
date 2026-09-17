@@ -157,16 +157,16 @@ D -- selector_core.sweep_deadline + reproduce_selector.py --objective lossaware:
 invatat-vs-always-CycloneDDS) in (3000, 5000] ms pe selector_dataset.csv (SIL N=10), figura
 selector_dstar.png. De RECALCULAT pe HIL.
 
-## 9. Ecosistem PhD (~/PHD)
-Structura personala a lui Alexandru (creata de instaleaza_ecosistem_phd.sh, idempotent,
-fara sudo/retea). Caile reale:
-- ~/PHD/bin/phd -- comanda unica: stare | sesiune | noutate | preflight | backup.
-  Ruleaza-o pe cale COMPLETA (~/PHD/bin/phd ...); agentul NU atinge ~/.bashrc.
-- ~/PHD/REPO -> ~/ros2_ws/src (monorepo; = REPO_DIR). Aici lucrezi normal, prin git.
-- ~/PHD/DATE -> ~/DATE_CAMPANIE (datele canonice de campanie) -- READ-ONLY.
-- ~/PHD/BORD -- panoul lui Alexandru (STARE/TERMENE/JURNAL/DECIZII/GARDA_NOUTATE.md).
-  Se CITESTE pentru context; NU se editeaza necerut. NU e git repo. Poti ADAUGA doar
-  fisiere NOI cerute explicit (ex. INDEX_RADAR.md, pachete REVIEW pentru tableta).
-- ~/PHD/{TEZA,BIBLIOTECA,TEMPLATES} -- teza, referinte, sabloane docx.
-Reguli agent: scrii in REPO prin git ca de obicei; in BORD doar fisiere noi cerute;
-DATE read-only; nu rula 'phd backup' decat daca tinta SSD e montata; ~/.bashrc neatins.
+## 9. Ecosistem PhD: UN SINGUR dosar, ~/ros2_ws (R2, 17.09.2026)
+Radacina e PHD_ROOT=$HOME/ros2_ws (export in ~/.bashrc, pus la R2 cu acordul lui Alexandru).
+Structura (README_STRUCTURA.md in radacina; harta in DOC/HARTA.md):
+- src/      -- monorepo git (acest depozit). Aici lucrezi prin git, ca de obicei.
+- DATE/     -- campanii/<run_id>/ (canonic; ruleaza.py scrie aici), index/ (legaturi), teste.sqlite. READ-ONLY manual.
+- GRAFICE/  -- src/ (scripturile figurilor), out/<contributie>/<run_id>/, arhiva/. NU e sub git.
+- DOC/      -- panoul si documentele (git LOCAL, fara remote): BORD/ (STARE, JURNAL, DECIZII, REGISTRU_RULARI,
+              DOVEZI, manifeste/, tools/, bin/phd), CAIETE/, RAPOARTE/, ARTICOLE/, MANUSCRISE/, TEZA/,
+              PREZENTARI/, LECTURI/, ADMIN/, HARTA.md. Se editeaza DOAR ce cere unitatea; commit local, fara push.
+- ARHIVA/   -- vechi, cu manifest (istoric/, backup_uri/, in_repo_*/, documente/, manuscrise/). Nu se citeaza.
+- COS/<data>/ -- carantina 30 de zile, cu LISTA.md. Stergerea e decizia lui Alexandru.
+Reguli agent: toate uneltele din DOC/BORD/tools folosesc cai.py (nicio cale absoluta veche); orice rulare
+trece prin DOC/BORD/tools/ruleaza.py; ~/.bashrc nu se mai atinge; nu rula 'phd backup' decat cu SSD montat.
