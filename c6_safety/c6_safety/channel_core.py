@@ -13,16 +13,19 @@ import random
 
 
 class IdealChannel(object):
-    """Fara intarziere, fara pierdere. AoI_cmd = 0 la fiecare pas."""
+    """Fara intarziere, fara pierdere. AoI = 0 la fiecare pas, pe orice flux."""
 
     def __init__(self, params=None):
         self.params = params
+        self._ultim = {}
 
-    def trimite(self, cmd, t_tx):
-        self._ultim = (cmd, t_tx)
+    def trimite(self, cmd, t_tx, flux="cmd"):
+        self._ultim[flux] = (cmd, t_tx)
 
-    def primeste(self, t_now):
-        cmd, t_tx = self._ultim
+    def primeste(self, t_now, flux="cmd"):
+        if flux not in self._ultim:
+            return None, None
+        cmd, t_tx = self._ultim[flux]
         return cmd, t_now - t_tx
 
 
@@ -33,31 +36,37 @@ class DelayLossChannel(object):
         self.delay_s, self.jitter_s, self.p_loss = delay_s, jitter_s, p_loss
         self.T_hold = T_hold
         self.rng = random.Random(seed)
-        self.in_zbor = []          # [(t_sosire, cmd, t_tx)]
-        self.ultim = None          # (cmd, t_tx) livrata cel mai recent
+        self.in_zbor = {}          # flux -> [(t_sosire, payload, t_tx)]
+        self.ultim = {}            # flux -> (payload, t_tx) livrat cel mai recent
 
-    def trimite(self, cmd, t_tx):
+    def trimite(self, cmd, t_tx, flux="cmd"):
+        """Al doilea flux ("haz", pericolul raportat de GCS) trece prin ACELASI
+        canal: aceeasi intarziere, aceeasi pierdere, acelasi generator aleator.
+        S2b, caiet v0.2, F6 = 'acelasi'."""
         if self.rng.random() < self.p_loss:
             return                                  # pachet pierdut
         j = self.rng.uniform(-self.jitter_s, self.jitter_s)
-        self.in_zbor.append((t_tx + max(0.0, self.delay_s + j), cmd, t_tx))
+        self.in_zbor.setdefault(flux, []).append((t_tx + max(0.0, self.delay_s + j), cmd, t_tx))
 
-    def primeste(self, t_now):
+    def primeste(self, t_now, flux="cmd"):
         """Ce e in aer si a ajuns pana acum. Reordonarea e rezolvata pastrand
-        comanda cu t_tx cel mai NOU, nu ultima sosita: un pachet intarziat care
-        soseste dupa unul mai proaspat nu are voie sa intoarca starea inapoi."""
+        pachetul cu t_tx cel mai NOU, nu ultimul sosit: un pachet intarziat care
+        soseste dupa unul mai proaspat nu are voie sa intoarca starea inapoi.
+        Pe fluxul "cmd", peste T_hold comanda devine (0,0). Pe "haz" NU exista
+        taiere: roverul tine ultimul pericol primit oricat de vechi, iar varsta
+        lui e chiar A_haz din Lema 1."""
         ramase = []
-        for t_s, cmd, t_tx in self.in_zbor:
+        for t_s, cmd, t_tx in self.in_zbor.get(flux, []):
             if t_s <= t_now:
-                if self.ultim is None or t_tx > self.ultim[1]:
-                    self.ultim = (cmd, t_tx)
+                if flux not in self.ultim or t_tx > self.ultim[flux][1]:
+                    self.ultim[flux] = (cmd, t_tx)
             else:
                 ramase.append((t_s, cmd, t_tx))
-        self.in_zbor = ramase
-        if self.ultim is None:
-            return (0.0, 0.0), None                 # nimic nu a ajuns inca
-        cmd, t_tx = self.ultim
+        self.in_zbor[flux] = ramase
+        if flux not in self.ultim:
+            return ((0.0, 0.0) if flux == "cmd" else None), None
+        cmd, t_tx = self.ultim[flux]
         aoi = t_now - t_tx
-        if aoi > self.T_hold:
+        if flux == "cmd" and aoi > self.T_hold:
             return (0.0, 0.0), aoi                  # prea veche: oprire
         return cmd, aoi

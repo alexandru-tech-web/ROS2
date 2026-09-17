@@ -45,12 +45,31 @@ def punct_control(state, l):
             state.y + l * math.sin(state.theta))
 
 
-def run_episode(params, model, channel, safety_filter=None, react=False):
+class Hazard(object):
+    """Pericolul mobil (caiet v0.2): pleaca din hazard_start, merge pe +y cu v_o_max,
+    se opreste la hazard_end_y. o_true(t) e ADEVARUL; roverul vede doar ce vine pe
+    canal, la f_haz, cu intarziere."""
+
+    def __init__(self, params, v_o=None, start=None):
+        self.p = params
+        self.v_o = params.v_o_max if v_o is None else v_o
+        self.x0, self.y0 = start if start is not None else params.hazard_start
+
+    def o_true(self, t):
+        y = self.y0 + self.v_o * t
+        y = max(min(y, self.p.hazard_end_y), self.y0) if self.v_o >= 0 else y
+        return (self.x0, y)
+
+
+def run_episode(params, model, channel, safety_filter=None, react=False, hazard=None):
     st = rover_dyn.Stare(x=params.start[0], y=params.start[1], theta=params.start[2])
     ox, oy = params.obst
     gx, gy = params.goal
 
     op = operator_core.Operator(params, react=react)
+    o_true = hazard.o_true if hazard is not None else (lambda t: params.obst)
+    t_ultim_haz = -1e9
+    perioada_haz = (1.0 / params.f_haz) if (hazard is not None and params.f_haz > 0) else None
     trace = []
     V = n_inf = n_blocat = 0
     d_min = float("inf")
@@ -64,9 +83,18 @@ def run_episode(params, model, channel, safety_filter=None, react=False):
         channel.trimite((v_op, w_op), t)
         cmd, aoi = channel.primeste(t)
 
+        # pericolul raportat de GCS, la f_haz, pe ACELASI canal
+        o_hat, A_haz = None, None
+        if perioada_haz is not None:
+            if t - t_ultim_haz >= perioada_haz - 1e-9:
+                channel.trimite(o_true(t), t, flux="haz")
+                t_ultim_haz = t
+            o_hat, A_haz = channel.primeste(t, flux="haz")
+        ctx = {"o_hat": o_hat, "A_haz": A_haz}
+
         h = r_eff = feasible = kkt = None
         if safety_filter is not None:
-            cmd, info, infez = safety_filter(st, cmd, params)
+            cmd, info, infez = safety_filter(st, cmd, params, ctx)
             n_inf += int(infez)
             if isinstance(info, dict):
                 h, feasible, kkt = info.get("h"), info.get("feasible"), info.get("kkt_res")
@@ -80,6 +108,7 @@ def run_episode(params, model, channel, safety_filter=None, react=False):
         t += params.dt
 
         px, py = punct_control(st, params.l)
+        ox, oy = o_true(t)                       # V si d_min pe pericolul ADEVARAT
         d_o = math.hypot(px - ox, py - oy)
         d_g = math.hypot(px - gx, py - gy)
         d_min = min(d_min, d_o)
@@ -92,7 +121,10 @@ def run_episode(params, model, channel, safety_filter=None, react=False):
         trace.append({"t": round(t, 4), "x_pre": st_pre.x, "y_pre": st_pre.y,
                       "theta_pre": st_pre.theta, "v_pre": st_pre.v, "x": st.x, "y": st.y, "theta": st.theta,
                       "v": st.v, "omega": st.omega, "v_op": v_op, "omega_op": w_op,
-                      "AoI_cmd": aoi, "h": h, "r_eff": r_eff,
+                      "AoI_cmd": aoi, "A_haz": A_haz,
+                      "o_hat_x": None if o_hat is None else o_hat[0],
+                      "o_hat_y": None if o_hat is None else o_hat[1],
+                      "o_true_x": ox, "o_true_y": oy, "h": h, "r_eff": r_eff,
                       "feasible": feasible, "kkt_res": kkt,
                       "u_v": cmd[0], "u_w": cmd[1]})
 

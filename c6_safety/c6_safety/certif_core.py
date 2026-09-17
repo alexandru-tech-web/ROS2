@@ -121,12 +121,12 @@ def _selftest():
     baza = cbf_core.ca_safety_filter(sf2)
     contor = {"k": 0}
 
-    def sabotat(st, cmd, params):
+    def sabotat(st, cmd, params, ctx=None):
         contor["k"] += 1
         if 70 <= contor["k"] < 90:
-            u, info, inf = baza(st, cmd, params)
+            u, info, inf = baza(st, cmd, params, ctx)
             return cmd, info, inf                            # comanda operatorului, nu a filtrului
-        return baza(st, cmd, params)
+        return baza(st, cmd, params, ctx)
     _, trb = episode.run_episode(P, models.Unicycle(), channel_core.IdealChannel(P),
                                  safety_filter=sabotat, react=False)
     cb = certify(trb, P, o_fix, G)

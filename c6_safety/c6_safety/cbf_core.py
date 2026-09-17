@@ -90,24 +90,34 @@ class SafetyFilter(object):
         s_max = (p.v_max + p.l * p.omega_max) * p.dt
         self.eps_lin = s_max ** 2 / (2.0 * p.r)              # Lema 2
 
-    def constrangere_cbf(self, x, o_hat, marja_extra=0.0):
-        """(a_v, a_w, b) astfel incat a_v v_cmd + a_w omega >= b este DT-CBF liniarizata."""
+    def constrangere_cbf(self, x, o_hat, marja_extra=0.0, r_eff_fix=None, dmarja_dt=0.0):
+        """(a_v, a_w, b) astfel incat a_v v_cmd + a_w omega >= b este DT-CBF liniarizata.
+        r_eff_fix (A3): r_eff e o CONSTANTA, deci dh/dv = 0 -- fara termenul d_fr'(v).
+        dmarja_dt (A2): CBF VARIABIL IN TIMP, M0 sec. 5. Intre doua pachete varsta A creste
+        cu dt pe pas, deci marja v_o*A creste cu v_o*dt si h_A SCADE cu atat, indiferent
+        de u. Fara termenul asta QP-ul e optimist cu exact v_o*dt pe fiecare pas fara
+        pachet -- masurat: 49 incalcari (ii) cu reziduu -0.024 = -v_o*dt la S2b."""
         px, py, th, v = _desfa(x)
         p = self.p
-        h, n, _ = h_val(x, o_hat, p, marja_extra)
-        dfr = v / p.a_max                                    # d_fr'(v), plant cu clamp
+        if r_eff_fix is None:
+            h, n, _ = h_val(x, o_hat, p, marja_extra)
+            dfr = v / p.a_max                                # d_fr'(v), plant cu clamp
+        else:
+            d_, n, _ = h_val(x, o_hat, p, 0.0)
+            h = d_ + p.r + rover_dyn.d_fr(v, p.a_max) - r_eff_fix   # ||p_c-o|| - r_eff_fix
+            dfr = 0.0
         c_pos = n[0] * v * math.cos(th) + n[1] * v * math.sin(th)
         a_w = p.dt * (n[0] * (-p.l * math.sin(th)) + n[1] * (p.l * math.cos(th)))
         a_v = -dfr
-        # h + dt*c_pos + a_w*omega - dfr*(v_cmd - v) >= (1-gamma) h + eps_lin
-        b = -self.gamma * h - p.dt * c_pos - dfr * v + self.eps_lin
+        # h + dt*c_pos + a_w*omega - dfr*(v_cmd - v) - dmarja_dt*dt >= (1-gamma) h + eps_lin
+        b = -self.gamma * h - p.dt * c_pos - dfr * v + self.eps_lin + dmarja_dt * p.dt
         return a_v, a_w, b, h
 
-    def apply(self, x, u_op, o_hat, marja_extra=0.0):
-        """(u, info). info = {h, h_next_pred, feasible, obj, kkt_res}."""
+    def apply(self, x, u_op, o_hat, marja_extra=0.0, r_eff_fix=None, dmarja_dt=0.0):
+        """(u, info). info = {h, h_next_pred, feasible, obj, kkt_res, eps_lin, marja_extra}."""
         p = self.p
         px, py, th, v = _desfa(x)
-        a_v, a_w, b, h = self.constrangere_cbf(x, o_hat, marja_extra)
+        a_v, a_w, b, h = self.constrangere_cbf(x, o_hat, marja_extra, r_eff_fix, dmarja_dt)
 
         A = sp.csc_matrix(np.array([[a_v, a_w],
                                     [1.0, 0.0],
@@ -141,11 +151,16 @@ class SafetyFilter(object):
                    "marja_extra": marja_extra}
 
 
-def ca_safety_filter(sf, marja_extra=0.0, o_hat=None):
-    """Adaptor la semnatura din episode.py: (st, cmd, params) -> (cmd, info_dict, infez)."""
-    def f(st, cmd, params):
-        o = o_hat if o_hat is not None else params.obst
-        u, info = sf.apply(st, cmd, o, marja_extra)
+def ca_safety_filter(sf, marja_extra=0.0, o_hat=None, marja_fn=None, r_eff_fix=None,
+                     dmarja_dt=0.0):
+    """Adaptor la semnatura din episode.py: (st, cmd, params, ctx) -> (u, info, infez).
+    ctx (de la episode) = {"o_hat": ..., "A_haz": ...} cand exista pericol pe canal.
+    marja_fn(ctx, params) -> marja_extra, pentru bratele A2/A3; altfel marja_extra fix."""
+    def f(st, cmd, params, ctx=None):
+        ctx = ctx or {}
+        o = ctx.get("o_hat") if ctx.get("o_hat") is not None else (o_hat if o_hat is not None else params.obst)
+        m = marja_fn(ctx, params) if marja_fn else marja_extra
+        u, info = sf.apply(st, cmd, o, m, r_eff_fix, dmarja_dt)
         return u, info, (not info["feasible"])
     return f
 

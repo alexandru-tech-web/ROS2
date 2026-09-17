@@ -5,18 +5,21 @@ ERATA v0.2 (17.09): react=False e SCENARIUL DE BAZA -- filtrul decide, operatoru
 nu vede nimic si cere P spre tinta la nesfarsit. Pretul sigurantei cu un operator
 orb (B, T_G) e chiar motivatia C5, deci NU se ascunde.
 
-react=True e un SUB-BLOC (factor F7): un om care observa ca s-a blocat si da din
-volan. Declansare pe BLOCAJ, nu la un timp absolut:
-    v < 0.05 m/s si v_op > 0.2 m/s, CONTINUU cel putin T_react = 1.0 s
+react=True e un SUB-BLOC (factor F7): un om care observa ca NU INAINTEAZA si da
+din volan. Declansare pe PROGRES (D1, 17.09), nu pe viteza:
+    progres < PROGRES_MIN = 0.10 m in fereastra T_REACT = 2.0 s, cu v_op > 0.2
 apoi viraj 45 grade spre partea cu h mai mare, timp de DURATA_REACT = 2 s, apoi
-P; re-armare dupa T_REARM = 1 s (poate reactiona din nou daca se blocheaza iar).
+P; re-armare dupa T_REARM = 1 s. Motiv (S2.1 erata): cu W filtrul iese din blocaj
+tarandu-se la v ~ 0.01 in rafale sub 1 s, iar un prag pe viteza continua nu se
+arma niciodata (n_reactii = 0). Progresul pe fereastra prinde si tararea.
 
 Operatorul are STARE (cronometre), deci e o clasa. op_cmd() ramane pentru
 compatibilitate si e echivalent cu Operator(react=False).
 """
 import math
 
-T_REACT = 1.0        # s, blocaj continuu inainte de reactie; ERATA v0.2
+T_REACT = 2.0        # s, fereastra de progres; D1 (17.09)
+PROGRES_MIN = 0.10   # m, sub atat in fereastra = blocaj
 UNGHI_REACT = math.radians(45.0)
 DURATA_REACT = 2.0   # s
 T_REARM = 1.0        # s
@@ -53,7 +56,7 @@ class Operator(object):
     def __init__(self, params, react=False):
         self.p = params
         self.react = react
-        self.t_blocaj = None      # de cand e blocat continuu
+        self.istoric = []         # (t, x, y) pe ultimele T_REACT secunde
         self.t_viraj = None       # de cand vireaza
         self.semn = 0
         self.t_rearm = -1.0       # cand poate reactiona din nou
@@ -74,18 +77,18 @@ class Operator(object):
                     self.t_viraj = None
                     self.t_rearm = t + T_REARM
             else:
-                blocat = (state.v < V_BLOCAT and v > V_OP_ACTIV and t >= self.t_rearm)
-                if blocat:
-                    if self.t_blocaj is None:
-                        self.t_blocaj = t
-                    elif t - self.t_blocaj >= T_REACT:
+                self.istoric.append((t, state.x, state.y))
+                self.istoric = [e for e in self.istoric if t - e[0] <= T_REACT]
+                fereastra_plina = (t - self.istoric[0][0]) >= T_REACT - 1e-9
+                if fereastra_plina and v > V_OP_ACTIV and t >= self.t_rearm:
+                    t0, x0, y0 = self.istoric[0]
+                    progres = math.hypot(state.x - x0, state.y - y0)
+                    if progres < PROGRES_MIN:
                         self.semn = _partea_cu_h_mai_mare(state, p, dir_goal)
                         self.t_viraj = t
-                        self.t_blocaj = None
+                        self.istoric = []
                         self.n_reactii += 1
                         tinta = dir_goal + self.semn * UNGHI_REACT
-                else:
-                    self.t_blocaj = None
 
         err = _eroare_unghi(tinta, state.theta)
         w = max(-p.omega_max, min(p.omega_max, p.k_w * err))

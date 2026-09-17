@@ -5,7 +5,8 @@ import json
 import os
 
 COLOANE = ("t", "x_pre", "y_pre", "theta_pre", "v_pre", "x", "y", "theta", "v", "omega",
-           "v_op", "omega_op", "u_v", "u_w", "AoI_cmd", "h", "r_eff", "feasible", "kkt_res")
+           "v_op", "omega_op", "u_v", "u_w", "AoI_cmd", "A_haz", "o_hat_x", "o_hat_y",
+           "o_true_x", "o_true_y", "h", "r_eff", "feasible", "kkt_res")
 
 
 def scrie(dir_iesire, metrics, trace, eticheta="episod", certificat=None):
