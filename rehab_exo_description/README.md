@@ -1,3 +1,5 @@
+In afara tezei; ajutor punctual pentru un coleg, fara rol in coloana; inghetat ad283c9 (22.08.2026).
+
 # rehab_exo_description
 
 Descrierea robotului de reabilitare LLR (demonstratorul C4 al tezei): scaun medical

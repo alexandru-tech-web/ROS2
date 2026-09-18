@@ -18,28 +18,36 @@ garantand siguranta cu informatia care chiar ajunge la robot.
 
 Drumul contributiilor, pe aceeasi coloana:
 
-    C1 masoara  ->  C2 modeleaza  ->  C3 comuta  ->  C5 arbitreaza  ->  C6 garanteaza
+    C1 masurare (INCHIS) -> C2 model (INCHIS) -> C3 sonda + gateway dual -> C4 rover cu sonda la bord
+    -> C5 arbitrajul autoritatii -> C6 filtrul de siguranta -> C7 sistemul rover + roi
 
-- **C1 masoara**: benchmark `rmw_zenoh_cpp` vs `rmw_cyclonedds_cpp` sub `tc netem`, pe
+- **C1 masurare** (INCHIS): benchmark `rmw_zenoh_cpp` vs `rmw_cyclonedds_cpp` sub `tc netem`, pe
   loopback (SIL) si pe doua masini (HIL, Raspberry Pi 4 prin Wi-Fi).
-- **C2 modeleaza**: pierderi in rafala (Gilbert-Elliott) calibrate din campania HIL.
-- **C3 comuta**: gateway si mesh multi-hop care aleg calea in functie de starea legaturii.
-- **C5 arbitreaza**: arbitrajul intre operator si automat (stare sigura activa) -- planificat,
-  fara cod in depozit.
+- **C2 model** (INCHIS): pierderi in rafala (Gilbert-Elliott) calibrate din campania HIL.
+- **C3 sonda + gateway dual**: sonda de retea neutra fata de transport si gateway-ul cu comutare
+  dual-middleware (+ mesh multi-hop) care aleg calea dupa starea legaturii.
+- **C4 platforma**: roverul cu sonda la bord -- /network_confidence si /network_age publicate PE rover
+  (pachet `c4_platforma`, unitatea P0; planificat).
+- **C5 arbitreaza**: arbitrajul autoritatii intre operator si autonomia locala, condus de alpha --
+  planificat (pachet `c5_arbitraj`, unitatea A2).
 - **C6 garanteaza**: filtru de siguranta (DT-CBF) pe rover, cu marja din varsta informatiei
   (Age of Information) despre pericol; certificat de rulare pe fiecare episod.
-- **C4** (exoschelet de reabilitare, tele-impedanta) este un livrabil in afara coloanei.
+- **C7 sistemul**: rover + roi + releu + gateway + semnale + filtru in acelasi grafic (unitatea V0; planificat).
+- Exoscheletul de reabilitare (`rehab_exo_description`, `joint_emulator`, `servo_control`) e IN AFARA tezei:
+  ajutor punctual pentru un coleg, fara rol in coloana; inghetat ad283c9 (22.08.2026).
 
 ## Contributii si stare
 
 | Contributie | Pachet(e) | Stare | Artefact-cheie | Ultimul commit |
 |---|---|---|---|---|
-| C1 masoara | `c1_benchmark` (+ `sar_swarm`, `sar_plugins` ca strat de misiune) | INGHETAT (cod); articol in revizie, tinta JIRS, submisie 30.11.2026 | `c1_benchmark/paper/campaign_summary.csv`, `paper/main.tex`, taguri `c1-paper-v3.4`, `c1-data-v2` | `88ecc48` 2026-09-01 |
-| C2 modeleaza | `c2_analysis`, `c2_planning` | INGHETAT (manuscris V5 canonic, fixat prin amprenta SHA) | `c2_analysis/FAPTE_C2.md`, `MANIFEST_DATE_C2.md`, `c2_planning/CALIBRARE_GE_C2.md` | `2085405` 2026-08-13 |
-| C3 comuta | `c3_gateway`, `mesh_plugin` | INGHETAT | `c3_gateway/` (FAPTE_C3, smoke e2e), `mesh_plugin/mesh_core.py` | `604c696` 2026-09-01 |
-| C5 arbitreaza | -- | PLANIFICAT | -- | -- |
-| C6 garanteaza | `c6_safety` | VIU | `cbf_core.py`, `certif_core.py`, `brate.py`, noduri `operator_node`/`rover_node`, `launch/c6_smoke.launch.py` | `929f6ea` 2026-09-17 |
-| C4 (in afara coloanei) | `rehab_exo_description`, `joint_emulator`, `servo_control` | INGHETAT / demonstrator | tag `rehab-v0.3.0`; `docs/material_teza/cm_rmw_mismatch/` | `ad283c9` 2026-08-22 |
+| C1 masurare (INCHIS) | `c1_benchmark` (+ `sar_swarm`, `sar_plugins` ca strat de misiune) | INGHETAT (cod); articol in revizie, tinta JIRS, submisie 30.11.2026 | `c1_benchmark/paper/campaign_summary.csv`, `paper/main.tex`, taguri `c1-paper-v3.4`, `c1-data-v2` | `88ecc48` 2026-09-01 |
+| C2 model (INCHIS) | `c2_analysis`, `c2_planning` | INGHETAT (manuscris V5 canonic, fixat prin amprenta SHA) | `c2_analysis/FAPTE_C2.md`, `MANIFEST_DATE_C2.md`, `c2_planning/CALIBRARE_GE_C2.md` | `2085405` 2026-08-13 |
+| C3 sonda + gateway dual | `c3_gateway`, `mesh_plugin` | INGHETAT | `c3_gateway/` (FAPTE_C3, smoke e2e), `mesh_plugin/mesh_core.py` | `604c696` 2026-09-01 |
+| C4 platforma (rover cu sonda la bord) | `c4_platforma` (P0) | PLANIFICAT | `/network_confidence`, `/network_age` | -- |
+| C5 arbitrajul autoritatii | `c5_arbitraj` (A2) | PLANIFICAT | -- | -- |
+| C6 filtrul de siguranta | `c6_safety` | VIU | `cbf_core.py`, `certif_core.py`, `brate.py`, noduri `operator_node`/`rover_node`, `launch/c6_smoke.launch.py` | `929f6ea` 2026-09-17 |
+| C7 sistemul rover + roi | `teleop_rover`, `sar_swarm`, `mesh_plugin`, `c3_gateway`, `c4_platforma`, `c6_safety` (V0) | PLANIFICAT | `launch/v0_sistem.launch.py` | -- |
+| fara rol (exoschelet, in afara tezei) | `rehab_exo_description`, `joint_emulator`, `servo_control` | INGHETAT | tag `rehab-v0.3.0`; `docs/material_teza/cm_rmw_mismatch/` (dovada RMW mismatch ramane utila) | `ad283c9` 2026-08-22 |
 
 ## Taxonomia pachetelor (toate folderele din radacina)
 
@@ -58,14 +66,14 @@ ulterioara, pastrat pentru istoric.
 | [`curs_ros2`](curs_ros2/README.md) | educational | curs ROS 2 (11 module cu cod in `curs_ros2/curs_ros2/`) | ARHIVAT | 2026-06-29 | da |
 | [`curs_ros2_interfaces`](curs_ros2_interfaces/README.md) | ament | interfete custom pentru curs | ARHIVAT | 2026-06-29 | da |
 | `docs` | dovezi | `material_teza/cm_rmw_mismatch/`: jurnale de dovada pentru clasa "RMW nepotrivit" | ARHIVAT (dovada) | 2026-08-21 | nu (are `cm_rmw_mismatch/README.md`) |
-| [`joint_emulator`](joint_emulator/README.md) | script | emulatorul bancului cu 6 servomotoare (C4) | INGHETAT | 2026-06-29 | da |
+| [`joint_emulator`](joint_emulator/README.md) | script | emulatorul bancului cu 6 servomotoare (exoschelet, fara rol in teza) | INGHETAT | 2026-06-29 | da |
 | [`link_adaptive`](link_adaptive/README.md) | ament | strat adaptiv la starea legaturii (NOMINAL/DEGRADED/CRITICAL), precursor al C3 | MOSTENIRE | 2026-06-29 | da |
 | `log` | -- | iesire colcon, NEVERSIONAT (`.gitignore`) | -- | -- | -- |
 | [`mesh_plugin`](mesh_plugin/README.md) | ament | mesh multi-hop peste roi, relay hop-by-hop (C3) | INGHETAT | 2026-06-29 | da |
-| [`rehab_exo_description`](rehab_exo_description/README.md) | ament | exoscheletul de reabilitare: URDF, launch, failsafe (C4) | INGHETAT | 2026-08-22 | da |
+| [`rehab_exo_description`](rehab_exo_description/README.md) | ament | exoscheletul de reabilitare: URDF, launch, failsafe (fara rol in teza) | INGHETAT | 2026-08-22 | da |
 | [`sar_plugins`](sar_plugins/README.md) | script | plugin-uri de mediu: canal radio, baterie, acoperire, victime | INGHETAT | 2026-06-29 | da |
 | [`sar_swarm`](sar_swarm/README.md) | script | roiul SAR: 4 drone (d1-d4) + GCS, injector, SIL | INGHETAT | 2026-06-29 | da |
-| `scratchpad` | temporar | auditul C4 din 2026-08-18 (3 fisiere) | ARHIVAT; propus la mutare in ARHIVA (vezi raport G3) | 2026-08-21 | nu |
+| `scratchpad` | temporar | auditul exoscheletului (fara rol) din 2026-08-18 (3 fisiere) | ARHIVAT; propus la mutare in ARHIVA (vezi raport G3) | 2026-08-21 | nu |
 | [`servo_control`](servo_control/README.md) | ament | demonstratorul istoric: motor Gazebo cu tastatura | MOSTENIRE | 2026-06-29 | da |
 | `stats_out` | -- | figuri/CSV de statistica, NEVERSIONAT (`.gitignore`) | -- | -- | -- |
 | [`teleop_rover`](teleop_rover/README.md) | script | roverul teleoperat (4 roti, perceptie, go-to-goal); plantul imprumutat de C6 | INGHETAT | 2026-06-29 | da |
@@ -151,5 +159,5 @@ Selftestele C6, fara ROS: `python3 c6_safety/c6_safety/<modul>.py --selftest`
 
 Licentierea este pe artefact, nu pe depozit. Artefactul C1 (`c1_benchmark/`) este publicat
 sub Apache-2.0 (`c1_benchmark/LICENSE`); `c6_safety` declara Apache-2.0 in `package.xml`.
-Restul depozitului (C2, C3, C4, materialele de curs) ramane fara licenta de reutilizare:
+Restul depozitului (C2, C3, pachetele fara rol in teza, materialele de curs) ramane fara licenta de reutilizare:
 toate drepturile rezervate.

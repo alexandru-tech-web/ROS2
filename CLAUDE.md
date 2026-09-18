@@ -14,9 +14,12 @@ inceputul fiecarei sesiuni si respecta-l. Tine-l scurt.
 ## 1. Ce este proiectul (scop INCHIS)
 Teza: teleoperare in timp real peste retele degradate.
 Coloana stiintifica: benchmark rmw_zenoh vs rmw_cyclonedds_cpp sub degradare
-controlata (tc netem). Demonstratoare: roi SAR (drone) + exoschelet rehab.
-Patru contributii C1-C4, harta de articole A1-A5. NU propune directii noi decat
-daca intaresc clar una dintre C1-C4. Buget ~5-10 h/saptamana; un singur track de
+controlata (tc netem). Demonstratoare: roverul teleoperat + roiul SAR (drone).
+Coloana (18.09.2026): C1 masurare (INCHIS), C2 model (INCHIS), C3 sonda + gateway dual,
+C4 roverul cu sonda la bord (platforma), C5 arbitrajul autoritatii, C6 filtrul de siguranta,
+C7 sistemul rover + roi. Sursa unica: DOC/CAIETE/COLOANA.md.
+Exoscheletul (rehab_exo_description) e IN AFARA tezei (ajutor pentru un coleg, fara rol; inghetat ad283c9). NU propune directii noi
+decat daca intaresc clar una dintre C1-C7. Buget ~5-10 h/saptamana; un singur track de
 cod activ o data; "don't break the chain" (max 7 zile intre sesiuni).
 Pragmatism: nod ROS subtire peste un core pur, testabil izolat -- reproductibil
 si publicabil, NU production-grade.
@@ -104,7 +107,7 @@ rezultate. Daca un push esueaza, prima suspiciune: date brute / fisiere >100 MB.
   se rezolva pe Overleaf.
 - RTPS_TRANSPORT_SHM la pornire = `rm -f /dev/shm/fastrtps_*` (memorie partajata
   ramasa). Non-fatal.
-- Conventie URDF exoschelet: rotatie pozitiva pe axa Y = extensie; flexie = negativ.
+- Conventie URDF exoschelet (pachet fara rol in teza): rotatie pozitiva pe axa Y = extensie; flexie = negativ.
 
 ## 7. Harta repo-ului
 - c1_benchmark/  -- sursa A1 (JIRS, submisie 30.11.2026): bench_core (+test_bench_core, 11 teste),
@@ -115,7 +118,7 @@ rezultate. Daca un push esueaza, prima suspiciune: date brute / fisiere >100 MB.
 - sar_plugins/    -- telemetrie (baterie/radio).
 - mesh_plugin/    -- mesh multi-hop (C3).
 - link_adaptive/  -- adaptare / selector link-aware (C3).
-- rehab_exo_description/, servo_control/, joint_emulator/ -- exoschelet + motor (C4).
+- rehab_exo_description/, servo_control/, joint_emulator/ -- exoschelet + motor (FARA ROL in teza, inghetat).
 - teleop_rover/   -- robot mobil (comparatie drona vs robot mobil).
 - curs_ros2/, curs_ros2_interfaces/, PROIECT_ECOSISTEM_EDUCATIONAL.md -- educational.
 - PHSC (compensare de latenta, LQR + predictor Smith) -- NU e pe main. Sta pe
