@@ -18,5 +18,6 @@ setup(
     maintainer_email="gheorghitaalexandruu@gmail.com",
     description="C7: launch-uri de sistem peste pachetele existente + substitut C4.",
     license="Apache-2.0",
-    entry_points={"console_scripts": ["substitut_c4_node = c7_sistem.substitut_c4_node:main"]},
+    entry_points={"console_scripts": ["substitut_c4_node = c7_sistem.substitut_c4_node:main",
+                                      "punte_telemetrie = c7_sistem.punte_telemetrie:main"]},
 )

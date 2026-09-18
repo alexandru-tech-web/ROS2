@@ -43,6 +43,7 @@ def generate_launch_description():
     A = [DeclareLaunchArgument("jurnal", default_value="/tmp/v0_jurnal"),
          DeclareLaunchArgument("c6_outputs", default_value="/tmp/v0_c6"),
          DeclareLaunchArgument("durata_app", default_value="60"),
+         DeclareLaunchArgument("mod_dt", default_value="max"),          # V0.1: "pas" | "max" (vezi cbf_core)
          SetEnvironmentVariable("RMW_IMPLEMENTATION", "rmw_cyclonedds_cpp"),
          # izolare: pe masina ruleaza si alte noduri (ex. /joint/*, /bench/*) in domain 0; V0 sta in domain 76
          SetEnvironmentVariable("ROS_DOMAIN_ID", "76"),
@@ -78,7 +79,7 @@ def generate_launch_description():
     F = lambda k, v: ParameterValue(v, value_type=k)                      # noqa: E731
     A.append(Node(package="c6_safety", executable="rover_node", name="c6_rover", output="screen", prefix=pref,
                   parameters=[{"brat": "A2", "scenariu": "traversare", "v_o_max": 0.5, "seed": 1, "react": False,
-                               "outputs": c6_out, "eticheta": "v0_A2", "qos": "reliable"}]))
+                               "outputs": c6_out, "eticheta": "v0_A2", "qos": "reliable", "mod_dt": L("mod_dt")}]))
     A.append(Node(package="c6_safety", executable="operator_node", name="c6_operator", output="screen", prefix=pref,
                   parameters=[{"scenariu": "traversare", "v_o_max": 0.5, "react": False, "f_haz": 5.0, "qos": "reliable"}]))
     # 4. sar_swarm fara Gazebo (ca sar_ros.launch.py, dar cu interpretorul ROS)
@@ -88,8 +89,11 @@ def generate_launch_description():
     A.append(ExecuteProcess(cmd=[PY, os.path.join(SAR, "gcs_node_ros.py"), "--ros-args", "-p", "autostart:=true"], name="sar_gcs", output="screen"))
     A.append(ExecuteProcess(cmd=[PY, os.path.join(SAR, "fault_injector_node.py"), "--ros-args", "-p", "scenario:=none"], name="sar_injector", output="screen"))
     A.append(ExecuteProcess(cmd=[PY, os.path.join(SAR, "latency_probe.py")], name="sar_probe", output="screen"))
-    # 5. mesh_plugin (launch-ul lui, neatins)
-    A.append(IncludeLaunchDescription(PythonLaunchDescriptionSource(MESH_LAUNCH), launch_arguments={"ingest": "true"}.items()))
+    # 5. mesh_plugin (launch-ul lui, neatins) + puntea de telemetrie (V0.1): /sar/telemetry -> /sar/telemetry/<id> (ingest per drona);
+    #    egress-ul mesh-ului merge pe /sar/telemetry_mesh, altfel GCS-ul mesh ar republica pe /sar/telemetry si puntea ar face bucla
+    A.append(Node(package="c7_sistem", executable="punte_telemetrie", name="punte_telemetrie", output="screen"))
+    A.append(IncludeLaunchDescription(PythonLaunchDescriptionSource(MESH_LAUNCH),
+                                      launch_arguments={"ingest": "true", "egress_topic": "/sar/telemetry_mesh"}.items()))
     # 6. teleop_rover fara Gazebo (ca teleop.launch.py, cu interpretorul ROS)
     A.append(ExecuteProcess(cmd=[PY, os.path.join(TEL, "link_node.py"), "--ros-args", "-p", "lat_ms:=0.0", "-p", "jit_ms:=0.0", "-p", "loss:=0.0"],
                             name="teleop_link", output="screen"))

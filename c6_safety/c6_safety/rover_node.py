@@ -50,7 +50,7 @@ class RoverNode(Node):
     def __init__(self):
         super().__init__("c6_rover")
         for k, v in (("brat", "A2"), ("scenariu", "traversare"), ("v_o_max", 0.5), ("seed", 1),
-                     ("react", False), ("outputs", ""), ("eticheta", "s3"), ("qos", "reliable")):
+                     ("react", False), ("outputs", ""), ("eticheta", "s3"), ("qos", "reliable"), ("mod_dt", "max")):
             self.declare_parameter(k, v)
         g = lambda k: self.get_parameter(k).value                        # noqa: E731
         self.brat = g("brat")
@@ -62,6 +62,8 @@ class RoverNode(Node):
         self.outputs = os.path.expanduser(g("outputs")) or None
         self.eticheta = g("eticheta")
         self.filtru, self.sf = brate.filtru_pentru(self.brat, self.P)
+        if self.sf is not None:
+            self.sf.mod_dt = str(g("mod_dt"))                 # "pas" | "max" (V0.1)
         self.model = models.Unicycle(self.P.tau_act)
         self.haz = episode.Hazard(self.P)
         self.st = rover_dyn.Stare(x=self.P.start[0], y=self.P.start[1], theta=self.P.start[2])
@@ -117,7 +119,8 @@ class RoverNode(Node):
         # pericolul raportat: fara taiere (Lema 1)
         ox_h, oy_h, t_tx_h, t0 = self.hz
         o_hat, A_haz = (ox_h, oy_h), acum - t_tx_h
-        ctx = {"o_hat": o_hat, "A_haz": A_haz}
+        dt_m = (acum - self.t_tick[-2]) if len(self.t_tick) >= 2 else None       # V0.1: pasul REAL
+        ctx = {"o_hat": o_hat, "A_haz": A_haz, "dt_masurat": dt_m}
 
         h = r_eff = feasible = kkt = None
         if self.filtru is not None:
@@ -172,7 +175,9 @@ class RoverNode(Node):
              # schema_v2 (F1): ce inainte se recupera din manifest / eticheta
              "schema": "v2", "scenariu": self.P.scenariu, "v_o_max": self.P.v_o_max,
              "react": bool(self.get_parameter("react").value), "dt": self.P.dt, "T_max": self.P.T_max,
-             "gamma": self.sf.gamma if self.sf else None, "delta_DT": self.sf.delta_DT if self.sf else None}
+             "gamma": self.sf.gamma if self.sf else None, "delta_DT": self.sf.delta_DT if self.sf else None,
+             "n_dt_marginit": self.sf.n_dt_marginit if self.sf else None, "mod_dt": self.get_parameter("mod_dt").value,
+             "dt_max_vazut": round(self.sf.dt_max, 4) if self.sf else None}
         g = self.sf.gamma if self.sf else cbf_core.GAMMA_IMPLICIT
         poz = {q["t"]: (q["o_true_x"], q["o_true_y"]) for q in self.trace}
         c = certif_core.certify(self.trace, self.P, lambda t: poz.get(t, self.haz.o_true(t)), g)

@@ -108,9 +108,34 @@ class SafetyFilter(object):
         # pragul intra in r_eff: bariera h = ||p_c - o_hat|| - r_eff atinge 0 exact cand
         # distanta reala ajunge la r + delta_DT, iar de acolo QP-ul are inca loc de un pas.
         self.delta_DT = (p.v_o_max * p.dt + self.eps_lin) / self.gamma
+        # V0.1: pe hardware pasul REAL dt_k = t_k - t_{k-1} nu e dt nominal (tick 52-56 ms sub grafic incarcat).
+        # Varsta informatiei creste cu dt_k, deci bugetul din Lema 3 si marginile eps_lin/delta_DT se iau din
+        # dt_k (marginit la [0.5, 3] x dt nominal). In simulare (episode.py) dt_k = dt si nimic nu se schimba.
+        self.dt_ef = p.dt
+        self.n_dt_marginit = 0
+        self.dt_max = p.dt
+        # mod_dt: "pas" = eps_lin, delta_DT si bugetul de varsta din dt_k al pasului (V0.1 literal; masurat: r_eff se
+        # misca cu v_o*ddt/gamma ~ 8 mm intre pasi si certificatul (ii) pica mai rau); "max" = bugetul de varsta din
+        # dt maxim vazut pana acum (conservator, monoton), eps_lin si delta_DT NOMINALE (constante de proiectare)
+        self.mod_dt = "max"                   # implicit dupa V0.1 (decizie de confirmat)
+
+    def _dt_efectiv(self, dt_masurat):
+        p = self.p
+        if dt_masurat is None:
+            return p.dt, self.eps_lin, self.delta_DT
+        lo, hi = 0.5 * p.dt, 3.0 * p.dt
+        d = min(max(float(dt_masurat), lo), hi)
+        if d != dt_masurat:
+            self.n_dt_marginit += 1
+        self.dt_max = max(self.dt_max, d)
+        if self.mod_dt == "max":
+            return self.dt_max, self.eps_lin, self.delta_DT
+        s_max = (p.v_max + p.l * p.omega_max) * d
+        eps = s_max ** 2 / (2.0 * p.r)
+        return d, eps, (p.v_o_max * d + eps) / self.gamma
 
     def constrangere_cbf(self, x, o_hat, marja_extra=0.0, r_eff_fix=None, dmarja_dt=0.0,
-                         dmarja_dv=0.0):
+                         dmarja_dv=0.0, dt_masurat=None):
         """(a_v, a_w, b) astfel incat a_v v_cmd + a_w omega >= b este DT-CBF liniarizata.
         r_eff_fix (A3): r_eff e o CONSTANTA, deci dh/dv = 0 -- fara termenul d_fr'(v).
         dmarja_dt (A2): CBF VARIABIL IN TIMP, M0 sec. 5. Intre doua pachete varsta A creste
@@ -119,29 +144,33 @@ class SafetyFilter(object):
         pachet -- masurat: 49 incalcari (ii) cu reziduu -0.024 = -v_o*dt la S2b."""
         px, py, th, v = _desfa(x)
         p = self.p
+        dt_ef, eps_ef, delta_ef = self._dt_efectiv(dt_masurat)
+        self.dt_ef, self.eps_ef, self.delta_ef = dt_ef, eps_ef, delta_ef
         if r_eff_fix is None:
-            h, n, self.r_eff_ultim = h_val(x, o_hat, p, marja_extra + self.delta_DT)
+            h, n, self.r_eff_ultim = h_val(x, o_hat, p, marja_extra + delta_ef)
             # ERATA 4: r_eff = r + (v + v_o)^2/(2a) + v_o*A_ef, deci
             # d r_eff / dv = (v + v_o)/a = v/a + v_o/a. Al doilea termen vine prin dmarja_dv.
             dfr = v / p.a_max + dmarja_dv
         else:
             d_, n, _ = h_val(x, o_hat, p, 0.0)
-            self.r_eff_ultim = r_eff_fix + self.delta_DT
+            self.r_eff_ultim = r_eff_fix + delta_ef
             h = d_ + p.r + rover_dyn.d_fr(v, p.a_max) - self.r_eff_ultim   # ||p_c-o|| - r_eff_fix
             dfr = 0.0
         c_pos = n[0] * v * math.cos(th) + n[1] * v * math.sin(th)
         a_w = p.dt * (n[0] * (-p.l * math.sin(th)) + n[1] * (p.l * math.cos(th)))
         a_v = -dfr
         # h + dt*c_pos + a_w*omega - dfr*(v_cmd - v) - dmarja_dt*dt >= (1-gamma) h + eps_lin
-        b = -self.gamma * h - p.dt * c_pos - dfr * v + self.eps_lin + dmarja_dt * p.dt
+        # termenii cinematici (c_pos, a_w, cutia) raman pe dt nominal: plantul face un pas F de dt nominal;
+        # varsta informatiei si marginile (eps_lin, delta_DT prin r_eff) sunt pe dt efectiv
+        b = -self.gamma * h - p.dt * c_pos - dfr * v + eps_ef + dmarja_dt * dt_ef
         return a_v, a_w, b, h
 
     def apply(self, x, u_op, o_hat, marja_extra=0.0, r_eff_fix=None, dmarja_dt=0.0,
-              dmarja_dv=0.0):
+              dmarja_dv=0.0, dt_masurat=None):
         """(u, info). info = {h, h_next_pred, feasible, obj, kkt_res, eps_lin, marja_extra}."""
         p = self.p
         px, py, th, v = _desfa(x)
-        a_v, a_w, b, h = self.constrangere_cbf(x, o_hat, marja_extra, r_eff_fix, dmarja_dt, dmarja_dv)
+        a_v, a_w, b, h = self.constrangere_cbf(x, o_hat, marja_extra, r_eff_fix, dmarja_dt, dmarja_dv, dt_masurat)
 
         A = sp.csc_matrix(np.array([[a_v, a_w],
                                     [1.0, 0.0],
@@ -168,11 +197,11 @@ class SafetyFilter(object):
             kkt = float(max(abs(r.info.prim_res), abs(r.info.dual_res)))
         # Constrangerea e a_v v + a_w w >= b  <=>  h_pred >= (1-gamma) h; deci
         # h_pred = (1-gamma) h + (a_v v + a_w w - b) e ce prezice liniarizarea.
-        h_next = ((1.0 - self.gamma) * h + self.eps_lin + (a_v * u[0] + a_w * u[1] - b)
+        h_next = ((1.0 - self.gamma) * h + self.eps_ef + (a_v * u[0] + a_w * u[1] - b)
                   if feasible else None)
         return u, {"h": h, "h_next_pred": h_next, "feasible": feasible,
-                   "obj": obj, "kkt_res": kkt, "eps_lin": self.eps_lin,
-                   "marja_extra": marja_extra, "delta_DT": self.delta_DT,
+                   "obj": obj, "kkt_res": kkt, "eps_lin": self.eps_ef,
+                   "marja_extra": marja_extra, "delta_DT": self.delta_ef, "dt_ef": self.dt_ef,
                    "r_eff": self.r_eff_ultim}
 
 

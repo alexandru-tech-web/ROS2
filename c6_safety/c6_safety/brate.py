@@ -62,7 +62,7 @@ def filtru_pentru(brat, params, gamma=None, tau_act=0.0):
         A_ef += tau_act
         m = cbf_core.marja_inchidere(st.v, v_o, a, A_ef)
         o = ctx.get("o_hat") if ctx.get("o_hat") is not None else p.obst
-        u, info = sf.apply(st, cmd, o, m, None, dm, dmv)
+        u, info = sf.apply(st, cmd, o, m, None, dm, dmv, dt_masurat=ctx.get("dt_masurat"))
         return u, info, (not info["feasible"])
     return f, sf
 
