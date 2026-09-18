@@ -6,5 +6,5 @@
   connect: { endpoints: ["tcp/127.0.0.1:7447"] },  // routerul local
   scouting: { multicast: { enabled: true } },      // descoperire in LAN
   // Pentru 2 masini (GCS + laptop drone): pune aici IP-ul routerului GCS:
-  // connect: { endpoints: ["tcp/192.168.1.10:7447"] },
+  // connect: { endpoints: ["tcp/192.0.2.10:7447"] },
 }
