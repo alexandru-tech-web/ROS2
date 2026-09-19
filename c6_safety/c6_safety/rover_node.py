@@ -179,12 +179,13 @@ class RoverNode(Node):
              "react": bool(self.get_parameter("react").value), "dt": self.P.dt, "T_max": self.P.T_max,
              "gamma": self.sf.gamma if self.sf else None, "delta_DT": self.sf.delta_DT if self.sf else None,
              "n_dt_marginit": self.sf.n_dt_marginit if self.sf else None, "mod_dt": self.get_parameter("mod_dt").value,
-             "n_dt": self.sf.n_dt if self.sf else None, "dt_max_admis": self.sf.dt_max_admis if self.sf else None,
+             "n_dt": self.sf.n_dt if self.sf else 0, "dt_max_admis": self.sf.dt_max_admis if self.sf else None,
              "dt_max_vazut": round(self.sf.dt_max, 4) if self.sf else None}
         g = self.sf.gamma if self.sf else cbf_core.GAMMA_IMPLICIT
         poz = {q["t"]: (q["o_true_x"], q["o_true_y"]) for q in self.trace}
         c = certif_core.certify(self.trace, self.P, lambda t: poz.get(t, self.haz.o_true(t)), g)
         m["cert"] = c["verdict"]
+        c["n_dt"] = m["n_dt"]                                  # K4: pasi peste dt_max_admis, in certificat
         self.get_logger().info("rover: %s" % json.dumps(m, sort_keys=True))
         if self.outputs:
             io_core.scrie(self.outputs, m, self.trace, self.eticheta, certificat=c)
