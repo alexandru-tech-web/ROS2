@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""gen_bench_model.py -- generatorul GEOMETRIEI bancului, construita dupa
-pozele standului real: piedestal albastru cu picioare evazate si talpi
-disc (perechea din fata), doua coloane albastre inalte (perechile din
-spate, nivelul de sus), suporti U albastri cu cuplaj portocaliu vizibil,
-motoare negre cu cutii de conectori, cadru portocaliu de jur imprejur.
+"""gen_bench_model.py -- geometrie SCHEMATICA a bancului, necalibrata.
+
+Trei motoare A albastre stau in stanga, trei motoare B negre in dreapta.
+Fiecare A/B impart un ax rigid cu doua flanse si sase suruburi ilustrative.
+Dimensiunile nu sunt extrase din CAD sau masuratori ale standului real.
 
 O SINGURA tabela de geometrie -> AMBELE fisiere:
     urdf/joint_bench.urdf        (RViz; culori INLINE per visual,
@@ -15,28 +15,20 @@ O SINGURA tabela de geometrie -> AMBELE fisiere:
 Ruleaza:  python3 tools/gen_bench_model.py
 """
 import os
-from math import pi
+from math import cos, pi, sin
 
 H = pi / 2
-CUL = {"albastru": "0.13 0.32 0.65 1", "negru": "0.10 0.10 0.10 1",
+CUL = {"albastru": "0.13 0.32 0.65 1", "motor_a": "0.03 0.55 0.83 1",
+       "negru": "0.10 0.10 0.10 1",
        "portocaliu": "0.91 0.35 0.05 1", "gri": "0.55 0.55 0.55 1",
-       "gri_inchis": "0.30 0.30 0.30 1"}
+       "gri_inchis": "0.30 0.30 0.30 1", "rosu": "0.95 0.01 0.01 1"}
 
-# panoul inclinat: coordonate de PANOU (xp=latime, yp=normala, zp=sus)
-# rotite in lume despre axa X cu TILT si ridicate la BASE_H
-import math as _m
-TILT = 1.5708                     # panoul rotit la orizontala = blatul mesei
-_CA, _SA = _m.cos(TILT), _m.sin(TILT)
 BASE_H = 0.78
-
-
-def T(xp, yp, zp):
-    return (xp, _CA * yp - _SA * zp, _SA * yp + _CA * zp + BASE_H)
-
-
-JRPY = (TILT, 0, 0)               # orientarea articulatiilor (rpy)
-# 3 coloane = 3 perechi cuplate VERTICAL; cuplajul la mijlocul coloanei
-PAIRS = [T(-0.40, 0, 0), T(0.0, 0, 0), T(0.40, 0, 0)]
+SHAFT_H = 0.90
+ROW_Y = (-0.28, 0.0, 0.28)
+# z-ul local al axului devine x-ul global: A in stanga, B in dreapta.
+JRPY = (0, H, 0)
+PAIRS = [(0, y, SHAFT_H) for y in ROW_Y]
 
 
 def box(link, sz, xyz, rpy=(0, 0, 0), c="albastru"):
@@ -50,43 +42,55 @@ def cyl(link, r, l, xyz, rpy=(0, 0, 0), c="albastru"):
 def geometrie():
     V = []
     B = "base_link"
-    # --- cadrul portocaliu inclinat (dreptunghiul panoului)
-    for sx in (-0.62, 0.62):                       # montantii (zp)
-        V.append(box(B, (0.05, 0.05, 0.92), T(sx, 0, 0), (TILT, 0, 0),
+    # Masa: cadru portocaliu si patru picioare.
+    for sx in (-0.57, 0.57):
+        V.append(box(B, (0.05, 0.94, 0.05), (sx, 0, BASE_H),
                      c="portocaliu"))
-    for sz in (-0.45, 0.45):                       # barele orizontale (xp)
-        V.append(box(B, (1.29, 0.05, 0.05), T(0, 0, sz), (TILT, 0, 0),
+    for sy in (-0.45, 0.45):
+        V.append(box(B, (1.19, 0.05, 0.05), (0, sy, BASE_H),
                      c="portocaliu"))
-    # --- 4 picioare verticale, ca la o masa obisnuita
-    for sx in (-0.60, 0.60):
-        for sy in (-0.42, 0.42):
-            V.append(box(B, (0.05, 0.05, BASE_H), (sx, sy, BASE_H / 2),
-                         c="portocaliu"))
-    # --- 3 coloane: motor sus + suport U + motor jos (forma pastrata)
-    for xc, _, _ in [(-0.40, 0, 0), (0.0, 0, 0), (0.40, 0, 0)]:
-        for sz in (-1, 1):                          # cele doua motoare
-            V.append(box(B, (0.145, 0.145, 0.22), T(xc, 0, sz * 0.23),
-                         (TILT, 0, 0), c="negru"))
-            V.append(box(B, (0.10, 0.05, 0.09),    # cutia de conectori
-                         T(xc - 0.01, 0.095, sz * 0.29), (TILT, 0, 0),
-                         c="negru"))
-            V.append(cyl(B, 0.013, 0.05,           # conectorul argintiu
-                         T(xc - 0.01, 0.145, sz * 0.29),
-                         (TILT + H, 0, 0), c="gri"))
-        V.append(box(B, (0.02, 0.14, 0.12), T(xc - 0.085, 0, 0),
-                     (TILT, 0, 0)))                 # obraz U stanga
-        V.append(box(B, (0.02, 0.14, 0.12), T(xc + 0.085, 0, 0),
-                     (TILT, 0, 0)))                 # obraz U dreapta
-        V.append(box(B, (0.15, 0.02, 0.10), T(xc, -0.075, 0),
-                     (TILT, 0, 0)))                 # spatele U (pe panou)
+    for sx in (-0.55, 0.55):
+        for sy in (-0.43, 0.43):
+            V.append(box(B, (0.05, 0.05, BASE_H),
+                         (sx, sy, BASE_H / 2), c="portocaliu"))
+
+    # Trei perechi; fiecare rand are A in stanga si B in dreapta.
+    for y in ROW_Y:
+        for side, x, color in ((-1, -0.26, "motor_a"),
+                               (1, 0.26, "negru")):
+            V.append(box(B, (0.20, 0.14, 0.13), (x, y, SHAFT_H), c=color))
+            V.append(box(B, (0.045, 0.07, 0.06),
+                         (x + side * 0.11, y, SHAFT_H + 0.055), c=color))
+            V.append(cyl(B, 0.012, 0.035,
+                         (x + side * 0.11, y, SHAFT_H + 0.10), c="gri"))
+            V.append(box(B, (0.18, 0.16, 0.025),
+                         (x, y, SHAFT_H - 0.08), c="gri_inchis"))
+        for x in (-0.12, 0.12):
+            V.append(box(B, (0.04, 0.10, 0.045),
+                         (x, y, SHAFT_H - 0.055), c="albastru"))
+
     # --- axele rotitoare: construite in frame-ul articulatiei (z = axa)
     for k in range(3):
         L = f"shaft{k}"
-        V.append(cyl(L, 0.016, 0.24, (0, 0, 0), c="gri_inchis"))
-        V.append(cyl(L, 0.050, 0.050, (0, 0, 0), c="portocaliu"))
-        V.append(cyl(L, 0.032, 0.015, (0, 0, 0.06), c="gri"))
-        V.append(cyl(L, 0.032, 0.015, (0, 0, -0.06), c="gri"))
-        V.append(box(L, (0.08, 0.016, 0.016), (0.06, 0, 0), c="portocaliu"))
+        V.append(cyl(L, 0.013, 0.36, (0, 0, 0), c="gri_inchis"))
+        for face in (-1, 1):
+            V.append(cyl(L, 0.048, 0.028, (0, 0, face * 0.014),
+                         c="portocaliu"))
+            V.append(cyl(L, 0.026, 0.014, (0, 0, face * 0.10), c="gri"))
+        # Sase suruburi pe cercul de prindere, cu capete pe ambele fete.
+        for j in range(6):
+            ang = 2 * pi * j / 6
+            px, py = 0.034 * cos(ang), 0.034 * sin(ang)
+            V.append(cyl(L, 0.0035, 0.06, (px, py, 0), c="gri"))
+            for face in (-1, 1):
+                V.append(cyl(L, 0.006, 0.004,
+                             (px, py, face * 0.032), c="gri"))
+        # Reper rosu intre suruburi, pe cele doua fete ale flansei.
+        for face in (-1, 1):
+            ang = pi / 6
+            V.append(box(L, (0.023, 0.006, 0.002),
+                         (0.034 * cos(ang), 0.034 * sin(ang),
+                          face * 0.0295), (0, 0, ang), c="rosu"))
     return V
 
 

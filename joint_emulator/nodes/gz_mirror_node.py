@@ -4,6 +4,7 @@ fier) si publica pozitiile spre JointPositionController-ele din lumea
 gz (prin ros_gz_bridge). Gazebo NU simuleaza fizica articulatiilor --
 doar urmareste; o singura sursa de adevar."""
 import json
+import signal
 
 import rclpy
 from rclpy.node import Node
@@ -35,6 +36,7 @@ def main():
     except KeyboardInterrupt:
         pass
     finally:
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
         n.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()

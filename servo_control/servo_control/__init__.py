@@ -1,4 +1,6 @@
-# Acest modul face parte din pachetul servo_control.
-# Fisierul __init__.py este obligatoriu pentru ca Python
-# sa recunoasca acest folder ca modul importabil.
-# Continutul efectiv se afla in servo_teleop.py
+# Copyright 2026 Alexandru Gheorghita
+#
+# Use of this source code is governed by an MIT-style
+# license that can be found in the LICENSE file or at
+# https://opensource.org/licenses/MIT.
+"""Servo control ROS 2 package."""

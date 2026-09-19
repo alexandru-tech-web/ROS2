@@ -3,7 +3,7 @@
   figs/encoder_traces.png   pozitie / viteza / acceleratie in timp
   figs/encoder_filter.png   derivata bruta vs estimatorul (de ce filtram)
 Sursa: CSV-ul de la encoder_monitor_node (t_s,pair,th_raw,th,om,acc) --
-  python3 plot_encoder.py ~/sar_data/encoders.csv
+  python3 plot_encoder.py ~/sar_data/encoders_YYYYmmdd_HHMMSS.csv
 -- sau, fara argument, un DEMO generat local (sinusoida prin SimBackend),
 ca sa vezi figurile inainte sa existe fierul/ROS-ul.
 """

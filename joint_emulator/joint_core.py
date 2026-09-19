@@ -67,6 +67,38 @@ class VirtualLimb:
         return max(-self.tau_max, min(self.tau_max, tau))
 
 
+class VirtualStopLaw:
+    """Opritor virtual bilateral pe axul comun, fara senzatie de contact
+    in interiorul intervalului liber. Amortizarea actioneaza numai cand
+    axul patrunde mai adanc in opritor, nu cand se retrage.
+    """
+
+    def __init__(self, k=20.0, b=0.8, contact_angle_rad=0.0872665,
+                 th0=0.0, tau_max=2.0):
+        self.k = float(k)
+        self.b = float(b)
+        self.contact_angle = float(contact_angle_rad)
+        self.th0 = float(th0)
+        self.tau_max = float(tau_max)
+        if (not all(math.isfinite(x) for x in
+                    (self.k, self.b, self.contact_angle, self.th0,
+                     self.tau_max)) or
+                self.k < 0.0 or self.b < 0.0 or self.contact_angle < 0.0 or
+                self.tau_max <= 0.0):
+            raise ValueError("parametrii contactului trebuie sa fie pasivi")
+
+    def torque(self, th, om, dt=None):
+        e = float(th) - self.th0
+        penetration = abs(e) - self.contact_angle
+        if penetration <= 0.0:
+            return 0.0
+        direction = 1.0 if e > 0.0 else -1.0
+        tau = -direction * self.k * penetration
+        if direction * om > 0.0:
+            tau -= self.b * om
+        return max(-self.tau_max, min(self.tau_max, tau))
+
+
 class DelayLine:
     """Intarziere fixa pe un semnal esantionat (masura sau comanda)."""
 
@@ -105,10 +137,10 @@ class EnergyMonitor:
         self.e_max = max(self.e_max, self.e)
         self._t += dt
         self._win.append((self._t, p))
+        self.win_energy += p
         while self._win and self._t - self._win[0][0] > self.window_s:
-            self._win.popleft()
-        self.win_energy = sum(x[1] for x in self._win)
-        if self.win_energy > self.estop_energy:
+            self.win_energy -= self._win.popleft()[1]
+        if self.win_energy > self.estop_energy + 1e-12:
             self.estopped = True
         return self.e
 
@@ -158,6 +190,18 @@ class PairSim:
         self.th += self.om * dt
         self.t += dt
         return self.th, self.om
+
+
+def simulation_substeps(rate_hz, max_step_s=0.0005):
+    """Pastraza rata ROS, dar limiteaza pasul intern de fizica/control SIM."""
+    rate_hz = float(rate_hz)
+    max_step_s = float(max_step_s)
+    if (not math.isfinite(rate_hz) or rate_hz <= 0.0 or
+            not math.isfinite(max_step_s) or max_step_s <= 0.0):
+        raise ValueError("rate_hz si max_step_s trebuie sa fie pozitive")
+    dt = 1.0 / rate_hz
+    count = max(1, math.ceil(dt / max_step_s))
+    return count, dt / count
 
 
 def run_equilibrium(tau_a_fn, law, dt=0.001, t_end=3.0, delay_s=0.0,

@@ -1,57 +1,100 @@
 # servo_control
 
-Nod ROS 2 de teleoperare a unui servomotor: comanda din tastatura (sens si viteza)
-o articulatie rotativa a unui model Gazebo. Pachet ament_python (build_type
-`ament_python`, vezi package.xml), demonstrator istoric pentru linia de actuatoare
-C4 a tezei (teleoperare in timp real peste retele degradate). Statut: arhiva / demo.
+Pachet ROS 2 Jazzy pentru teleoperarea din tastatura a articulatiei
+`shaft_joint` din modelul Gazebo `Servomotor`. Pachetul include lumea, modelul,
+mesh-urile, bridge-ul ROS-Gazebo si un nod cu oprire fail-safe.
 
-## Scop
+Ghidul complet de instalare, rulare și depanare este disponibil în
+[`DOCUMENTATIE_UTILIZARE.md`](DOCUMENTATIE_UTILIZARE.md).
 
-Nodul `servo_teleop` publica o comanda de viteza unghiulara catre articulatia
-`shaft_joint` a modelului `servo1`, citita de la tastatura (sageti, SPATIU, Q) si
-republicata periodic la 20 Hz. Scopul este demonstrarea reproductibila a lantului
-operator -> rclpy -> punte -> simulator, nu o solutie production-grade.
+## Functionalitati
 
-Nota: pachetul NU urmeaza tiparul de fier al proiectului (nucleu pur + `_selftest`
--> nod ROS subtire -> SIL). Nu exista un modul-nucleu fara ROS si nici `_selftest`;
-intregul cod (citire tastatura, stare, publicare ROS) sta in `servo_teleop.py`.
+- comanda semnata de viteza pe
+  `/model/servo1/joint/shaft_joint/cmd_vel`;
+- watchdog de inactivitate, implicit `0.75 s`;
+- trei publicari cu viteza zero la iesire normala, `Ctrl-C` sau `SIGTERM`;
+- QoS `KEEP_LAST(1)`, reliable si volatile;
+- parametri ROS pentru topic, frecventa si limitele vitezei;
+- lume si model Gazebo instalate in `share/servo_control`;
+- logica tastelor separata de ROS si acoperita prin teste unitare.
 
-## Fisiere
-
-- `servo_control/servo_teleop.py` -- nod (clasa `ServoTeleop(Node)`) care citeste
-  tastatura si publica viteza pe topic. Constante din cod: `SPEED_STEP=0.5`,
-  `MAX_SPEED=10.0`, `MIN_SPEED=0.5` rad/s; timer la 0.05 s (20 Hz).
-- `launch/servo_launch.py` -- porneste `gz sim` pe lumea
-  `~/.gz/worlds/lab_world.sdf`, apoi `ros_gz_bridge/parameter_bridge` la +5 s,
-  apoi `servo_teleop` intr-o fereastra `xterm` la +6 s.
-- `worlds/lab_world.sdf` -- lumea Gazebo folosita de launch.
-
-## Sintaxe de rulare
+## Build si teste
 
 ```bash
-# build
-cd ~/ros2_ws && colcon build --packages-select servo_control --symlink-install
+cd ~/ros2_ws
+source /opt/ros/jazzy/setup.bash
+rosdep install --from-paths src --ignore-src -r -y
+colcon build --packages-select servo_control --symlink-install
 source install/setup.bash
+colcon test --packages-select servo_control --event-handlers console_direct+
+colcon test-result --verbose
+```
 
-# rulare nod (entry_point real din setup.py)
-ros2 run servo_control servo_teleop
+## Rulare si vizualizare
 
-# rulare integrata (gz sim + punte + teleop in xterm)
+Terminalul 1 porneste Gazebo si bridge-ul:
+
+```bash
+cd ~/ros2_ws
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
 ros2 launch servo_control servo_launch.py
 ```
 
-Comenzi tastatura (din docstring si cod): sageata DREAPTA = sens orar, sageata
-STANGA = sens antiorar, sageata SUS = creste viteza, sageata JOS = scade viteza,
-SPATIU = stop, Q = iesire. Nodul nu accepta argumente CLI (fara argparse).
+Launch-ul elimina automat variabilele GUI mostenite de la aplicatii Snap
+(de exemplu VS Code Snap), care pot incarca biblioteci incompatibile in Gazebo.
 
-## Parametri si topicuri
+Terminalul 2 porneste teleoperarea intr-un TTY real:
 
-- Publisher: topic `/model/servo1/joint/shaft_joint/cmd_vel`, tip
-  `std_msgs/msg/Float64`, coada 10 (servo_teleop.py, linia 56). Mesajul poarta un
-  singur camp `data` (viteza, rad/s): pozitiv = orar, negativ = antiorar.
-- Fara subscriberi, fara servicii, fara `declare_parameter` (verificat in cod).
+```bash
+cd ~/ros2_ws
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+ros2 run servo_control servo_teleop
+```
 
-Nota: launch-ul citeste lumea din `~/.gz/worlds/lab_world.sdf` (cale fixa via
-`os.path.expanduser`), nu din `share/`; copierea fisierului acolo este necesara.
-TODO: de confirmat modelul `model://Servomotor` inclus de lume -- nu se afla in
-acest pachet si nu e declarat ca dependenta.
+Taste:
+
+- `STANGA` / `DREAPTA`: sens antiorar / orar;
+- `SUS` / `JOS`: crestere / scadere viteza;
+- `SPATIU`: stop imediat;
+- `Q` sau `Ctrl-C`: stop si iesire.
+
+Pentru miscare continua se tine apasata sageata de directie. La eliberare,
+watchdog-ul publica viteza zero dupa timeout.
+
+## Parametri
+
+```bash
+ros2 run servo_control servo_teleop --ros-args \
+  -p command_timeout:=1.0 \
+  -p publish_rate:=30.0 \
+  -p initial_speed:=1.5 \
+  -p speed_step:=0.25 \
+  -p min_speed:=0.5 \
+  -p max_speed:=8.0
+```
+
+`command_timeout:=0.0` dezactiveaza watchdog-ul si este recomandat numai
+pentru depanare. Parametrii sunt cititi la pornirea nodului.
+
+Watchdog-ul din acest pachet acopera lipsa inputului, `Ctrl-C`, `SIGTERM` si
+iesirile controlabile. Un `SIGKILL`, pierderea alimentarii sau caderea completa
+a calculatorului nu pot fi tratate de acelasi proces; pentru hardware real este
+necesar si un watchdog in controllerul servomotorului.
+
+## Diagnostic
+
+Intr-un al treilea terminal se poate observa comanda publicata:
+
+```bash
+source /opt/ros/jazzy/setup.bash
+source ~/ros2_ws/install/setup.bash
+ros2 topic echo /model/servo1/joint/shaft_joint/cmd_vel
+```
+
+Lista argumentelor launch:
+
+```bash
+ros2 launch servo_control servo_launch.py --show-args
+```

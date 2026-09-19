@@ -29,6 +29,10 @@ Scripturile se ruleaza direct cu `python3 <fisier>` (nodurile fac
 `sys.path.insert` ca importurile core sa mearga standalone -- vezi nota din
 CLAUDE.md sectiunea 6).
 
+Pe masina curenta, nodurile ROS trebuie lansate cu `/usr/bin/python3`:
+Miniconda furnizeaza Python 3.13, iar ROS Jazzy este instalat pentru Python
+3.12. Scripturile pure, fara ROS, pot folosi `python3` normal.
+
 - Nucleu pur (fara ROS, fara fier): `joint_core.py`, `encoder_core.py`,
   `teleimpedance.py`, `drive_iface.py` (cu `SimBackend`), schema de backend
   real `modbus_backend.py`.
@@ -46,15 +50,16 @@ CLAUDE.md sectiunea 6).
 | Fisier | Ce face (din docstring / cod) |
 | --- | --- |
 | `joint_core.py` | Nucleul pur al emulatorului: `ImpedanceLaw`, `VirtualLimb` (membrul emulat de B, cu optional 'catch' spastic), `PairSim` (fizica perechii pe ax comun), `DelayLine`, `EnergyMonitor`, `SafetyGate`. SI, integrare semi-implicita Euler. |
-| `encoder_core.py` | Stratul de encoder: `EncoderModel` (cuantizare la counts_per_rev + zgomot optional), `NaiveDiff` (derivata bruta), `KinematicEstimator` (filtru alpha-beta-gamma pentru pozitie/viteza/acceleratie), `EncoderLogger` (CSV t,pair,th_raw,th,om,acc). |
+| `encoder_core.py` | Stratul de encoder: `EncoderModel`, `NaiveDiff`, `KinematicEstimator`, `MotorEncoderBank` (6 canale cu calibrare de sens/zero) si jurnale CSV separate pentru axele comune si motoare. |
 | `teleimpedance.py` | Stratul de tele-impedanta: `DegradedMeasure` (canal de masura cu ms/jit/loss/down, livrare monotona), `AdaptiveImpedance` (K scade si B creste cand masura imbatraneste). |
-| `drive_iface.py` | Interfata unica drive (`enable/disable/read/set_torque/estop`) intre logica si fier; contine `SimBackend`, perechea simulata in spatele aceleiasi interfete ca fierul. |
-| `modbus_backend.py` | Schelet (NU functional inca) de backend real pentru drive-uri ABB prin Modbus RTU/TCP; harta de registre din CONFIG se completeaza din manualul drive-ului. Aceeasi interfata ca `SimBackend`. |
+| `drive_iface.py` | Interfata unica drive (`step/enable/disable/read/set_torque/estop`) intre logica si fier; `read` nu modifica starea, iar `step` avanseaza atomic toate perechile simulate. |
+| `modbus_backend.py` | Prototip istoric, NEVALIDAT si nefunctional. Nu se foloseste pana cand modelul drive-ului si protocolul real nu sunt confirmate din manualul oficial. |
 | `test_joint_core.py` | Bateria de verificari a emulatorului (fara ROS/fier); ruleaza assert-uri si tipareste `=== N/N verificari trecute ===`. |
 | `sil_joint.py` | Mediul de simulare complet fara ROS: scenarii numite, urme CSV, bilant in consola. |
 | `nodes/emulator_node.py` | Nodul ROS2 al bancului peste `SimBackend`; A primeste comenzi de cuplu, B ruleaza legea de impedanta (fixa sau adaptiva) cu amortizare locala. |
-| `nodes/encoder_monitor_node.py` | Pluginul de cinematica: ia pozitia din `/joint/state`, o trece prin estimatorul alpha-beta-gamma, publica viteza+acceleratie curate, jurnal CSV. |
-| `nodes/operator_panel_node.py` | Panoul operatorului (GUI desktop): slidere de cuplu A, impedanta (K,B), degradare (ms), ESTOP, si graficele de reactie din encoderele B. Necesita desktop; emulatorul + monitorul pornite separat. |
+| `nodes/encoder_monitor_node.py` | Pluginul de cinematica: pastreaza `/joint/kinematics` pentru axele comune si publica `/joint/motor_kinematics` pentru cele 6 encodere SIM A/B, plus doua jurnale CSV. |
+| `nodes/operator_panel_node.py` | Panoul operatorului (GUI desktop): comenzi A cu slidere si campuri numerice, grafice A si grafice B in doua coloane separate, K/B/link, ESTOP/RESET si export Excel. In simulare, unghiul si viteza celor doua laturi sunt aceleasi fiindca axul este rigid. |
+| `session_export.py` | Jurnalele complete ale unei sesiuni si fisierul Excel `.xlsx` cu foi separate pentru stare, encodere, evenimente si metadate. |
 | `nodes/gz_mirror_node.py` | Oglinda Gazebo: citeste `/joint/state` si publica pozitiile spre controllerele din lumea gz (prin ros_gz_bridge); Gazebo doar urmareste, nu simuleaza fizica. |
 | `nodes/state_to_jointstate_node.py` | Podul spre lumea ROS standard: traduce `/joint/state` (JSON) in `sensor_msgs/JointState` pe `/joint_states`, pentru robot_state_publisher + RViz. |
 | `plot_joint.py` | Genereaza `figs/joint_sweep.png` (E_max vs latenta, figura-cheie C4) si `figs/joint_duel.png` (pozitia in timp la 60 ms: fix vs adaptiv). |
@@ -90,13 +95,13 @@ Argumente CLI `sil_joint.py` (din argparse): pozitional `scenariu` cu choices
 `--trace` (implicit None). Nota: nu exista flag `--down` in `sil_joint.py` (nici
 in argparse, nici in docstring-ul lui). Token-ul `down` apare in alta parte:
 in schema canalului degradat `{ms, jit, loss, down}` din `teleimpedance.py`
-(`DegradedMeasure`) si in mesajul `/teleop/linkstate` al `emulator_node.py`.
+(`DegradedMeasure`) si in mesajul `/joint/linkstate` al `emulator_node.py`.
 
 Figuri:
 
     python3 plot_joint.py
     python3 plot_encoder.py                       # demo generat local
-    python3 plot_encoder.py ~/sar_data/encoders.csv
+    python3 plot_encoder.py ~/sar_data/encoders_20260918_225000.csv
 
 Geometrie URDF/SDF:
 
@@ -104,15 +109,66 @@ Geometrie URDF/SDF:
 
 Noduri ROS (rulate direct, din docstring-uri):
 
-    python3 nodes/emulator_node.py
-    python3 nodes/encoder_monitor_node.py
-    python3 nodes/operator_panel_node.py          # necesita desktop
-    python3 nodes/gz_mirror_node.py
-    python3 nodes/state_to_jointstate_node.py
+    /usr/bin/python3 nodes/emulator_node.py
+    /usr/bin/python3 nodes/encoder_monitor_node.py
+    /usr/bin/python3 nodes/operator_panel_node.py # necesita desktop
+    /usr/bin/python3 nodes/gz_mirror_node.py
+    /usr/bin/python3 nodes/state_to_jointstate_node.py
 
 Launch (vizualizare RViz; emulatorul se porneste separat):
 
     ros2 launch launch/viz_rviz.launch.py
+
+Simulare completa dintr-o singura comanda (Gazebo + bridge + emulator +
+encodere + HMI cu slidere si grafice):
+
+    ros2 launch launch/full_sim.launch.py
+
+Optiuni utile:
+
+    ros2 launch launch/full_sim.launch.py adaptive:=false # experiment fix
+    ros2 launch launch/full_sim.launch.py gui:=false hmi:=false  # test headless
+
+HMI-ul combina comenzile si vizualizarea grafica in aceeasi fereastra.
+Cele trei coloane sunt: comenzi A, graficele motoarelor A si graficele
+reactiei B. Motoarele A sunt albastru deschis in Gazebo, iar B sunt negre;
+fiecare pereche este legata prin doua flanse circulare cu sase suruburi.
+Geometria este schematica, nu un CAD masurat al bancului real.
+Pentru fiecare pereche exista un singur unghi mecanic, dar doua canale
+de encoder simulate; B aplica un cuplu opus, nu o pozitie comandata
+opusa. Diferenta dintre citirile A/B este afisata ca diagnostic. In
+SIM ideal este zero; nu este o masura de cuplu. Campurile numerice A accepta
+-2..+2 Nm si aplica valoarea la Enter.
+Launch-ul complet foloseste implicit impedanta adaptiva, pentru stabilitate
+cand modifici latenta; `adaptive:=false` ramane disponibil pentru comparatii.
+La 200 Hz ROS, controlul si fizica SIM fac 10 subpasi interni de 0.5 ms;
+asta corecteaza oscilatia numerica observata anterior cu B=1.3 si link=16 ms.
+Contactul virtual bilateral se poate demonstra separat:
+
+    ros2 launch launch/full_sim.launch.py reaction_mode:=contact contact_angle_deg:=5.0
+
+In modul contact B este liber in intervalul +/-5 grade si reactioneaza
+doar dupa prag. K/B raman in HMI; linkul nu afecteaza reactia locala.
+Modul implicit este `reaction_mode:=impedance`.
+Butonul ESTOP este memorat. `RESET ESTOP` rearmeaza numai simularea, numai
+cand toate axele au viteza sub 0.05 rad/s si legatura encoderului este
+disponibila. Comenzile A revin la zero, iar pozitia curenta devine noul
+punct neutru al controlerului B. Pentru un start complet nou, reporneste
+launch-ul. `Export Excel` creeaza un `.xlsx` cu intreaga sesiune, de la
+starea initiala `t=0` pana la momentul exportului; nu mai este limitat la
+cele ~30 s vizibile in grafice. In acelasi director, starea, evenimentele
+si encoderele sunt jurnalizate continuu ca CSV. Toate au `time_s`/`t_s`
+(timpul simularii) si `time_utc` (ceas real UTC). Fisierele se gasesc in
+`/home/ubuntu/Analiza_Teza/ViPRO/DATE/`; `data_dir:=/calea/dorita` schimba
+locatia. Fiecare lansare primeste un `session_id` comun; un export ulterior
+face o alta fotografie fara sa suprascrie datele brute.
+
+Pentru a vedea rotatia in Gazebo, fixeaza `link=0 ms`, `K=2 Nm/rad`,
+`B=0.8 Nms/rad`, apoi mareste lent `tau_A p0` la `0.5 Nm`.
+Echilibrul asteptat este aproximativ `0.25 rad` (14 grade). Cu setarile
+din captura (`K=16.4`, `tau_A=0.92`), echilibrul este numai `0.056 rad`
+(3.2 grade), greu de observat pe flansa. Reperul rosu subtire este prins
+de ax, nu de cadrul fix; Gazebo oglindeste unghiul emulatorului.
 
 ## Parametri si topicuri
 
@@ -123,15 +179,31 @@ ridica SystemExit), `n_pairs` (3), `rate_hz` (200.0), `k` (20.0), `b` (0.8),
 
 - sub `/joint/cmd_a` (`std_msgs/String`) -- JSON `{"pair":0,"tau":0.5}`
 - sub `/joint/impedance` -- JSON `{"pair":0,"k":20,"b":0.8,"th0":0,"adaptive":true}`
-- sub `/joint/estop` -- orice mesaj => cuplu zero pe tot
-- sub `/teleop/linkstate` -- JSON `{"ms":..,"jit":..,"loss":..,"down":..}`
+- sub `/joint/estop` -- orice mesaj => oprire globala memorata, cuplu zero;
+  comenzile ulterioare sunt ignorate pana la reset
+- sub `/joint/reset_estop` -- rearmare conditionata, numai backend SIM
+- sub `/joint/linkstate` -- JSON `{"ms":..,"jit":..,"loss":..,"down":..}`
 - pub `/joint/state` -- JSON per pereche; din cod, fiecare pereche `k` are
-  `{"t","th","om","tau_b","k_ef","win_energy","estopped"}`.
+  `{"t","th","om","tau_a_cmd","tau_b","k_ef","win_energy","estopped", "reset_status"}`.
+
+`tau_a_cmd` este cuplul COMANDAT motorului A, nu o masura de senzor.
+`tau_b` este reactia calculata si comandata motorului B, nu forta fizica
+masurata. Modelul actual este `tau_B = -K*(theta-theta0) - B*omega`, limitat
+la `tau_max`; un obiect real si proprietatile sale (contact, rigiditate,
+frecare) nu sunt inca identificate. Un viitor agent poate selecta K/B dupa
+datele de contact, dar asta cere senzori si calibrare pe stand.
 
 `encoder_monitor_node.py` (`declare_parameter` reali): `state_topic`
 (`/joint/state`), `out_topic` (`/joint/kinematics`), `rate_hz` (50.0),
-`csv_path` (`~/sar_data/encoders.csv`), `alpha` (0.25), `beta` (0.02),
+`csv_path` (`/home/ubuntu/Analiza_Teza/ViPRO/DATE/encoders_<session_id>.csv`),
+`alpha` (0.25), `beta` (0.02),
 `gamma` (0.0005), `quantize_cpr` (4096).
+Mai publica `/joint/motor_kinematics` si scrie
+`/home/ubuntu/Analiza_Teza/ViPRO/DATE/motor_encoders_<session_id>.csv`
+pentru A0/B0,
+A1/B1, A2/B2. Toate sunt encodere SIM; backend-ul ABB ramane neimplementat.
+
+Jurnalele primesc timestamp si nu suprascriu fisiere existente.
 
 - sub `state_topic` (implicit `/joint/state`, `std_msgs/String`)
 - pub `out_topic` (implicit `/joint/kinematics`, `std_msgs/String`) -- JSON cu
@@ -139,7 +211,8 @@ ridica SystemExit), `n_pairs` (3), `rate_hz` (200.0), `k` (20.0), `b` (0.8),
 
 `operator_panel_node.py` (topicuri din cod, fara parametri declarati):
 
-- pub `/joint/cmd_a`, `/joint/impedance`, `/teleop/linkstate`, `/joint/estop`
+- pub `/joint/cmd_a`, `/joint/impedance`, `/joint/linkstate`,
+  `/joint/estop`, `/joint/reset_estop`
 - sub `/joint/state`, `/joint/kinematics`
 
 `gz_mirror_node.py`: sub `/joint/state`; pub `/bench/pair{k}_cmd_pos`

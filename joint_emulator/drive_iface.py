@@ -6,6 +6,7 @@ DUPA ce stim modelul drive-urilor ABB de pe stand -- fara sa schimbam
 nimic deasupra acestei interfete.
 
 Contract (toate marimile SI):
+  step(dt=None)                       un pas atomic (doar backend simulat)
   enable(id) / disable(id)            armare/dezarmare (B: mod TORQUE!)
   read(id) -> (t, th, om)             timpul masurii + pozitie + viteza
   set_torque(id, tau)                 comanda de cuplu (clamp in backend)
@@ -13,8 +14,6 @@ Contract (toate marimile SI):
 Regula de fier: motorul B NU ruleaza niciodata in mod pozitie --
 pozitie-contra-pozitie pe ax rigid = oscilatie si supracurent.
 """
-import time
-
 from joint_core import PairSim
 
 
@@ -26,13 +25,21 @@ class SimBackend:
         self.tau = [[0.0, 0.0] for _ in range(n_pairs)]
         self.enabled = [[False, False] for _ in range(n_pairs)]
         self.dt = dt
-        self.t0 = time.time()
 
-    def _tick(self):
+    def step(self, dt=None):
+        """Avanseaza toate perechile o singura data, la acelasi timestamp.
+
+        ``read()`` este intentionat fara efecte secundare. Astfel, numarul si
+        ordinea citirilor nu schimba fizica simulatorului, iar toate perechile
+        observa acelasi pas de timp.
+        """
+        step_dt = self.dt if dt is None else float(dt)
+        if step_dt <= 0.0:
+            raise ValueError("dt trebuie sa fie strict pozitiv")
         for k, p in enumerate(self.pairs):
             a = self.tau[k][0] if self.enabled[k][0] else 0.0
             b = self.tau[k][1] if self.enabled[k][1] else 0.0
-            p.step(a, b, self.dt)
+            p.step(a, b, step_dt)
 
     def enable(self, mid):
         pair, side = divmod(mid, 2)
@@ -45,7 +52,6 @@ class SimBackend:
 
     def read(self, mid):
         pair, _ = divmod(mid, 2)
-        self._tick()
         p = self.pairs[pair]
         return p.t, p.th, p.om
 
@@ -57,3 +63,15 @@ class SimBackend:
         for k in range(len(self.pairs)):
             self.tau[k] = [0.0, 0.0]
             self.enabled[k] = [False, False]
+
+    def rearm(self, max_speed_rad_s=0.05):
+        """Rearmeaza numai backend-ul SIM, fara a restaura cupluri vechi.
+
+        Pozitia si viteza axelor nu sunt teleportate. Viteza trebuie sa fie
+        mica, inclusiv daca metoda este apelata in afara nodului ROS.
+        """
+        if any(abs(pair.om) > max_speed_rad_s for pair in self.pairs):
+            raise ValueError("axele trebuie sa fie lente inainte de rearmare")
+        for k in range(len(self.pairs)):
+            self.tau[k] = [0.0, 0.0]
+            self.enabled[k] = [True, True]

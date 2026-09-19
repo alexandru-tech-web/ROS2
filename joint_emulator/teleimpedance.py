@@ -6,6 +6,7 @@ poate ADAPTA la calitatea legaturii -- intrebarea de cercetare a
 bancului: K scade si B creste cand masura imbatraneste, ca bucla sa
 ramana stabila acolo unde impedanta fixa explodeaza.
 """
+import math
 import random
 
 from joint_core import ImpedanceLaw
@@ -25,10 +26,53 @@ class DegradedMeasure:
         self._cur = None                # (t_masura, th, om)
 
     def set_from_dict(self, d):
-        self.ms = float(d.get("ms", self.ms))
-        self.jit = float(d.get("jit", self.jit))
-        self.loss = float(d.get("loss", self.loss))
-        self.down = bool(d.get("down", self.down))
+        """Actualizeaza canalul din schema plata sau multi-link.
+
+        Schema proprie este ``{ms, jit, loss, down}``. Pentru replay si
+        compatibilitate acceptam si schema roverului ``{lat_ms: {id: ...},
+        jit_ms: {id: ...}, loss: {id: ...}, down: [id, ...]}``.
+        Valorile sunt validate inainte de a modifica starea canalului.
+        """
+        if not isinstance(d, dict):
+            raise ValueError("linkstate trebuie sa fie un obiect JSON")
+
+        def scalar(value):
+            if isinstance(value, dict):
+                return next(iter(value.values()), None)
+            return value
+
+        def number(value, current, name):
+            value = scalar(value)
+            if value is None:
+                return current
+            if isinstance(value, bool):
+                raise ValueError(f"{name} nu poate fi boolean")
+            result = float(value)
+            if not math.isfinite(result):
+                raise ValueError(f"{name} trebuie sa fie finit")
+            return result
+
+        ms_value = d["ms"] if "ms" in d else d.get("lat_ms")
+        jit_value = d["jit"] if "jit" in d else d.get("jit_ms")
+        ms = max(0.0, number(ms_value, self.ms, "ms"))
+        jit = max(0.0, number(jit_value, self.jit, "jit"))
+        loss = number(d.get("loss"), self.loss, "loss")
+        loss = min(max(loss, 0.0), 1.0)
+
+        down_value = d.get("down", self.down)
+        if isinstance(down_value, dict):
+            down = any(bool(v) for v in down_value.values())
+        elif isinstance(down_value, (list, tuple, set)):
+            down = bool(down_value)
+        elif isinstance(down_value, str):
+            normalized = down_value.strip().lower()
+            if normalized not in ("true", "false", "1", "0"):
+                raise ValueError("down trebuie sa fie boolean")
+            down = normalized in ("true", "1")
+        else:
+            down = bool(down_value)
+
+        self.ms, self.jit, self.loss, self.down = ms, jit, loss, down
 
     def push(self, t, th, om):
         if self.down or self.rng.random() < self.loss:
