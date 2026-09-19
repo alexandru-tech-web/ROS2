@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>c4_platforma</name>
+  <version>0.0.1</version>
+  <description>C4: roverul cu sonda la bord. Nucleu pur (confidence_core: alpha + doua estimari ale varstei, fara ceasuri comune)
+  si noduri subtiri (confidence_node pe rover, ecou_node la operator). Spec: DOC/CAIETE/P0_SPEC_RECONSTRUIT.md.</description>
+  <maintainer email="gheorghitaalexandruu@gmail.com">Alexandru Gheorghita</maintainer>
+  <license>Apache-2.0</license>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <export><build_type>ament_python</build_type></export>
+</package>

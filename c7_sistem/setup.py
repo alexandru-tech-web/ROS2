@@ -9,8 +9,8 @@ setup(
     data_files=[
         ("share/ament_index/resource_index/packages", ["resource/" + PACHET]),
         ("share/" + PACHET, ["package.xml"]),
-        ("share/" + PACHET + "/launch", ["launch/v0_sistem.launch.py"]),
-        ("share/" + PACHET + "/tools", ["tools/v0_smoke.sh"]),
+        ("share/" + PACHET + "/launch", ["launch/v0_sistem.launch.py", "launch/v0_rover.launch.py", "launch/v0_operator.launch.py"]),
+        ("share/" + PACHET + "/tools", ["tools/v0_smoke.sh", "tools/split_smoke.sh"]),
     ],
     install_requires=["setuptools"],
     zip_safe=True,

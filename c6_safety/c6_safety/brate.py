@@ -63,7 +63,7 @@ def filtru_pentru(brat, params, gamma=None, tau_act=0.0):
         m = cbf_core.marja_inchidere(st.v, v_o, a, A_ef)
         o = ctx.get("o_hat") if ctx.get("o_hat") is not None else p.obst
         u, info = sf.apply(st, cmd, o, m, None, dm, dmv, dt_masurat=ctx.get("dt_masurat"))
-        return u, info, (not info["feasible"])
+        return u, info, (info["feasible"] is False)     # None = stare sigura (n_ws / n_dt), nu infezabil
     return f, sf
 
 
@@ -77,12 +77,14 @@ def ruleaza_brat(brat, params, seed, canal=None, react=False, tau_act=0.0, hazar
                                 safety_filter=f, react=react, hazard=hz)
     m["n_inf"] = sf.n_inf if sf else 0
     m["n_ws"] = getattr(sf, "n_ws", 0) if sf else 0
+    m["n_dt"] = getattr(sf, "n_dt", 0) if sf else 0      # P0-HIL: pasi peste dt_max_admis
     m["brat"] = brat
     m["seed"] = seed
     g = sf.gamma if sf else cbf_core.GAMMA_IMPLICIT
     # o_true pentru certificat: din urma (valabil si pentru urmarire, unde nu e analitic)
     poz = {q["t"]: (q["o_true_x"], q["o_true_y"]) for q in tr}
     c = certif_core.certify(tr, params, lambda t: poz.get(t, hz.o_true(t)), g)
+    c["n_dt"] = m["n_dt"]
     return m, tr, c
 
 

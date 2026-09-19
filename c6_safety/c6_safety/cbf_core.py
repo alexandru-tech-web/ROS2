@@ -118,6 +118,11 @@ class SafetyFilter(object):
         # misca cu v_o*ddt/gamma ~ 8 mm intre pasi si certificatul (ii) pica mai rau); "max" = bugetul de varsta din
         # dt maxim vazut pana acum (conservator, monoton), eps_lin si delta_DT NOMINALE (constante de proiectare)
         self.mod_dt = "max"                   # implicit dupa V0.1 (decizie de confirmat)
+        # P0-HIL: peste dt_max_admis (implicit 3 x dt = 150 ms) pasul nu mai e un pas de control (tick pierdut,
+        # proces blocat): filtrul NU intinde marginile, ci intoarce starea sigura u=(0,0) si numara n_dt
+        # (separat de n_ws, care e pentru informatie prea veche pe canal). Pasul urmator se judeca normal.
+        self.dt_max_admis = 3.0 * p.dt
+        self.n_dt = 0
 
     def _dt_efectiv(self, dt_masurat):
         p = self.p
@@ -169,6 +174,12 @@ class SafetyFilter(object):
               dmarja_dv=0.0, dt_masurat=None):
         """(u, info). info = {h, h_next_pred, feasible, obj, kkt_res, eps_lin, marja_extra}."""
         p = self.p
+        if dt_masurat is not None and float(dt_masurat) > self.dt_max_admis:
+            self.n_dt += 1
+            self.dt_max = max(self.dt_max, float(dt_masurat))
+            return (0.0, 0.0), {"h": None, "h_next_pred": None, "feasible": None, "obj": None, "kkt_res": None,
+                                "eps_lin": None, "marja_extra": marja_extra, "delta_DT": None,
+                                "dt_ef": float(dt_masurat), "r_eff": None, "dt_depasit": True}
         px, py, th, v = _desfa(x)
         a_v, a_w, b, h = self.constrangere_cbf(x, o_hat, marja_extra, r_eff_fix, dmarja_dt, dmarja_dv, dt_masurat)
 
@@ -215,7 +226,7 @@ def ca_safety_filter(sf, marja_extra=0.0, o_hat=None, marja_fn=None, r_eff_fix=N
         o = ctx.get("o_hat") if ctx.get("o_hat") is not None else (o_hat if o_hat is not None else params.obst)
         m = marja_fn(ctx, params) if marja_fn else marja_extra
         u, info = sf.apply(st, cmd, o, m, r_eff_fix, dmarja_dt)
-        return u, info, (not info["feasible"])
+        return u, info, (info["feasible"] is False)
     return f
 
 
@@ -331,6 +342,30 @@ def _selftest(dir_iesire=None):
     rez.append(("h", "RAPORTAT", "react=True (pe blocaj): V=%d T_G=%s B=%.3f n_reactii=%d"
                 % (mh["V"], mh["T_G"], mh["B"], mh["n_reactii"])))
 
+    # (i) P0-HIL: un pas masurat de 200 ms (> dt_max_admis = 3 dt = 150 ms) injectat la k=300 intr-o traversare
+    # A2 pe canal ideal (bratul din brate.py, nemodificat) -> exact un pas in stare sigura (n_dt = 1), n_ws
+    # neatins, nicio incalcare (i)/(ii) in certificat. Pasul e injectat prin ctx["dt_masurat"].
+    import brate
+    import certif_core
+    random.seed(1)
+    f_b, sf_i = brate.filtru_pentru("A2", P, None, 0.0)
+    hz_i = episode.Hazard(P)
+    k_inj = [0]
+
+    def f_i(st, cmd, p, ctx=None):
+        ctx = dict(ctx or {})
+        k_inj[0] += 1
+        ctx["dt_masurat"] = 0.200 if k_inj[0] == 300 else p.dt
+        return f_b(st, cmd, p, ctx)
+    mi, tri = episode.run_episode(P, models.Unicycle(), channel_core.IdealChannel(P), safety_filter=f_i, hazard=hz_i)
+    poz = {q["t"]: (q["o_true_x"], q["o_true_y"]) for q in tri}
+    ci = certif_core.certify(tri, P, lambda t: poz.get(t, hz_i.o_true(t)), sf_i.gamma)
+    ok_i = (sf_i.n_dt == 1 and sf_i.n_ws == 0 and mi["V"] == 0 and ci["incalcari_i"] == 0 and ci["incalcari_ii"] == 0
+            and sf_i.n_inf == 0)
+    rez.append(("i", "PASS" if ok_i else "FAIL", "pas 200 ms injectat la k=300 (dt_max_admis=%.3f): n_dt=%d n_ws=%d n_inf=%d "
+                "V=%d cert (i)=%d (ii)=%d" % (sf_i.dt_max_admis, sf_i.n_dt, sf_i.n_ws, sf_i.n_inf, mi["V"],
+                                              ci["incalcari_i"], ci["incalcari_ii"])))
+
     for c, v, cif in rez:
         print("  (%s) %-8s %s" % (c, v, cif))
     if not ok_a:
@@ -338,7 +373,7 @@ def _selftest(dir_iesire=None):
     if dir_iesire:
         io_core.scrie(dir_iesire, m, tr, "s2_1_a_filtru")
         print("  urme scrise in %s" % dir_iesire)
-    picate = [c for c, v, _ in rez if v == "FAIL" and c in ("a", "c", "d", "e")]
+    picate = [c for c, v, _ in rez if v == "FAIL" and c in ("a", "c", "d", "e", "i")]
     if picate:
         print("SELFTEST cbf_core: FAIL pe obligatorii %s" % picate)
         return 1
