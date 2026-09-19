@@ -182,6 +182,9 @@ def export_session_xlsx(data_dir, session_id, export_time_utc=None):
         ("Axe_3", os.path.join(data_dir, f"encoders_{session_id}.csv")),
         ("Evenimente", session_path(data_dir, session_id, "events")),
     )
+    suite_summary = session_path(data_dir, session_id, "suite_summary")
+    if os.path.isfile(suite_summary):
+        sources += (("Suita", suite_summary),)
     for _, source in sources:
         if not os.path.isfile(source):
             raise FileNotFoundError(f"Jurnalul sesiunii lipseste: {source}")
@@ -240,8 +243,8 @@ def export_session_xlsx(data_dir, session_id, export_time_utc=None):
                     ("theta_a_sim_rad", "pozitia simulata a motorului A"),
                     ("theta_b_sim_rad", "pozitia simulata a motorului B"),
                     ("th_raw", "encoder cuantizat, inainte de filtru"),
-                    ("th", "pozitie estimata de filtrul alpha-beta-gamma"),
-                    ("om", "viteza estimata de acelasi filtru"),
+                    ("th", "pozitie encoder: sampled=brut cuantizat; alpha-beta-gamma=estimat"),
+                    ("om", "viteza estimata; metoda din encoder_config"),
                     ("win_energy_j", "energie pe fereastra glisanta de 1 s"),
                     ("nota", "CSV-urile sursa continua dupa exportul XLSX"))
             config_rows = []

@@ -110,7 +110,8 @@ def generate_launch_description():
             description=("Foloseste impedanta adaptiva (recomandat cand "
                          "latenta este modificata din HMI)")),
         DeclareLaunchArgument("rate_hz", default_value="200.0"),
-        DeclareLaunchArgument("state_hz", default_value="20.0"),
+        DeclareLaunchArgument("state_hz", default_value="100.0",
+                              description="Rata jurnalului de stare si encodere SIM"),
         DeclareLaunchArgument("reaction_mode", default_value="impedance",
                               description="impedance sau contact local"),
         DeclareLaunchArgument("contact_angle_deg", default_value="5.0",

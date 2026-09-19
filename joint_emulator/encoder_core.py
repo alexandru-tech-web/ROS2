@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """encoder_core.py -- stratul de ENCODER al bancului: de la impulsuri
-cuantizate la viteza si acceleratie CURATE, plus jurnalul pentru grafice.
+cuantizate la estimari de viteza/acceleratie, plus jurnalul pentru grafice.
 
 Problema reala: encoderul da pozitie in pasi (counts). Derivata numerica
 bruta a unei pozitii cuantizate = zgomot urias pe viteza (saltul de un
@@ -10,7 +10,8 @@ numpy/scipy, rulabil si pe Raspberry Pi la 1 kHz.
 
   EncoderModel        cuantizare la counts_per_rev (+ zgomot optional)
   NaiveDiff           derivata bruta (pentru comparatie in figuri)
-  KinematicEstimator  filtrul alpha-beta-gamma (th, om, acc)
+  KinematicEstimator  filtrul alpha-beta-gamma (acordat pentru 1 kHz)
+  SampledEncoderEstimator  pozitie bruta si derivate filtrate la 20-100 Hz
   EncoderLogger       CSV "t,pair,th_raw,th,om,acc" (acelasi stil repo)
 """
 import math
@@ -84,6 +85,45 @@ class KinematicEstimator:
         return self.th, self.om, self.acc
 
 
+class SampledEncoderEstimator:
+    """Estimator cauzal pentru masuri rare (de exemplu 20 Hz).
+
+    Pozitia raportata ramane citirea encoderului cuantizat: filtrul nu
+    poate inventa o deplasare dupa ce numarul de impulsuri s-a oprit.
+    Viteza este derivata discreta trecuta printr-un filtru de ordinul 1,
+    cu constanta de timp in secunde (independenta de rata de esantionare).
+    Acceleratia este derivata vitezei filtrate, netezita separat.
+    """
+
+    def __init__(self, velocity_tau_s=0.1, acceleration_tau_s=0.15):
+        self.velocity_tau_s = float(velocity_tau_s)
+        self.acceleration_tau_s = float(acceleration_tau_s)
+        if (not math.isfinite(self.velocity_tau_s) or
+                not math.isfinite(self.acceleration_tau_s) or
+                self.velocity_tau_s <= 0.0 or self.acceleration_tau_s <= 0.0):
+            raise ValueError("constantele de timp ale estimatorului trebuie sa fie pozitive")
+        self.th = None
+        self.om = 0.0
+        self.acc = 0.0
+
+    def step(self, th_meas, dt):
+        th_meas, dt = float(th_meas), float(dt)
+        if not math.isfinite(th_meas) or not math.isfinite(dt) or dt <= 0.0:
+            raise ValueError("masura si dt trebuie sa fie finite, cu dt pozitiv")
+        if self.th is None:
+            self.th = th_meas
+            return self.th, self.om, self.acc
+        om_raw = (th_meas - self.th) / dt
+        old_om = self.om
+        omega_weight = -math.expm1(-dt / self.velocity_tau_s)
+        self.om += omega_weight * (om_raw - self.om)
+        acc_raw = (self.om - old_om) / dt
+        acceleration_weight = -math.expm1(-dt / self.acceleration_tau_s)
+        self.acc += acceleration_weight * (acc_raw - self.acc)
+        self.th = th_meas
+        return self.th, self.om, self.acc
+
+
 class MotorEncoderBank:
     """Sase canale de encoder independente pentru trei perechi rigide.
 
@@ -94,7 +134,8 @@ class MotorEncoderBank:
 
     def __init__(self, n_pairs=3, counts_per_rev=4096,
                  alpha=0.25, beta=0.02, gamma=0.0005,
-                 signs=None, offsets=None):
+                 signs=None, offsets=None, estimator_kind="alpha_beta_gamma",
+                 velocity_tau_s=0.1, acceleration_tau_s=0.15):
         self.n_motors = 2 * int(n_pairs)
         cpr = int(counts_per_rev)
         if self.n_motors <= 0 or cpr < 0:
@@ -109,8 +150,14 @@ class MotorEncoderBank:
             raise ValueError("calibrarea encoderelor este invalida")
         self.encoders = ([EncoderModel(cpr) for _ in range(self.n_motors)]
                          if cpr else [None] * self.n_motors)
-        self.filters = [KinematicEstimator(alpha, beta, gamma)
-                        for _ in range(self.n_motors)]
+        if estimator_kind == "alpha_beta_gamma":
+            mk_filter = lambda: KinematicEstimator(alpha, beta, gamma)
+        elif estimator_kind == "sampled":
+            mk_filter = lambda: SampledEncoderEstimator(
+                velocity_tau_s, acceleration_tau_s)
+        else:
+            raise ValueError("estimator_kind trebuie sa fie sampled/alpha_beta_gamma")
+        self.filters = [mk_filter() for _ in range(self.n_motors)]
         self.naive = [NaiveDiff() for _ in range(self.n_motors)]
         self.last_t = [None] * self.n_motors
 

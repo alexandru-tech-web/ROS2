@@ -226,7 +226,8 @@ ck(max(abs(row[2]) for row in tail_safe) < 0.05 and
 
 # ---- stratul de encoder: cuantizare + estimator ----
 from encoder_core import (EncoderModel, NaiveDiff, KinematicEstimator,
-                          EncoderLogger, MotorEncoderBank, MotorEncoderLogger)
+                          SampledEncoderEstimator, EncoderLogger,
+                          MotorEncoderBank, MotorEncoderLogger)
 
 enc = EncoderModel(counts_per_rev=4096)
 ck(abs(enc.step - 2 * math.pi / 4096) < 1e-12, "encoder: pasul = 2pi/cpr")
@@ -260,6 +261,29 @@ for _ in range(2000):
 ck(abs(ke2.th - 0.7) < 1e-3 and abs(ke2.om) < 1e-3 and abs(ke2.acc) < 0.05,
    "estimator: pe pozitie constanta converge la om=0, acc=0")
 
+# La 20 Hz, pozitia filtrului vechi poate depasi citirea encoderului dupa
+# ce axul s-a oprit. Estimatorul sampled nu extrapoleaza pozitia.
+sampled = SampledEncoderEstimator(velocity_tau_s=0.1,
+                                  acceleration_tau_s=0.15)
+observed = [0.0, 0.0, 0.050621, 0.145728, 0.121184, 0.133456]
+observed += [0.136524] * 100
+sampled_out = [sampled.step(raw, 0.05) for raw in observed]
+ck(all(abs(result[0] - raw) < 1e-12
+       for result, raw in zip(sampled_out, observed)) and
+   max(result[0] for result in sampled_out) == max(observed),
+   "estimator 20 Hz: unghiul nu depaseste encoderul brut")
+ck(abs(sampled_out[-1][1]) < 1e-8 and
+   all(math.isfinite(value) for result in sampled_out for value in result),
+   "estimator 20 Hz: viteza si acceleratia converg la repaus")
+try:
+    SampledEncoderEstimator(velocity_tau_s=0.0)
+except ValueError:
+    invalid_sampled_rejected = True
+else:
+    invalid_sampled_rejected = False
+ck(invalid_sampled_rejected,
+   "estimator 20 Hz: respinge constante de timp invalide")
+
 bank = MotorEncoderBank(n_pairs=3, counts_per_rev=0,
                         signs=[1, -1, 1, -1, 1, -1])
 a0 = bank.sample(0, 0.0, 0.2)
@@ -274,6 +298,11 @@ qa = bank_quant.sample(0, 0.0, 0.1)
 qb = bank_quant.sample(1, 0.0, 0.1)
 ck(qa["counts"] == qb["counts"] and qa["th_raw"] == qb["th_raw"],
    "6 encodere: axul rigid da citiri identice in SIM ideal")
+bank_sampled = MotorEncoderBank(n_pairs=3, estimator_kind="sampled")
+sampled_a = bank_sampled.sample(0, 0.0, 0.1)
+sampled_b = bank_sampled.sample(1, 0.0, 0.1)
+ck(sampled_a["th"] == sampled_a["th_raw"] == sampled_b["th"],
+   "6 encodere: modul sampled pastreaza pozitia cuantizata comuna")
 with tempfile.TemporaryDirectory(prefix="joint_motor_test_") as tmp:
     path = os.path.join(tmp, "motor.csv")
     motor_log = MotorEncoderLogger(path)
@@ -435,5 +464,102 @@ ck(all(sum(v["kind"] == "cyl" and v.get("r") == 0.0035
            for v in shapes if v["link"] == f"shaft{k}") == 6
        for k in range(3)),
    "geometrie: fiecare flansa are 6 suruburi prinse de axul rotitor")
+
+# ---- protocol SIL repetabil si analiza pe o singura pereche ----
+from vipro_experiment import (analyze_session, run_reference, run_suite,
+                              suite_checks)
+
+with tempfile.TemporaryDirectory(prefix="vipro_reference_test_") as tmp:
+    first_report_path, first_book, first_figure, first_report = run_reference(
+        tmp, tau=0.24, onset=0.4, release=1.2, duration=1.6,
+        session_id="repeat_a")
+    _, second_book, second_figure, second_report = run_reference(
+        tmp, tau=0.24, onset=0.4, release=1.2, duration=1.6,
+        session_id="repeat_b")
+    ck(abs(first_report["steady_theta_rad"] - 0.012) < 1e-4 and
+       abs(first_report["steady_tau_b_cmd_nm"] + 0.24) < 1e-4 and
+       first_report["max_abs_theta_other_pairs_rad"] == 0.0,
+       "protocol SIL: doar A0 misca axul 0, B0 opune cuplu")
+    ck(first_report["max_abs_encoder_delta_a_b_rad"] == 0.0 and
+       first_report["max_abs_filtered_minus_raw_rad"] == 0.0 and
+       abs(first_report["state_sample_period_median_s"] - 0.01) < 1e-9,
+       "protocol SIL: encodere A/B rigide si esantionare la 100 Hz")
+    keys = ("steady_theta_rad", "steady_tau_b_cmd_nm", "overshoot_pct",
+            "rise_time_10_90_s", "settling_time_2pct_s",
+            "max_abs_theta_other_pairs_rad", "velocity_est_rmse_vs_sim_rad_s")
+    ck(all(first_report[key] == second_report[key] for key in keys),
+       "protocol SIL: aceeasi treapta produce aceiasi indicatori")
+    with zipfile.ZipFile(first_book) as archive:
+        valid_book = archive.testzip() is None
+    ck(valid_book and os.path.getsize(first_figure) > 1000 and
+       os.path.getsize(second_book) > 1000 and
+       os.path.getsize(second_figure) > 1000 and
+       os.path.getsize(first_report_path) > 100,
+       "protocol SIL: produce Excel, figura si raport fara a rescrie jurnalele")
+    replay = analyze_session(tmp, "repeat_a")
+    ck(replay["steady_theta_rad"] == first_report["steady_theta_rad"],
+       "protocol SIL: analiza ulterioara reproduce raportul initial")
+    try:
+        run_reference(tmp, tau=0.24, onset=0.4, release=1.2,
+                      duration=1.6, session_id="repeat_a")
+    except FileExistsError:
+        no_rewrite = True
+    else:
+        no_rewrite = False
+    ck(no_rewrite, "protocol SIL: nu suprascrie sesiuni existente")
+    try:
+        run_reference(tmp, tau=2.5, session_id="unsafe")
+    except ValueError:
+        invalid_step = True
+    else:
+        invalid_step = False
+    ck(invalid_step, "protocol SIL: refuza o treapta peste limita SIM")
+
+with tempfile.TemporaryDirectory(prefix="vipro_suite_test_") as tmp:
+    summary_path, summary_csv, suite_book, suite_figure, summary = run_suite(
+        tmp, session_id="suite_test")
+    ck(summary["n_cases"] == summary["passed"] == 12 and
+       summary["failed"] == 0 and
+       [case["pair"] for case in summary["cases"]] == [0] * 4 + [1] * 4 + [2] * 4,
+       "suita SIL: 12 trepte semnate, o pereche la un moment dat")
+    ck(all(case["metrics"]["max_abs_theta_other_pairs_rad"] == 0.0 and
+           case["recovery_theta_max_rad"] <= 0.002
+           for case in summary["cases"]),
+       "suita SIL: perechi izolate si revenire la zero intre trepte")
+    with open(summary_csv, newline="", encoding="utf-8") as stream:
+        suite_rows = list(csv.DictReader(stream))
+    with zipfile.ZipFile(suite_book) as archive:
+        suite_book_ok = archive.testzip() is None
+        suite_names = archive.read("xl/workbook.xml").decode("utf-8")
+        suite_sheet = ElementTree.fromstring(
+            archive.read("xl/worksheets/sheet5.xml"))
+        suite_sheet_rows = suite_sheet.findall(
+            ".//{http://schemas.openxmlformats.org/spreadsheetml/2006/main}row")
+    ck(len(suite_rows) == 12 and all(r["passed"] == "1" for r in suite_rows) and
+       len({r["time_utc"] for r in suite_rows}) == 12 and
+       suite_book_ok and "Suita" in suite_names and len(suite_sheet_rows) == 13 and
+       os.path.getsize(summary_path) > 100 and
+       os.path.getsize(suite_figure) > 1000,
+       "suita SIL: sumarul intra in CSV, Excel si figura")
+    case = summary["cases"][0]
+    bad_angle = dict(case["metrics"])
+    bad_angle["steady_theta_rad"] += 0.1
+    verdict = suite_checks(bad_angle, case["tau_a_nm"] / 20.0,
+                           1.0, 4096, 0.0, 0.0)
+    ck(not verdict["theta_expected"] and verdict["pairs_isolated"],
+       "control negativ: eroarea de unghi pica doar verificarea de unghi")
+    bad_isolation = dict(case["metrics"])
+    bad_isolation["isolation_test_valid"] = False
+    verdict = suite_checks(bad_isolation, case["tau_a_nm"] / 20.0,
+                           1.0, 4096, 0.0, 0.0)
+    ck(not verdict["pairs_isolated"] and verdict["theta_expected"],
+       "control negativ: o comanda pe alta pereche invalideaza izolarea")
+    try:
+        run_suite(tmp, levels=(2.5,), session_id="invalid_levels")
+    except ValueError as exc:
+        bad_levels = "domeniului SIM" in str(exc)
+    else:
+        bad_levels = False
+    ck(bad_levels, "suita SIL: refuza cupluri in afara domeniului SIM")
 
 print(f"\n=== {OK}/{OK} verificari trecute ===")

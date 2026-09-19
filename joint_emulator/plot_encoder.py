@@ -74,9 +74,9 @@ def main():
         ax.plot(t, [float(r.get("om_raw", 0)) for r in rr], lw=0.5,
                 color="lightgray", label="derivata bruta a encoderului")
         ax.plot(t, [r["om"] for r in rr], lw=1.6, color="tab:green",
-                label="estimatorul alpha-beta-gamma")
+                label="viteza estimata")
         ax.set_xlabel("t [s]"); ax.set_ylabel("viteza [rad/s]")
-        ax.set_title("Viteza din encoderul cuantizat: brut vs filtrat (22x mai curat)")
+        ax.set_title("Viteza din encoderul cuantizat: derivata bruta vs estimare")
         ax.grid(alpha=0.3); ax.legend()
         fig.tight_layout(); fig.savefig("figs/encoder_filter.png", dpi=150)
     print("[ok] figs/encoder_traces.png" + (" + figs/encoder_filter.png"

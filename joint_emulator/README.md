@@ -41,7 +41,11 @@ Miniconda furnizeaza Python 3.13, iar ROS Jazzy este instalat pentru Python
 - Noduri ROS subtiri (JSON pe `std_msgs/String`): `nodes/emulator_node.py`,
   `nodes/encoder_monitor_node.py`, `nodes/operator_panel_node.py`,
   `nodes/gz_mirror_node.py`, `nodes/state_to_jointstate_node.py`.
+- Redare vizuala a suitei, exclusiv peste emulatorul SIM:
+  `nodes/suite_player_node.py`.
 - SIL (mediul de simulare complet, fara ROS): `sil_joint.py`.
+- Protocol reproductibil pe o singura pereche, cu raport si Excel:
+  `vipro_experiment.py` (SIM, nu hardware).
 - Figuri / vizualizare / geometrie: `plot_joint.py`, `plot_encoder.py`,
   `tools/gen_bench_model.py`, `launch/viz_rviz.launch.py`.
 
@@ -50,14 +54,16 @@ Miniconda furnizeaza Python 3.13, iar ROS Jazzy este instalat pentru Python
 | Fisier | Ce face (din docstring / cod) |
 | --- | --- |
 | `joint_core.py` | Nucleul pur al emulatorului: `ImpedanceLaw`, `VirtualLimb` (membrul emulat de B, cu optional 'catch' spastic), `PairSim` (fizica perechii pe ax comun), `DelayLine`, `EnergyMonitor`, `SafetyGate`. SI, integrare semi-implicita Euler. |
-| `encoder_core.py` | Stratul de encoder: `EncoderModel`, `NaiveDiff`, `KinematicEstimator`, `MotorEncoderBank` (6 canale cu calibrare de sens/zero) si jurnale CSV separate pentru axele comune si motoare. |
+| `encoder_core.py` | Stratul de encoder: `EncoderModel`, `NaiveDiff`, `KinematicEstimator` (demo la 1 kHz), `SampledEncoderEstimator` (implicit in ROS), `MotorEncoderBank` (6 canale cu calibrare de sens/zero) si jurnale CSV separate pentru axele comune si motoare. |
 | `teleimpedance.py` | Stratul de tele-impedanta: `DegradedMeasure` (canal de masura cu ms/jit/loss/down, livrare monotona), `AdaptiveImpedance` (K scade si B creste cand masura imbatraneste). |
 | `drive_iface.py` | Interfata unica drive (`step/enable/disable/read/set_torque/estop`) intre logica si fier; `read` nu modifica starea, iar `step` avanseaza atomic toate perechile simulate. |
 | `modbus_backend.py` | Prototip istoric, NEVALIDAT si nefunctional. Nu se foloseste pana cand modelul drive-ului si protocolul real nu sunt confirmate din manualul oficial. |
 | `test_joint_core.py` | Bateria de verificari a emulatorului (fara ROS/fier); ruleaza assert-uri si tipareste `=== N/N verificari trecute ===`. |
 | `sil_joint.py` | Mediul de simulare complet fara ROS: scenarii numite, urme CSV, bilant in consola. |
+| `vipro_experiment.py` | Treapta determinista A0/B0, jurnale complete, raport JSON, figura PNG, Excel; sau analiza unei sesiuni ROS existente. |
 | `nodes/emulator_node.py` | Nodul ROS2 al bancului peste `SimBackend`; A primeste comenzi de cuplu, B ruleaza legea de impedanta (fixa sau adaptiva) cu amortizare locala. |
 | `nodes/encoder_monitor_node.py` | Pluginul de cinematica: pastreaza `/joint/kinematics` pentru axele comune si publica `/joint/motor_kinematics` pentru cele 6 encodere SIM A/B, plus doua jurnale CSV. |
+| `nodes/suite_player_node.py` | Reda cele 12 comenzi predefinite in simulatorul ROS/Gazebo; verifica sursa SIM si telemetria si trimite zero la iesire. Nu este un controler de drive ABB. |
 | `nodes/operator_panel_node.py` | Panoul operatorului (GUI desktop): comenzi A cu slidere si campuri numerice, grafice A si grafice B in doua coloane separate, K/B/link, ESTOP/RESET si export Excel. In simulare, unghiul si viteza celor doua laturi sunt aceleasi fiindca axul este rigid. |
 | `session_export.py` | Jurnalele complete ale unei sesiuni si fisierul Excel `.xlsx` cu foi separate pentru stare, encodere, evenimente si metadate. |
 | `nodes/gz_mirror_node.py` | Oglinda Gazebo: citeste `/joint/state` si publica pozitiile spre controllerele din lumea gz (prin ros_gz_bridge); Gazebo doar urmareste, nu simuleaza fizica. |
@@ -81,6 +87,28 @@ Verificari nucleu offline (fara ROS/fier):
 
     cd ~/ros2_ws/src/joint_emulator
     python3 test_joint_core.py
+
+Protocol SIL reproductibil, fara Gazebo/ROS/hardware:
+
+    /usr/bin/python3 vipro_experiment.py reference --data-dir /home/ubuntu/Analiza_Teza/ViPRO/DATE
+
+Suita automata SIL cu 12 trepte predefinite pe cele trei perechi:
+
+    /usr/bin/python3 /home/ubuntu/ros2_ws/src/joint_emulator/vipro_experiment.py suite --data-dir /home/ubuntu/Analiza_Teza/ViPRO/DATE
+
+Pentru a vedea aceeasi secventa in Gazebo, porneste mai intai
+`full_sim.launch.py` intr-un terminal separat; apoi ruleaza:
+
+    source /opt/ros/jazzy/setup.bash
+    /usr/bin/python3 /home/ubuntu/ros2_ws/src/joint_emulator/nodes/suite_player_node.py
+
+Pentru analiza unui export ROS incheiat, fara a schimba CSV-urile:
+
+    /usr/bin/python3 vipro_experiment.py analyze ID_SESIUNE --data-dir /home/ubuntu/Analiza_Teza/ViPRO/DATE
+
+Metoda, campurile raportului si limitarile sunt descrise in
+`README_JOINT.md`, sectiunile "Protocol SIL repetabil pe o singura pereche"
+si "Suita automata SIL".
 
 SIL (scenarii din `sil_joint.py`, alegerile reale din argparse):
 
@@ -171,6 +199,11 @@ din captura (`K=16.4`, `tau_A=0.92`), echilibrul este numai `0.056 rad`
 de ax, nu de cadrul fix; Gazebo oglindeste unghiul emulatorului.
 
 ## Parametri si topicuri
+
+Lansarea completa publica implicit starea SIM la 100 Hz pentru a surprinde
+mai bine tranzientii; monitorul de encoder foloseste implicit `sampled`:
+pozitia ramane citirea cuantizata, viteza/acceleratia sunt estimate si
+filtrate. Acestea nu sunt date ABB.
 
 `emulator_node.py` (`declare_parameter` reali): `backend` (sim; alt backend
 ridica SystemExit), `n_pairs` (3), `rate_hz` (200.0), `k` (20.0), `b` (0.8),

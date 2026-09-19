@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """encoder_monitor_node.py -- pluginul de cinematica al bancului: ia
-pozitia (encoderul) din /joint/state, o trece prin estimatorul
-alpha-beta-gamma si publica viteza + acceleratia CURATE, cu jurnal CSV
+pozitia (encoderul) din /joint/state, foloseste implicit un estimator
+cauzal pentru masuri rare si publica viteza + acceleratia estimate, cu CSV
 pentru grafice. Functioneaza identic peste simulare si peste fier
 (sursa lui /joint/state e emulator_node, indiferent de backend).
 
@@ -14,6 +14,7 @@ CSV: /home/ubuntu/Analiza_Teza/ViPRO/DATE/encoders_<session_id>.csv
      (t_s,time_utc,pair,th_raw,th,om,acc; fara suprascriere)
      /home/ubuntu/Analiza_Teza/ViPRO/DATE/motor_encoders_<session_id>.csv
 Parametri: state_topic, out_topic, rate_hz, data_dir, session_id, csv_path,
+           estimator_kind, velocity_tau_s, acceleration_tau_s,
            alpha, beta, gamma, quantize_cpr (0 = pozitia vine deja
            cuantizata de la fier; >0 = recuantizeaza, util in simulare)
 """
@@ -30,7 +31,7 @@ from std_msgs.msg import String
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from encoder_core import (EncoderModel, NaiveDiff, KinematicEstimator,
-                          EncoderLogger, MotorEncoderBank,
+                          SampledEncoderEstimator, EncoderLogger, MotorEncoderBank,
                           MotorEncoderLogger)
 from session_export import (checked_session_id, session_path, utc_now,
                             write_config)
@@ -56,23 +57,24 @@ class EncoderMonitor(Node):
                                           f"motor_encoders_{stamp}.csv"))
         p("n_pairs", 3)
         p("alpha", 0.25); p("beta", 0.02); p("gamma", 0.0005)
+        p("estimator_kind", "sampled")
+        p("velocity_tau_s", 0.1)
+        p("acceleration_tau_s", 0.15)
         p("quantize_cpr", 4096)
         g = lambda n: self.get_parameter(n).value
         self.cpr = int(g("quantize_cpr"))
-        write_config(session_path(data_dir, stamp, "encoder_config"), {
-            "start_time_utc": utc_now(),
-            "n_pairs": int(g("n_pairs")),
-            "monitor_rate_hz": float(g("rate_hz")),
-            "counts_per_rev": self.cpr,
-            "alpha": float(g("alpha")),
-            "beta": float(g("beta")),
-            "gamma": float(g("gamma")),
-            "state_topic": str(g("state_topic")),
-        })
+        estimator_kind = str(g("estimator_kind"))
+        if estimator_kind not in ("sampled", "alpha_beta_gamma"):
+            raise ValueError("estimator_kind trebuie sa fie sampled/alpha_beta_gamma")
         self.enc = EncoderModel(self.cpr) if self.cpr > 0 else None
-        mk = lambda: KinematicEstimator(alpha=float(g("alpha")),
-                                        beta=float(g("beta")),
-                                        gamma=float(g("gamma")))
+        if estimator_kind == "sampled":
+            mk = lambda: SampledEncoderEstimator(
+                velocity_tau_s=float(g("velocity_tau_s")),
+                acceleration_tau_s=float(g("acceleration_tau_s")))
+        else:
+            mk = lambda: KinematicEstimator(alpha=float(g("alpha")),
+                                            beta=float(g("beta")),
+                                            gamma=float(g("gamma")))
         self.est = {}
         self.naiv = {}
         self.mk = mk
@@ -82,7 +84,22 @@ class EncoderMonitor(Node):
         self.motor_bank = MotorEncoderBank(
             n_pairs=int(g("n_pairs")), counts_per_rev=self.cpr,
             alpha=float(g("alpha")), beta=float(g("beta")),
-            gamma=float(g("gamma")))
+            gamma=float(g("gamma")), estimator_kind=estimator_kind,
+            velocity_tau_s=float(g("velocity_tau_s")),
+            acceleration_tau_s=float(g("acceleration_tau_s")))
+        write_config(session_path(data_dir, stamp, "encoder_config"), {
+            "start_time_utc": utc_now(),
+            "n_pairs": int(g("n_pairs")),
+            "monitor_rate_hz": float(g("rate_hz")),
+            "counts_per_rev": self.cpr,
+            "alpha": float(g("alpha")),
+            "beta": float(g("beta")),
+            "gamma": float(g("gamma")),
+            "estimator_kind": estimator_kind,
+            "velocity_tau_s": float(g("velocity_tau_s")),
+            "acceleration_tau_s": float(g("acceleration_tau_s")),
+            "state_topic": str(g("state_topic")),
+        })
         csv_path = os.path.expanduser(str(g("csv_path")))
         self.log = EncoderLogger(csv_path)
         self.get_logger().info(f"Jurnal encoder: {csv_path}")
