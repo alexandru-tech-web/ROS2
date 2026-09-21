@@ -38,7 +38,9 @@ orb de 34 s de pe calea inactiva (unde aceleasi 171 de esantioane de asezare ven
 import argparse
 import collections
 import os
+import queue
 import sys
+import threading
 import time
 
 AICI = os.path.dirname(os.path.abspath(__file__))
@@ -112,6 +114,9 @@ class Gateway(Node):
             self.cai[transport] = Cale(transport, canal, a.max_payload, a.fereastra_sonda)
         if len(self.cai) < 2:
             raise SystemExit("EROARE: gateway-ul are nevoie de cel putin doua cai (--cale)")
+        if a.transport_initial and a.transport_initial not in self.cai:
+            raise SystemExit("EROARE: --transport-initial %r nu e una din cai (%s)"
+                             % (a.transport_initial, ", ".join(sorted(self.cai))))
         self.get_logger().info("gateway: astept cei doi agenti")
         for c in self.cai.values():
             c.canal.conecteaza(timeout=a.timeout_conectare)
@@ -121,7 +126,8 @@ class Gateway(Node):
         self.topicuri = list(a.topicuri)
         self.comutatoare = {}
         for idx, (nume, payload) in enumerate(self.topicuri):
-            self.comutatoare[idx] = switching.Comutator(self.politica, payload)
+            # V1.1: calea de start e un factor FIXAT al campaniei (--transport-initial); implicit = cel din tabela
+            self.comutatoare[idx] = switching.Comutator(self.politica, payload, transport_initial=a.transport_initial)
             self.create_subscription(
                 String, nume, self._face_receptor(idx), QoSProfile(depth=ADANCIME_QOS))
             self.get_logger().info("gateway: topic %d = %s (payload nominal %d B)"
@@ -134,7 +140,16 @@ class Gateway(Node):
                                   switching.DWELL_MIN_S))
 
         self.t_ultima_decizie = {}
-        self.create_timer(0.002, self._citeste_ecouri)
+        # V1.1: ecourile nu se mai citesc prin timer la 500 Hz (masurat ~50% dintr-un nucleu, asteptare activa):
+        # un fir per cale citeste BLOCANT (recv cu timeout 0.1 s), pune (transport, mesaj) in coada si trezeste
+        # executorul prin guard condition; _citeste_ecouri goleste coada in firul executorului (starea nodului
+        # ramane atinsa dintr-un singur fir). Expirarea celor in zbor: timer la 50 ms (timeout-ul e 1 s).
+        self._coada = queue.Queue()
+        self._gc = self.create_guard_condition(self._citeste_ecouri)
+        self._fire = [threading.Thread(target=self._citeste_cale, args=(t, c), daemon=True) for t, c in self.cai.items()]
+        for f in self._fire:
+            f.start()
+        self.create_timer(0.05, self._expira)
         self.create_timer(1.0 / a.hz_sonda, self._trimite_sonda)
         self.create_timer(1.0 / a.hz_canal, self._bate_sonda_canal)
         self.n_sonda = 0
@@ -205,28 +220,45 @@ class Gateway(Node):
         self.n_sonda += 1
 
     # ------------------------------------------------------------------- ecouri
+    def _citeste_cale(self, transport, cale):
+        while rclpy.ok():
+            try:
+                m = cale.canal.recv(timeout=0.1)
+            except Exception:
+                m = None
+            if m is None:
+                if not cale.canal.stare().viu:
+                    time.sleep(0.1)
+                continue
+            self._coada.put((transport, m))
+            self._gc.trigger()
+
+    def _expira(self):
+        acum = time.clock_gettime(time.CLOCK_MONOTONIC)
+        self._expira_in_zbor(acum, self._stare_curenta())
+
     def _citeste_ecouri(self):
         acum = time.clock_gettime(time.CLOCK_MONOTONIC)
         stare = self._stare_curenta()
-        for transport, cale in self.cai.items():
-            for _ in range(128):
-                m = cale.canal.recv(timeout=0.0)
-                if m is None:
-                    break
-                cale.n_ecouri += 1
-                trimis = cale.in_zbor.pop(m.seq, None)
-                if trimis is None:
-                    continue
-                t_trimis, octeti, tip, idx = trimis
-                if tip == TIP_SONDA.decode("ascii"):
-                    # ATAT: sonda de viabilitate bifeaza 's-a intors' si se opreste aici.
-                    # Nu hraneste niciun estimator -- vezi docstringul modulului.
-                    cale.noteaza_sonda(True)
-                if self.jurnal is None:
-                    continue
-                self.jurnal.esantion(acum, m.seq, transport, tip, idx, octeti, True,
-                                     (acum - t_trimis) * 1000.0, stare)
-        self._expira_in_zbor(acum, stare)
+        while True:
+            try:
+                transport, m = self._coada.get_nowait()
+            except queue.Empty:
+                break
+            cale = self.cai[transport]
+            cale.n_ecouri += 1
+            trimis = cale.in_zbor.pop(m.seq, None)
+            if trimis is None:
+                continue
+            t_trimis, octeti, tip, idx = trimis
+            if tip == TIP_SONDA.decode("ascii"):
+                # ATAT: sonda de viabilitate bifeaza 's-a intors' si se opreste aici.
+                # Nu hraneste niciun estimator -- vezi docstringul modulului.
+                cale.noteaza_sonda(True)
+            if self.jurnal is None:
+                continue
+            self.jurnal.esantion(acum, m.seq, transport, tip, idx, octeti, True,
+                                 (acum - t_trimis) * 1000.0, stare)
 
     def _expira_in_zbor(self, acum, stare):
         """Ce nu s-a intors intr-un timp rezonabil se scrie ca PIERDUT. Fara asta, jurnalul
@@ -305,6 +337,8 @@ def construieste_argumente(argv):
     ap.add_argument("--jurnal", default=None, help="director pentru jurnalul rularii")
     ap.add_argument("--eticheta", default="rulare")
     ap.add_argument("--tabela", default=None, help="alta policy_table.json")
+    ap.add_argument("--transport-initial", default=None,
+                    help="calea pe care porneste gateway-ul (V1.1: 'zenoh' in campania Etapei A); implicit cel din tabela")
     a = ap.parse_args([x for x in argv if not x.startswith("--ros-args")])
     perechi = []
     for t in (a.topic or ["/c3/app:4096"]):

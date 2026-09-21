@@ -26,7 +26,9 @@ provoca o schimbare de regim fara netem si fara a doua masina.
 """
 import argparse
 import os
+import queue
 import sys
+import threading
 import time
 
 AICI = os.path.dirname(os.path.abspath(__file__))
@@ -73,9 +75,26 @@ class AgentTransport(Node):
                                    "testul offline" % (self.rmw, a.pierdere))
 
         self.n_primite = self.n_publicate = self.n_ecouri = 0
-        # 500 Hz: la trafic de 55 Hz adauga cel mult 2 ms de asteptare, si e mult
-        # sub costul unei masuratori (handoff-ul UDS e ~0.09 ms)
-        self.create_timer(0.002, self._din_uds)
+        # V1.1: NU mai e timer la 500 Hz (masurat: ~46% dintr-un nucleu per agent, si la 5 mesaje/s).
+        # Un fir citeste BLOCANT din UDS (recv cu timeout 0.1 s, fara asteptare activa) si pune cadrele
+        # intr-o coada; guard condition-ul trezeste executorul, care le publica din firul lui (_din_uds).
+        self._coada = queue.Queue()
+        self._gc = self.create_guard_condition(self._din_uds)
+        self._fir = threading.Thread(target=self._citeste_uds, daemon=True)
+        self._fir.start()
+
+    def _citeste_uds(self):
+        while rclpy.ok():
+            try:
+                m = self.canal.recv(timeout=0.1)
+            except Exception:                                   # canal inchis / in curs de inchidere
+                m = None
+            if m is None:
+                if not self.canal.stare().viu:
+                    time.sleep(0.1)                             # canal mort: nu ne invartim in gol
+                continue
+            self._coada.put(m)
+            self._gc.trigger()
 
     # ------------------------------------------------------------------- verificari
     def _verifica_rmw(self):
@@ -93,9 +112,10 @@ class AgentTransport(Node):
     def _din_uds(self):
         """Tot ce a venit de la gateway se publica pe ROS. Bucla goleste canalul, ca sa nu
         ramana mesaje in urma cand ritmul creste."""
-        for _ in range(64):
-            m = self.canal.recv(timeout=0.0)
-            if m is None:
+        while True:
+            try:
+                m = self._coada.get_nowait()
+            except queue.Empty:
                 break
             self.n_primite += 1
             try:
