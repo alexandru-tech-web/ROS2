@@ -37,6 +37,7 @@ orb de 34 s de pe calea inactiva (unde aceleasi 171 de esantioane de asezare ven
 """
 import argparse
 import collections
+import json
 import os
 import queue
 import sys
@@ -127,7 +128,11 @@ class Gateway(Node):
         self.comutatoare = {}
         for idx, (nume, payload) in enumerate(self.topicuri):
             # V1.1: calea de start e un factor FIXAT al campaniei (--transport-initial); implicit = cel din tabela
-            self.comutatoare[idx] = switching.Comutator(self.politica, payload, transport_initial=a.transport_initial)
+            self.comutatoare[idx] = switching.Comutator(
+                self.politica, payload, transport_initial=a.transport_initial,
+                # V2a (D7): pragurile evacuarii si durata ferestrei de viabilitate = parametri ai nodului, nu constante
+                prag_jos_alpha=a.prag_jos_alpha, prag_sus_alpha=a.prag_sus_alpha,
+                durata_fereastra_s=a.fereastra_sonda / a.hz_sonda)
             self.create_subscription(
                 String, nume, self._face_receptor(idx), QoSProfile(depth=ADANCIME_QOS))
             self.get_logger().info("gateway: topic %d = %s (payload nominal %d B)"
@@ -154,6 +159,11 @@ class Gateway(Node):
         self.create_timer(1.0 / a.hz_canal, self._bate_sonda_canal)
         self.n_sonda = 0
         self.n_canal_fara_raport = 0
+        self.n_evacuari = self.n_intoarceri = 0
+        # V2a / E3: mesajul de stare al gateway-ului (JSON): transport, nicio_cale_viabila, alpha_activ, alpha per cale, cale_evacuata
+        self.pub_stare = self.create_publisher(String, "/c3/stare", QoSProfile(depth=10))
+        self._nicio_cale_anterior = {}
+        self.create_timer(0.5, self._publica_stare)
 
     # ------------------------------------------------------- intrare din aplicatie
     def _face_receptor(self, idx):
@@ -170,13 +180,11 @@ class Gateway(Node):
         viab = {t: c.viabilitate() for t, c in self.cai.items()}
 
         if est_canal is None:
-            # Fara o masuratoare proaspata a canalului nu exista cheie de cautare in tabela.
-            # Se ramane pe transportul curent; NU se cade pe ultima valoare stiuta, fiindca
-            # exact asta ar face gateway-ul sa para sanatos cand linkul a murit.
+            # Fara o masuratoare proaspata a canalului nu exista cheie de cautare in tabela: nucleul nu consulta
+            # tabela (estimare=None), dar judeca EVACUAREA (V2a, E1 e 'imediat' -- pe un link mort si sonda de
+            # canal tace, deci evacuarea nu poate depinde de ea). NU se cade pe ultima valoare stiuta.
             self.n_canal_fara_raport += 1
-            ales, motiv = activ, "fara raport proaspat de la sonda de canal"
-        else:
-            ales, motiv = com.decide(est_canal, acum, viab)
+        ales, motiv = com.decide(est_canal, acum, viab)
         if ales != activ:
             self._noteaza_comutare(acum, activ, ales, motiv, idx)
         self.t_ultima_decizie[idx] = acum
@@ -281,7 +289,28 @@ class Gateway(Node):
         return (self.sonda_canal.estimare(varsta_maxima=self.a.varsta_maxima_raport),
                 {t: c.viabilitate() for t, c in self.cai.items()})
 
+    def _publica_stare(self):
+        """E3: starea comutatoarelor, o data la 0.5 s, plus o linie in evenimente.csv cand nicio_cale_viabila se schimba."""
+        acum = time.clock_gettime(time.CLOCK_MONOTONIC)
+        viab = {t: c.viabilitate() for t, c in self.cai.items()}
+        st = {"t_mono": acum, "topicuri": {}}
+        for idx, com in self.comutatoare.items():
+            s = com.stare()
+            s["alpha"] = {t: (v.livrare if v.n_trimise else None) for t, v in viab.items()}
+            st["topicuri"][idx] = s
+            if s["nicio_cale_viabila"] != self._nicio_cale_anterior.get(idx, False):
+                self._nicio_cale_anterior[idx] = s["nicio_cale_viabila"]
+                self.get_logger().warn("topic %d: nicio_cale_viabila=%s alpha_activ=%s" % (idx, s["nicio_cale_viabila"], s["alpha_activ"]))
+                if self.jurnal is not None:
+                    self.jurnal.eveniment(acum, "nicio_cale_viabila", com.transport, com.transport,
+                                          "%s; %s" % (s["nicio_cale_viabila"], com.ultima_decizie.get("motiv", "")), idx, self.topicuri[idx][1])
+        self.pub_stare.publish(String(data=json.dumps(st, sort_keys=True)))
+
     def _noteaza_comutare(self, acum, de_la, la, motiv, idx):
+        if motiv.startswith("evacuare"):
+            self.n_evacuari += 1
+        elif motiv.startswith("intoarcere"):
+            self.n_intoarceri += 1
         self.get_logger().info("COMUTARE topic %d: %s -> %s (%s)" % (idx, de_la, la, motiv))
         if self.jurnal is not None:
             self.jurnal.eveniment(acum, "comutare", de_la, la, motiv, idx,
@@ -300,6 +329,8 @@ class Gateway(Node):
                  "sonde_canal_trimise": self.sonda_canal.n_trimise,
                  "rapoarte_canal_primite": self.sonda_canal.n_rapoarte,
                  "decizii_fara_raport_canal": self.n_canal_fara_raport,
+                 "evacuari": self.n_evacuari, "intoarceri": self.n_intoarceri,
+                 "prag_jos_alpha": self.a.prag_jos_alpha, "prag_sus_alpha": self.a.prag_sus_alpha,
                  "transport_final": {i: c.transport for i, c in self.comutatoare.items()}}
         for t, c in self.cai.items():
             extra["trimise_%s" % t] = c.n_trimise
@@ -337,6 +368,10 @@ def construieste_argumente(argv):
     ap.add_argument("--jurnal", default=None, help="director pentru jurnalul rularii")
     ap.add_argument("--eticheta", default="rulare")
     ap.add_argument("--tabela", default=None, help="alta policy_table.json")
+    ap.add_argument("--prag-jos-alpha", type=float, default=switching.LIVRARE_MINIMA_PCT / 100.0,
+                    help="V2a E1: sub acest alpha calea activa e moarta (implicit LIVRARE_MINIMA_PCT/100)")
+    ap.add_argument("--prag-sus-alpha", type=float, default=0.50,
+                    help="V2a E1/E2: peste acest alpha o cale e refugiu / se poate reveni pe ea (0.50 PROVIZORIU, DECIZII 21.09)")
     ap.add_argument("--transport-initial", default=None,
                     help="calea pe care porneste gateway-ul (V1.1: 'zenoh' in campania Etapei A); implicit cel din tabela")
     a = ap.parse_args([x for x in argv if not x.startswith("--ros-args")])

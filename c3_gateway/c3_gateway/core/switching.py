@@ -76,6 +76,19 @@ PRAG_PLECARE_PP = 12.0
 PRAG_INTOARCERE_PP = 5.0
 K_SIGMA = 2.0
 
+# A CINCEA FRANA (V2a, DECIZII D7, 21.09.2026): EVACUAREA. Franele 1-4 raspund la 'merita sa te misti?'.
+# Niciuna nu raspunde la 'calea pe care stai a murit'. Controlul pozitiv din V1.1 a masurat golul: alpha
+# activ 1.0 -> 0.0, 0 comutari, livrare 0 % (tabela dadea implicitul cu marja 0, sub prag). Regula:
+#   E1 daca alpha(cale activa) < prag_jos si exista o cale cu alpha > prag_sus -> comuta IMEDIAT, fara dwell
+#      (motiv 'evacuare'); daca sunt mai multe, cea cu alpha cel mai mare.
+#   E2 intoarcerea pe calea evacuata cere dwell complet SI alpha > prag_sus pe o fereastra INTREAGA de
+#      viabilitate (durata_fereastra_s = fereastra / hz, 50 / 5 = 10 s), oricine ar cere-o (tabela) -- motiv 'intoarcere'.
+#   E3 ambele moarte: nicio comutare; stare()['nicio_cale_viabila'] = True, alpha_activ raportat (0).
+#   E4 evacuarea bate tabela: daca in acelasi pas tabela vrea X si evacuarea Y, se executa Y si se logheaza ambele.
+#   E5 tabela si dwell-ul ei (8.55 s) raman neschimbate.
+# prag_jos = LIVRARE_MINIMA_PCT / 100 (acelasi 'cale inutilizabila' ca la veto); prag_sus = 0.50 PROVIZORIU
+# (DECIZII 21.09, intra in baleiajul B2) -- amandoua PARAMETRI ai Comutator-ului, nu constante noi.
+#
 # A patra frana: NU comuta pe o cale despre care sondele spun ca e moarta. C2 a aratat ca
 # starea sesiunii minte -- o cale nefolosita poate fi cazuta exact cand ai nevoie de ea
 # (zenoh: 10/10 rulari moarte in trei celule).
@@ -131,7 +144,8 @@ class Comutator(object):
 
     def __init__(self, politica, payload, transport_initial=None,
                  dwell_min_s=DWELL_MIN_S, prag_plecare=PRAG_PLECARE_PP,
-                 prag_intoarcere=PRAG_INTOARCERE_PP, k_sigma=K_SIGMA):
+                 prag_intoarcere=PRAG_INTOARCERE_PP, k_sigma=K_SIGMA,
+                 prag_jos_alpha=LIVRARE_MINIMA_PCT / 100.0, prag_sus_alpha=0.50, durata_fereastra_s=10.0):
         self.politica = politica
         self.payload = int(payload)
         self.implicit = politica.implicit
@@ -142,6 +156,79 @@ class Comutator(object):
         self.k_sigma = float(k_sigma)
         self.t_ultima_comutare = None
         self.n_comutari = 0
+        # V2a: evacuarea (E1-E4). prag_sus 0.50 e PROVIZORIU (DECIZII 21.09); durata_fereastra_s = fereastra / hz a sondei de viabilitate
+        self.prag_jos_alpha = float(prag_jos_alpha)
+        self.prag_sus_alpha = float(prag_sus_alpha)
+        self.durata_fereastra_s = float(durata_fereastra_s)
+        self.cale_evacuata = None            # de pe ce cale am fugit (E2 se aplica intoarcerii pe ea)
+        self.t_evacuare = None
+        self._t_sus_de = None                # de cand alpha(cale_evacuata) e continuu > prag_sus
+        self.nicio_cale_viabila = False
+        self.alpha_activ = None
+        self.ultima_decizie = {}             # t, cale_de, cale_spre, motiv, alpha ambele cai, ce voia tabela
+
+    def stare(self):
+        """Ce publica nodul in mesajul de stare (E3): nicio_cale_viabila, alpha_activ, transport, cale_evacuata."""
+        return {"nicio_cale_viabila": self.nicio_cale_viabila, "alpha_activ": self.alpha_activ,
+                "transport": self.transport, "cale_evacuata": self.cale_evacuata}
+
+    @staticmethod
+    def _alpha(v):
+        """alpha al unei cai din Viabilitate; None daca nu stim destul (sub MIN_ESANTIOANE_CANDIDAT sonde)."""
+        if v is None or v.n_trimise < MIN_ESANTIOANE_CANDIDAT:
+            return None
+        return v.livrare
+
+    def _noteaza(self, acum, de_la, la, motiv, alfe, tabela):
+        self.ultima_decizie = {"t": acum, "cale_de": de_la, "cale_spre": la, "motiv": motiv,
+                               "alpha": dict(alfe), "tabela_voia": tabela}
+
+    def _evacuare(self, acum, viabilitati, d):
+        """E1 / E3 / E4. Intoarce (transport, motiv) daca a decis ceva (comutare sau 'nicio cale viabila'), altfel None."""
+        alfe = {t: self._alpha(v) for t, v in viabilitati.items()}
+        a_act = alfe.get(self.transport)
+        self.alpha_activ = a_act
+        tabela = ("%s (marja %.1f pp)" % (d.transport, d.marja)) if d is not None else "fara raport de canal"
+        if a_act is None or a_act >= self.prag_jos_alpha:
+            self.nicio_cale_viabila = False
+            return None
+        refugii = [(a, t) for t, a in alfe.items() if t != self.transport and a is not None and a > self.prag_sus_alpha]
+        if not refugii:
+            self.nicio_cale_viabila = True
+            motiv = ("nicio cale viabila: alpha_%s=%.2f < %.2f, %s; tabela voia %s"
+                     % (self.transport, a_act, self.prag_jos_alpha,
+                        ", ".join("alpha_%s=%s" % (t, "?" if a is None else "%.2f" % a) for t, a in alfe.items() if t != self.transport), tabela))
+            self._noteaza(acum, self.transport, self.transport, motiv, alfe, tabela)
+            return self.transport, motiv
+        a_ref, refugiu = max(refugii)
+        de_la = self.transport
+        motiv = ("evacuare: alpha_%s=%.2f < %.2f, alpha_%s=%.2f > %.2f; tabela voia %s%s"
+                 % (de_la, a_act, self.prag_jos_alpha, refugiu, a_ref, self.prag_sus_alpha, tabela,
+                    "" if (d is None or d.transport == refugiu) else " -- EVACUAREA BATE TABELA (E4)"))
+        self.transport = refugiu
+        self.cale_evacuata = de_la
+        self.t_evacuare = acum
+        self._t_sus_de = None
+        self.t_ultima_comutare = acum
+        self.n_comutari += 1
+        self.nicio_cale_viabila = False
+        self._noteaza(acum, de_la, refugiu, motiv, alfe, tabela)
+        return refugiu, motiv
+
+    def _intoarcere_permisa(self, acum, viabilitati):
+        """E2: pe cale_evacuata se revine doar cu dwell complet SI alpha > prag_sus pe o fereastra intreaga."""
+        a = self._alpha(viabilitati.get(self.cale_evacuata)) if viabilitati else None
+        if a is None or a <= self.prag_sus_alpha:
+            self._t_sus_de = None
+            return False, "alpha_%s=%s <= %.2f" % (self.cale_evacuata, "?" if a is None else "%.2f" % a, self.prag_sus_alpha)
+        if self._t_sus_de is None:
+            self._t_sus_de = acum
+        if acum - self._t_sus_de < self.durata_fereastra_s:
+            return False, ("alpha_%s > %.2f doar de %.1f s din %.1f s (fereastra)"
+                           % (self.cale_evacuata, self.prag_sus_alpha, acum - self._t_sus_de, self.durata_fereastra_s))
+        if self.t_evacuare is not None and acum - self.t_evacuare < self.dwell_min_s:
+            return False, "dwell dupa evacuare: %.2f s din %.2f s" % (acum - self.t_evacuare, self.dwell_min_s)
+        return True, ""
 
     def _prag(self, candidat):
         """Asimetria: spre implicit e ieftin, dinspre implicit e scump."""
@@ -153,8 +240,17 @@ class Comutator(object):
         singur, iar tabela de politica e indexata pe (L,B) INJECTATE in el, nu pe ce vede
         fiecare transport prin propriile lui retransmisii.
         acum: secunde. viabilitati: {transport: Viabilitate} -- raspunsul binar al sondelor
-        de viabilitate, folosit DOAR ca sa nu comutam pe o cale moarta."""
-        d = self.politica.decide(estimare.L * 100.0, estimare.B, self.payload)
+        de viabilitate, folosit DOAR ca sa nu comutam pe o cale moarta -- si, de la V2a, ca sa FUGIM de pe una
+        (E1-E4). estimare poate fi None (fara raport proaspat de canal): atunci tabela nu se consulta, dar
+        evacuarea se judeca oricum (E1 e 'imediat', nu asteapta sonda de canal)."""
+        d = (self.politica.decide(estimare.L * 100.0, estimare.B, self.payload)
+             if estimare is not None else None)
+        if viabilitati is not None:
+            ev = self._evacuare(acum, viabilitati, d)
+            if ev is not None:
+                return ev
+        if d is None:
+            return self.transport, "fara raport proaspat de la sonda de canal"
         candidat = d.transport
 
         if candidat == self.transport:
@@ -185,11 +281,24 @@ class Comutator(object):
             return self.transport, ("dwell: %.2f s din %.2f s"
                                     % (acum - self.t_ultima_comutare, self.dwell_min_s))
 
+        intoarcere = (candidat == self.cale_evacuata)
+        if intoarcere:
+            ok, de_ce = self._intoarcere_permisa(acum, viabilitati)
+            if not ok:
+                return self.transport, "intoarcere pe %s refuzata (E2): %s" % (candidat, de_ce)
+
+        de_la = self.transport
         self.transport = candidat
         self.t_ultima_comutare = acum
         self.n_comutari += 1
-        return self.transport, ("comutat pe %s (marja %.1f pp, sursa %s)"
-                                % (candidat, d.marja, d.sursa))
+        if intoarcere:
+            self.cale_evacuata, self.t_evacuare, self._t_sus_de = None, None, None
+            motiv = "intoarcere pe %s (marja %.1f pp, sursa %s; dwell si fereastra complete)" % (candidat, d.marja, d.sursa)
+        else:
+            motiv = "comutat pe %s (marja %.1f pp, sursa %s)" % (candidat, d.marja, d.sursa)
+        alfe = {t: self._alpha(v) for t, v in (viabilitati or {}).items()}
+        self._noteaza(acum, de_la, candidat, motiv, alfe, "%s (marja %.1f pp)" % (d.transport, d.marja))
+        return self.transport, motiv
 
 
 def _selftest():
