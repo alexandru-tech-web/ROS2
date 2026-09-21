@@ -66,7 +66,9 @@ from switching import HZ_SONDA_CANAL                            # noqa: E402
 MAGIC_SONDA = b"C3PR"
 MAGIC_RAPORT = b"C3RP"
 SONDA = struct.Struct(">4sQ")                    # magic + seq = 12 octeti (ca in C2)
-RAPORT = struct.Struct(">4sddQQB")               # magic+L+B+n+goluri+stabil = 37 octeti
+RAPORT_V1 = struct.Struct(">4sddQQB")            # magic+L+B+n+goluri+stabil = 37 octeti (pana la V2b)
+RAPORT = struct.Struct(">4sddQQBQQd")            # V2b: + reparate + creditate + L_fer = 61 octeti; clientul accepta ambele
+TAU_R_INITIAL = 0.100                            # V2b R1: 2 x perioada sondei (20 Hz); parametru --tau-r, baleiat in B2
 PORT_IMPLICIT = 47311
 HZ_RAPORT = 2.0
 
@@ -79,9 +81,10 @@ class Raport(object):
     """Ce a vazut receptorul. Poarta si varsta, fiindca un raport vechi nu e o masuratoare
     proaspata si nimeni nu are voie sa il confunde cu una."""
 
-    __slots__ = ("L", "B", "n", "goluri", "stabil", "t_primit")
+    __slots__ = ("L", "B", "n", "goluri", "stabil", "t_primit", "reparate", "creditate", "L_fer")
 
-    def __init__(self, L, B, n, goluri, stabil, t_primit):
+    def __init__(self, L, B, n, goluri, stabil, t_primit, reparate=0, creditate=0, L_fer=None):
+        self.reparate, self.creditate, self.L_fer = reparate, creditate, L_fer
         self.L, self.B, self.n = L, B, n
         self.goluri, self.stabil, self.t_primit = goluri, stabil, t_primit
 
@@ -98,7 +101,7 @@ class Reflector(object):
     """Ruleaza pe masina de la celalalt capat. Primeste sonde, numara golurile din seq,
     trimite inapoi estimarea. NU raspunde la fiecare sonda: ar dubla traficul degeaba."""
 
-    def __init__(self, port=PORT_IMPLICIT, hz_raport=HZ_RAPORT, pierdere=None, seed=1):
+    def __init__(self, port=PORT_IMPLICIT, hz_raport=HZ_RAPORT, pierdere=None, seed=1, tau_r=TAU_R_INITIAL, T_sonda=1.0):
         self.s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.s.bind(("0.0.0.0", port))
@@ -109,7 +112,7 @@ class Reflector(object):
         # testul de integrare: rapoarte la t=12.87, 25.67, 38.47, cu n = 256, 512, 768.
         # Un socket neblocant transforma bucla in ceea ce trebuia sa fie: 'ia ce e acum'.
         self.s.setblocking(False)
-        self.est = EstimatorLink()
+        self.est = EstimatorLink(tau_r=tau_r, T_sonda=T_sonda)     # V2b: toleranta la reordonare (None = vechi)
         self.hz_raport = float(hz_raport)
         self.t_ultim_raport = 0.0
         self.n_primite = 0
@@ -142,14 +145,16 @@ class Reflector(object):
             if self.canal is not None and not self.canal.esantion():
                 continue                       # 'pierdut pe drum' -- gaura in sirul de seq
             self.n_primite += 1
-            self.est.observa(seq)
+            self.est.observa(seq, acum())                         # V2b: cu timp -> toleranta la reordonare
         t = acum()
+        self.est.tick(t)                                          # V2b: expira asteptarile si fara pachete noi
         if self.sursa is not None and t - self.t_ultim_raport >= 1.0 / self.hz_raport:
             self.t_ultim_raport = t
             e = self.est.estimare()
             try:
                 self.s.sendto(RAPORT.pack(MAGIC_RAPORT, e.L, e.B, e.n_samples, e.n_goluri,
-                                          1 if e.stable else 0), self.sursa)
+                                          1 if e.stable else 0, e.reparate, e.creditate,
+                                          -1.0 if e.L_fer is None else e.L_fer), self.sursa)
             except OSError:
                 pass
         return self.sursa
@@ -201,12 +206,16 @@ class ClientSondaCanal(object):
                 break
             except OSError:
                 break
-            if len(date) < RAPORT.size:
+            if len(date) < RAPORT_V1.size:
                 continue
-            magic, L, B, n, goluri, stabil = RAPORT.unpack_from(date, 0)
+            if len(date) >= RAPORT.size:                          # V2b
+                magic, L, B, n, goluri, stabil, reparate, creditate, L_fer = RAPORT.unpack_from(date, 0)
+            else:                                                 # reflector vechi (37 octeti): campurile noi lipsesc
+                magic, L, B, n, goluri, stabil = RAPORT_V1.unpack_from(date, 0)
+                reparate, creditate, L_fer = 0, 0, -1.0
             if magic != MAGIC_RAPORT:
                 continue
-            self.ultim = Raport(L, B, n, goluri, bool(stabil), acum())
+            self.ultim = Raport(L, B, n, goluri, bool(stabil), acum(), reparate, creditate, None if L_fer < 0 else L_fer)
             self.n_rapoarte += 1
             noi += 1
         return noi
@@ -250,7 +259,7 @@ def _sigma_L(L, B):
 def _selftest():
     # 1. formatele sunt exact cele promise in docstring
     assert SONDA.size == 12, SONDA.size
-    assert RAPORT.size == 37, RAPORT.size
+    assert RAPORT_V1.size == 37 and RAPORT.size == 61, (RAPORT_V1.size, RAPORT.size)
 
     # 2. dus-intors pe loopback, FARA pierdere: reflectorul trebuie sa raporteze L=0
     refl = Reflector(port=0, hz_raport=50.0)
@@ -348,6 +357,9 @@ def main(argv):
     ap.add_argument("--pierdere", default=None,
                     help="'L_pct,B' -- pierdere sintetica la receptie (DOAR test offline)")
     ap.add_argument("--seed", type=int, default=1)
+    ap.add_argument("--tau-r", type=float, default=TAU_R_INITIAL,
+                    help="V2b R1: fereastra de toleranta la reordonare, s (0.100 initial; 0 = fara toleranta, ca inainte)")
+    ap.add_argument("--T-sonda", type=float, default=1.0, help="V2b R2: pana cand un pachet intarziat mai e 'reparat', s")
     ap.add_argument("--selftest", action="store_true")
     a = ap.parse_args(argv)
     if a.selftest:
@@ -363,7 +375,7 @@ def main(argv):
         if a.pierdere:
             L, _, B = a.pierdere.partition(",")
             pierdere = (float(L), float(B))
-        r = Reflector(a.port, a.hz_raport, pierdere, a.seed)
+        r = Reflector(a.port, a.hz_raport, pierdere, a.seed, tau_r=(a.tau_r if a.tau_r > 0 else None), T_sonda=a.T_sonda)
         print("sonda_canal: reflector pe portul %d%s"
               % (a.port, " (pierdere sintetica %s)" % a.pierdere if pierdere else ""),
               flush=True)

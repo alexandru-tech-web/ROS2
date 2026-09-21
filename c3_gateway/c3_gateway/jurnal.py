@@ -39,7 +39,7 @@ from overhead import pachete_udp                                    # noqa: E402
 CAP_FIX = ["t_mono", "seq", "cale", "tip", "topic", "octeti", "primit", "rtt_ms",
            "L_canal", "B_canal", "sigma_L_canal", "stabil_canal", "n_canal"]
 CAP_EVENIMENTE = ["t_mono", "eveniment", "de_la", "la", "motiv", "topic", "payload"]
-CAP_SONDA_CANAL = ["t_mono", "L", "B", "n", "goluri", "stabil"]
+CAP_SONDA_CANAL = ["t_mono", "L", "B", "n", "goluri", "stabil", "reparate", "creditate", "L_fer"]   # V2b: + 3 coloane
 
 
 class Jurnal(object):
@@ -100,9 +100,11 @@ class Jurnal(object):
         """Un raport de la sonda de canal, scris ca atare. Astea sunt (L,B) MASURATE pe
         canal; (L,B) INJECTATE sunt in eticheta rularii. Compararea lor e validarea de
         instrument pentru C3 si se face offline, din fisierele astea doua."""
+        lf = getattr(raport, "L_fer", None)
         self._w_sc.writerow([round(t_mono - self.t0, 6), round(raport.L, 6),
                              round(raport.B, 4), raport.n, raport.goluri,
-                             1 if raport.stabil else 0])
+                             1 if raport.stabil else 0, getattr(raport, "reparate", 0), getattr(raport, "creditate", 0),
+                             "" if lf is None else round(lf, 6)])
         self.n_rapoarte_canal += 1
         self.ultim_raport = raport
 

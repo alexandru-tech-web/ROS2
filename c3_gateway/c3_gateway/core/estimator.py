@@ -43,6 +43,16 @@ import math
 import sys
 
 ALPHA_L = 0.01          # fereastra efectiva ~1/alpha = 100 esantioane (2 s la 50 Hz)
+# V2b (DECIZII, categoria 2 -- parametru BALEIAT in B2, nu ghicit): toleranta la reordonare.
+# R29 a aratat ca un salt de secventa era numarat gol pe loc si pachetul sosit dupa era ignorat:
+# jitterul aparea ca pierdere (11.6 % pe lat200_jit50, ping 0). Regula:
+#   R1 un seq marcat gol se CREDITEAZA daca soseste in tau_r (initial 2 x perioada sondei = 100 ms)
+#   R2 sosit dupa tau_r si inainte de T_sonda: 'reparat' -- numarat separat (semnal de legatura), L il tine ca pierdere
+#   R3 L_hat = goluri necreditate; se raporteaza si 'reparate' si L_fer (fractia pierduta in fereastra 1/alpha)
+#   R4 B se calculeaza pe golurile necreditate
+# Fara timp (observa(seq)) sau cu tau_r=None comportamentul e cel VECHI, neschimbat (testele sintetice raman identice).
+TAU_R_IMPLICIT = None   # None = fara toleranta; reflectorul cere explicit (--tau-r), valoarea initiala 0.100 s
+T_SONDA_IMPLICIT = 1.0
 ALPHA_B = 0.20          # ~5 goluri de memorie
 L_MIN_PENTRU_B = 0.02
 GOLURI_MIN = 5
@@ -51,15 +61,18 @@ GOLURI_MIN = 5
 class Estimare(object):
     """Fotografia starii linkului la un moment dat. Obiect de date, fara logica."""
 
-    __slots__ = ("L", "B", "sigma_L", "n_samples", "n_goluri", "stable")
+    __slots__ = ("L", "B", "sigma_L", "n_samples", "n_goluri", "stable", "reparate", "creditate", "L_fer")
 
-    def __init__(self, L, B, sigma_L, n_samples, n_goluri, stable):
+    def __init__(self, L, B, sigma_L, n_samples, n_goluri, stable, reparate=0, creditate=0, L_fer=None):
         self.L = L
         self.B = B
         self.sigma_L = sigma_L
         self.n_samples = n_samples
         self.n_goluri = n_goluri
         self.stable = stable
+        self.reparate = reparate            # V2b R2
+        self.creditate = creditate          # V2b R1
+        self.L_fer = L_fer                  # V2b R3: fractia pierduta (necreditata) in fereastra de 1/alpha_L esantioane
 
     def __repr__(self):
         return ("Estimare(L=%.4f, B=%.2f, sigma_L=%.4f, n=%d, goluri=%d, stable=%s)"
@@ -72,7 +85,8 @@ class EstimatorLink(object):
     instante sunt complet independente (o stiva per transport, in etapa 2)."""
 
     def __init__(self, alpha_L=ALPHA_L, alpha_B=ALPHA_B,
-                 L_min_pentru_B=L_MIN_PENTRU_B, goluri_min=GOLURI_MIN, B_initial=1.0):
+                 L_min_pentru_B=L_MIN_PENTRU_B, goluri_min=GOLURI_MIN, B_initial=1.0,
+                 tau_r=TAU_R_IMPLICIT, T_sonda=T_SONDA_IMPLICIT):
         if not (0.0 < alpha_L <= 1.0 and 0.0 < alpha_B <= 1.0):
             raise ValueError("alpha trebuie in (0, 1]")
         self.alpha_L = float(alpha_L)
@@ -84,6 +98,29 @@ class EstimatorLink(object):
         self._ultim_seq = None
         self.n_samples = 0
         self.n_goluri = 0
+        # V2b
+        self.tau_r = None if tau_r is None else float(tau_r)
+        self.T_sonda = float(T_sonda)
+        self._lipsa = {}                    # seq lipsa -> t al saltului (inca poate fi creditat, < tau_r)
+        self._primite = {}                  # seq primit, inca nefinalizat (asteapta sa se inchida tot ce e sub el)
+        self._reparabile = {}               # seq deja numarat pierdut -> t al saltului (poate veni 'reparat', < T_sonda)
+        self._finalizat = None              # ultimul seq alimentat in EWMA (ordinea secventei)
+        self.n_creditate = 0
+        self.n_reparate = 0
+        self.n_neintoarse = 0
+        self._fer = []                      # ultimele round(1/alpha_L) rezultate: 0 primit, 1 pierdut necreditat
+        self._n_fer = max(1, int(round(1.0 / self.alpha_L)))
+
+    @property
+    def L_fer(self):
+        return (sum(self._fer) / float(len(self._fer))) if self._fer else 0.0
+
+    def _fer_add(self, x, k=1):
+        if k <= 0:
+            return
+        self._fer.extend([x] * k)
+        if len(self._fer) > self._n_fer:
+            del self._fer[:len(self._fer) - self._n_fer]
 
     # ------------------------------------------------------------------ actualizare
     def _ewma_repetat(self, y, x, k):
@@ -93,16 +130,84 @@ class EstimatorLink(object):
             return y
         return x + (1.0 - self.alpha_L) ** k * (y - x)
 
-    def observa(self, seq):
+    def observa(self, seq, t=None):
         """Un pachet PRIMIT, cu numarul lui de secventa. Numerele lipsa fata de ultimul
-        primit sunt pierderi. Duplicatele si reordonarile (seq <= ultimul) sunt IGNORATE:
-        estimatorul masoara pierdere, iar un pachet care soseste tarziu nu a fost pierdut,
-        doar intarziat -- alta marime, alt senzor."""
+        primit sunt pierderi. FARA timp (t=None) sau fara tau_r: duplicatele si reordonarile
+        (seq <= ultimul) sunt IGNORATE -- comportamentul de dinainte de V2b, neschimbat.
+        CU timp si tau_r (V2b): saltul de secventa NU e numarat pe loc; numerele lipsa asteapta
+        tau_r; un pachet intarziat sosit in tau_r le CREDITEAZA (R1); dupa tau_r golul intra in L
+        si B (R3, R4) si mai poate veni pana la T_sonda ca 'reparat' (R2); apoi e 'neintors'."""
         seq = int(seq)
+        if t is None or self.tau_r is None:
+            self._observa_vechi(seq)
+            return
+        if self._ultim_seq is None:
+            self._ultim_seq = seq
+            self._finalizat = seq - 1                # totul sub primul seq vazut e istorie
+            self._primite[seq] = t
+            self._finalizeaza(t)
+            return
+        if seq <= self._ultim_seq:
+            # pachet intarziat (sau duplicat): INTAI expiram ce e mai vechi de tau_r la momentul sosirii
+            # (altfel un pachet sosit tarziu, fara alt eveniment intre timp, ar fi creditat gresit), apoi il cautam
+            self._finalizeaza(t)
+            if seq in self._lipsa:
+                del self._lipsa[seq]
+                self._primite[seq] = t
+                self.n_creditate += 1               # R1: era in tau_r -> nu a fost pierdere
+            elif seq in self._reparabile:
+                del self._reparabile[seq]
+                self.n_reparate += 1                # R2: sosit dupa tau_r, inainte de T_sonda; L il tine ca pierdere
+            self._finalizeaza(t)
+            return
+        for s in range(self._ultim_seq + 1, seq):
+            self._lipsa[s] = t                      # golul asteapta tau_r inainte sa devina pierdere
+        self._ultim_seq = seq
+        self._primite[seq] = t
+        self._finalizeaza(t)
+
+    def tick(self, t):
+        """De apelat periodic (reflectorul, la fiecare raport): expira asteptarile fara sa fie nevoie de un pachet nou."""
+        if self.tau_r is not None and self._ultim_seq is not None:
+            self._finalizeaza(t)
+
+    def _finalizeaza(self, t):
+        """Alimenteaza EWMA IN ORDINEA SECVENTEI (ca inainte de V2b), cu o intarziere de cel mult tau_r:
+        un seq e finalizat cand e primit si tot ce e sub el e finalizat, sau cand e lipsa de mai mult de tau_r
+        (atunci intra in L si B ca pierdere necreditata, grupat cu vecinii lipsa: R3, R4) si trece in 'reparabile'
+        pana la T_sonda (R2), dupa care e 'neintors'."""
+        while True:
+            urm = self._finalizat + 1
+            if urm in self._primite:
+                del self._primite[urm]
+                self._L = self._ewma_repetat(self._L, 0.0, 1)
+                self.n_samples += 1
+                self._fer_add(0)
+                self._finalizat = urm
+                continue
+            if urm in self._lipsa and t - self._lipsa[urm] > self.tau_r:
+                g = 0
+                while (urm + g) in self._lipsa and t - self._lipsa[urm + g] > self.tau_r:
+                    self._reparabile[urm + g] = self._lipsa.pop(urm + g)
+                    g += 1
+                self._L = self._ewma_repetat(self._L, 1.0, g)
+                self._B += self.alpha_B * (g - self._B)
+                self.n_goluri += 1
+                self.n_samples += g
+                self._fer_add(1, g)
+                self._finalizat = urm + g - 1
+                continue
+            break
+        for s in [s for s, tg in self._reparabile.items() if t - tg > self.T_sonda]:
+            del self._reparabile[s]
+            self.n_neintoarse += 1
+
+    def _observa_vechi(self, seq):
         if self._ultim_seq is None:
             self._ultim_seq = seq
             self._L = self._ewma_repetat(self._L, 0.0, 1)
             self.n_samples += 1
+            self._fer_add(0)
             return
         gol = seq - self._ultim_seq - 1
         if gol < 0:
@@ -112,8 +217,10 @@ class EstimatorLink(object):
             self._L = self._ewma_repetat(self._L, 1.0, gol)
             self._B += self.alpha_B * (gol - self._B)
             self.n_goluri += 1
+            self._fer_add(1, gol)
         self._L = self._ewma_repetat(self._L, 0.0, 1)
         self.n_samples += gol + 1
+        self._fer_add(0)
 
     # -------------------------------------------------------------------- rezultat
     def sigma_L(self):
@@ -143,7 +250,7 @@ class EstimatorLink(object):
 
     def estimare(self):
         return Estimare(self._L, self._B, self.sigma_L(), self.n_samples,
-                        self.n_goluri, self.stable())
+                        self.n_goluri, self.stable(), self.n_reparate, self.n_creditate, self.L_fer)
 
 
 def _selftest():
