@@ -188,9 +188,12 @@ Structura (README_STRUCTURA.md in radacina; harta in DOC/HARTA.md):
               teste.sqlite (regenerat). STARE.md in fiecare set. READ-ONLY manual.
 - GRAFICE/  -- <C>/out/ (VALIDA: script + rulare, <nume>.STARE.txt) si <C>/arhiva/. Scripturile figurilor sunt in
               DOC/BORD/tools/figuri/ (GRAFICE/src NU mai exista). NU e sub git.
-- DOC/      -- panoul si documentele (git LOCAL, fara remote): BORD/ (STARE, JURNAL, DECIZII, REGISTRU_RULARI,
+- DOC/      -- panoul si documentele; pe disc calea e ORGANIZARE/DOC (README_STRUCTURA.md il listeaza inca la nivelul 1).
+              Depozit git PROPRIU, cu remote: origin = alexandru-tech-web/DOC.git, branch master (nu mai e 'git local, fara remote';
+              corectat la E7, 22.09.2026). Contine: BORD/ (STARE, JURNAL, DECIZII, REGISTRU_RULARI,
               DOVEZI, manifeste/, tools/, bin/phd), CAIETE/, RAPOARTE/ (+ AUDIT/), ARTICOLE/, MANUSCRISE/, TEZA/,
-              PREZENTARI/, LECTURI/, ADMIN/, HARTA.md. Se editeaza DOAR ce cere unitatea; commit local, fara push.
+              PREZENTARI/, LECTURI/, ADMIN/, HARTA.md. Se editeaza DOAR ce cere unitatea; commit per unitate, push cu
+              confirmarea lui Alexandru (ca la src/, care e pe branch main).
 - ARHIVA/   -- <C sau categorie>/<nume>_<data>_ARHIVAT/ cu STARE.md; manifest in DOC/BORD/manifeste/. Nu se citeaza, nu se modifica.
 - COS/      -- NU mai exista (golit 17.09; DOC/CAIETE/STERS_2026-09-17.md). Ce e de aruncat merge in cosul sistemului, cu decizie.
 Reguli agent: toate uneltele din DOC/BORD/tools folosesc cai.py (nicio cale absoluta veche); orice rulare
