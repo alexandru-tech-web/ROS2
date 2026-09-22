@@ -109,18 +109,38 @@ rezultate. Daca un push esueaza, prima suspiciune: date brute / fisiere >100 MB.
   ramasa). Non-fatal.
 - Conventie URDF exoschelet (pachet fara rol in teza): rotatie pozitiva pe axa Y = extensie; flexie = negativ.
 
-## 7. Harta repo-ului
-- c1_benchmark/  -- sursa A1 (JIRS, submisie 30.11.2026): bench_core (+test_bench_core, 11 teste),
+## 7. Harta repo-ului (adusa la zi la E7, 22.09.2026, dupa AUDIT -- DOC/RAPOARTE/AUDIT/_INDEX.md; starile din DOC/CAIETE/COLOANA.md)
+- c1_benchmark/  -- C1 INCHIS (88ecc48). Sursa A1 (JIRS, submisie 30.11.2026): bench_core (+test_bench_core, 11 teste),
   netem, run_campaign, analyze_campaign, reproduce_pdia (ML), ml_dataset.csv,
   paper/ (main.tex, ipoteze H1-H4). Verificari fara ROS:
   `python3 test_bench_core.py`; `python3 analyze_campaign.py --selftest`.
-- sar_swarm/      -- misiunea SAR + SIL (scenario:=none.yaml la benchmark).
-- sar_plugins/    -- telemetrie (baterie/radio).
-- mesh_plugin/    -- mesh multi-hop (C3).
-- link_adaptive/  -- adaptare / selector link-aware (C3).
-- rehab_exo_description/, servo_control/, joint_emulator/ -- exoschelet + motor (FARA ROL in teza, inghetat).
-- teleop_rover/   -- robot mobil (comparatie drona vs robot mobil).
-- curs_ros2/, curs_ros2_interfaces/, PROIECT_ECOSISTEM_EDUCATIONAL.md -- educational.
+  Cifrele citabile: MEDIANE pe repetitii in DOC/BORD/DOVEZI.md sec. 2c (campaign_summary.csv are MEDII; HIL zenoh
+  lat200_jit50 7696.9 ms = o singura repetitie din 5).
+- c2_analysis/, c2_planning/ -- C2 INCHIS (manuscris V5): probe_udp, metrici de rafala, tabele -> tabela de politica C3;
+  calibrarea GE (p, r), runbook. Numele bern_* de aici = gemodel r=1-p (C2), NU 'loss p%' (C6/netem_lo) -- DE DECIS (DECIZII).
+- c3_gateway/    -- C3 UNDER WORK (ultimul nucleu e9cd41e: V1.1 + V2a evacuare + V2b tau_r): sonda de canal + gateway
+  dual-middleware; plan pre-inregistrat DOC/CAIETE/PLAN_C3_ETAPA_A.md; regula de provenienta DOC/CAIETE/CAIET_C3.md sec. 3.
+- c4_platforma/  -- C4 UNDER WORK (P0-HIL 19.09): /network_confidence (alpha) si /network_age PE rover, cu sonda PROPRIE
+  ping/pong ROS (confidence_core, selftest 5/5; T_dead 0.25 s, W 20 la 10 Hz) -- NU sonda C3; relatia: DE DECIS (DECIZII).
+- c6_safety/     -- C6 UNDER WORK: filtru DT-CBF cu marja din AoI + certificat M1; S3.2 PASS la N=1; campania S4 (220 rulari,
+  DOC/CAIETE/run_plan_c6.csv) NERULATA. Python C6 = .venv_c6.
+- c7_sistem/     -- C7 UNDER WORK: launch-uri de sistem (rover + roi + gateway + C6 + SUBSTITUT C4 constant), punte telemetrie;
+  V0/V0.1 rulate 18.09 (DATE/C7/v0_2026-09-18_VALIDARE).
+- sar_swarm/      -- misiunea SAR + SIL (scenario:=none.yaml la benchmark). Inghetat; stratul 'mission' NU a produs date
+  canonice (seturile C1 CANONIC au coloanele mission goale, '0/0'); ritmurile lui apar doar in C7 v0.
+- sar_plugins/    -- telemetrie (baterie/radio), GE BurstProcess (sursa gilbert_* din bench_core). Inghetat.
+- mesh_plugin/    -- mesh multi-hop (releu pentru roi; COLOANA il pune sub C3 'mesh multi-hop pentru roi'). Inghetat; 'stea vs mesh'
+  NU are set de date pe disc.
+- link_adaptive/  -- SCHELET (stari NOMINAL/DEGRADED/CRITICAL); NU apare in COLOANA; cel mult precursor pentru C5.
+- rehab_exo_description/ -- exoschelet, FARA ROL in teza, inghetat ad283c9 (22.08.2026); material istoric.
+- joint_emulator/, servo_control/ -- exoschelet + motor, FARA ROL in teza; NU mai sunt inghetate: ZONA ALEXANDRU
+  (commit-urile lui din 19-20.09.2026: ea8e464, ddcb23c, 5d561c9). Claude Code nu le atinge.
+- teleop_rover/   -- roverul teleoperat (robot, operator, link, goto, detector, Gazebo): platforma C4/C5/C7 (VIE in COLOANA);
+  eticheta 'tier ARHIVA' din README-ul lui (eb21d82) e DEPASITA. 'Comparatia drona vs robot mobil' nu e in nicio poarta.
+- curs_ros2/, curs_ros2_interfaces/, curs_ml/ (pe main), PROIECT_ECOSISTEM_EDUCATIONAL.md -- educational, arhivat.
+- docs/material_teza/cm_rmw_mismatch, scratchpad/c4_audit_20260818 -- arhivat; 'c4' din scratchpad = numerotarea VECHE
+  (exoschelet), nu C4 rover.
+- C5 (arbitrajul autoritatii) NU are director in src/ (COLOANA: PLANIFICAT, A2).
 - PHSC (compensare de latenta, LQR + predictor Smith) -- NU e pe main. Sta pe
   ramura `phsc-v1-simulation` (4 pachete phsc_*), publicata si pe GitHub,
   tag v1.1-docs. Track PE PAUZA; conditiile de reactivare sunt in
@@ -160,16 +180,20 @@ D -- selector_core.sweep_deadline + reproduce_selector.py --objective lossaware:
 invatat-vs-always-CycloneDDS) in (3000, 5000] ms pe selector_dataset.csv (SIL N=10), figura
 selector_dstar.png. De RECALCULAT pe HIL.
 
-## 9. Ecosistem PhD: UN SINGUR dosar, ~/ros2_ws (R2, 17.09.2026)
+## 9. Ecosistem PhD: UN SINGUR dosar, ~/ros2_ws (R2, 17.09.2026; structura R3 din README_STRUCTURA.md; adus la zi la E7, 22.09.2026)
 Radacina e PHD_ROOT=$HOME/ros2_ws (export in ~/.bashrc, pus la R2 cu acordul lui Alexandru).
 Structura (README_STRUCTURA.md in radacina; harta in DOC/HARTA.md):
-- src/      -- monorepo git (acest depozit). Aici lucrezi prin git, ca de obicei.
-- DATE/     -- campanii/<run_id>/ (canonic; ruleaza.py scrie aici), index/ (legaturi), teste.sqlite. READ-ONLY manual.
-- GRAFICE/  -- src/ (scripturile figurilor), out/<contributie>/<run_id>/, arhiva/. NU e sub git.
+- src/      -- monorepo git (acest depozit). Aici lucrezi prin git, ca de obicei. Nu date, nu documente, nu figuri de campanie.
+- DATE/     -- <C>/<nume>_<data>_<STARE>/ (CANONIC / VALIDARE / ARHIVAT; + runs/<run_id>/ scrise de ruleaza.py), index/ (legaturi),
+              teste.sqlite (regenerat). STARE.md in fiecare set. READ-ONLY manual.
+- GRAFICE/  -- <C>/out/ (VALIDA: script + rulare, <nume>.STARE.txt) si <C>/arhiva/. Scripturile figurilor sunt in
+              DOC/BORD/tools/figuri/ (GRAFICE/src NU mai exista). NU e sub git.
 - DOC/      -- panoul si documentele (git LOCAL, fara remote): BORD/ (STARE, JURNAL, DECIZII, REGISTRU_RULARI,
-              DOVEZI, manifeste/, tools/, bin/phd), CAIETE/, RAPOARTE/, ARTICOLE/, MANUSCRISE/, TEZA/,
+              DOVEZI, manifeste/, tools/, bin/phd), CAIETE/, RAPOARTE/ (+ AUDIT/), ARTICOLE/, MANUSCRISE/, TEZA/,
               PREZENTARI/, LECTURI/, ADMIN/, HARTA.md. Se editeaza DOAR ce cere unitatea; commit local, fara push.
-- ARHIVA/   -- vechi, cu manifest (istoric/, backup_uri/, in_repo_*/, documente/, manuscrise/). Nu se citeaza.
-- COS/<data>/ -- carantina 30 de zile, cu LISTA.md. Stergerea e decizia lui Alexandru.
+- ARHIVA/   -- <C sau categorie>/<nume>_<data>_ARHIVAT/ cu STARE.md; manifest in DOC/BORD/manifeste/. Nu se citeaza, nu se modifica.
+- COS/      -- NU mai exista (golit 17.09; DOC/CAIETE/STERS_2026-09-17.md). Ce e de aruncat merge in cosul sistemului, cu decizie.
 Reguli agent: toate uneltele din DOC/BORD/tools folosesc cai.py (nicio cale absoluta veche); orice rulare
 trece prin DOC/BORD/tools/ruleaza.py; ~/.bashrc nu se mai atinge; nu rula 'phd backup' decat cu SSD montat.
+Regula de provenienta per rulare (manifest_c3, fisiere canonice, verifica_run.py) e obligatorie DOAR pentru C3 (DECIZII 21.09);
+C4/C6/C7 raman pe manifestul ruleaza.py -- extinderea e DE DECIS (DECIZII).
