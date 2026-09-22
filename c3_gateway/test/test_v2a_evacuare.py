@@ -10,6 +10,7 @@ dwell = DWELL_MIN_S (8.55 s). Tabela: sintetica, o celula (0,1) -> cyclonedds ma
 """
 import math
 import os
+import random
 import sys
 
 AICI = os.path.dirname(os.path.abspath(__file__))
@@ -17,7 +18,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(AICI), "c3_gateway", "core"))
 from estimator import Estimare                                      # noqa: E402
 from policy import Politica                                         # noqa: E402
 import switching                                                    # noqa: E402
-from switching import Comutator, Viabilitate, DWELL_MIN_S           # noqa: E402
+from switching import Comutator, Viabilitate, DWELL_MIN_S, K_SIGMA  # noqa: E402
 
 FEREASTRA, HZ_VIAB, PAS = 50, 5.0, 0.02
 PRAG_JOS, PRAG_SUS = switching.LIVRARE_MINIMA_PCT / 100.0, 0.50
@@ -174,27 +175,61 @@ def v11_evenimente(**kw):
     return com, ev
 
 
+V12_MARJA_PP = 10.0                       # marja nominala a tabelei intre cai
+V12_SIGMA_PP = 4.3 / K_SIGMA              # 2.15 pp: zgomotul estimarii marjei, din K_SIGMA (2 sigma = 4.3 pp)
+V12_HZ, V12_SAMANTA = 5.0, 20260922       # esantionare si samanta fixate (seria trebuie sa fie reproductibila)
+
+
 def v12_evenimente(**kw):
-    """V12 (praguri): aceeasi granita ca V11, dar MARJA celulei preferate oscileaza 5-15 pp (perioada 4 s, 60 s),
-    iar dwell-ul e fixat la 8.55 s. Pragul taie marja: cu 6 pp trec aproape toate cererile tabelei, cu 18 pp niciuna
-    (marja nu ajunge niciodata acolo). Ambele cai viabile."""
+    """V12 (praguri), AMENDAT 22.09 (DECIZII): marja constanta 10 pp + zgomot gaussian sigma 2.15 pp, esantionat
+    la 5 Hz, 60 s, samanta fixata. Banda de histerezis (prag_plecare - prag_intoarcere) se compara cu ZGOMOTUL
+    ESTIMARII, marime pe care o avem deja din K_SIGMA -- nu cu o oscilatie inventata. Seria dinainte cupla marja
+    in faza cu L, o alegere de constructie nespecificata care dadea doar doua regimuri (tot sau nimic).
+    Tabela propune de fiecare data CEALALTA cale, ca ambele praguri sa fie solicitate: plecarea de pe implicit
+    trece prin prag_plecare, intoarcerea pe implicit prin prag_intoarcere. sigma_L al estimarii e acelasi zgomot,
+    deci si poarta de incertitudine (K_SIGMA x sigma) e coerenta cu seria."""
     kw.setdefault("dwell_min_s", DWELL_MIN_S)
-    ev, com = [], None
+    rng = random.Random(V12_SAMANTA)
+    com, ev, marja, urm = None, [], V12_MARJA_PP, 0.0
     for k in range(int(60.0 / PAS) + 1):
         t = k * PAS
-        L = 0.10 + 0.02 * math.sin(2 * math.pi * t / 4.0)
-        marja = 10.0 + 5.0 * math.sin(2 * math.pi * t / 4.0)             # 5 - 15 pp
-        pol = _tabela([_cel(8.0, "cyclonedds", marja), _cel(12.0, "zenoh", marja)])
+        if t >= urm:
+            marja = rng.gauss(V12_MARJA_PP, V12_SIGMA_PP)
+            urm += 1.0 / V12_HZ
         if com is None:
-            com = Comutator(pol, 4096, transport_initial="cyclonedds", prag_jos_alpha=PRAG_JOS,
-                            prag_sus_alpha=PRAG_SUS, durata_fereastra_s=FEREASTRA / HZ_VIAB, **kw)
-        com.politica = pol                                               # tabela se schimba, comutatorul isi pastreaza starea
+            com = Comutator(_tabela([_cel(10.0, "zenoh", marja)]), 4096, transport_initial="cyclonedds",
+                            prag_jos_alpha=PRAG_JOS, prag_sus_alpha=PRAG_SUS,
+                            durata_fereastra_s=FEREASTRA / HZ_VIAB, **kw)
+        celalalt = "zenoh" if com.transport == "cyclonedds" else "cyclonedds"
+        com.politica = _tabela([_cel(10.0, celalalt, marja)])
         inainte = com.transport
-        tr, motiv = com.decide(Estimare(L, 1.0, 0.001, 1000, 0, True), 100.0 + t,
+        tr, motiv = com.decide(Estimare(0.10, 1.0, V12_SIGMA_PP / 100.0, 1000, 0, True), 100.0 + t,
                                {c: viab(a) for c, a in AMBELE_VII.items()})
         if tr != inainte:
             ev.append((round(t, 2), inainte, tr, motiv))
     return com, ev
+
+
+def v11(**kw):
+    """Criteriul B2b pentru V11 (DECIZII 22.09): n scade MONOTON cu dwell si n(8.55) <= 60/8.55 + 1 = 8.
+    Nu mai e 'n <= 2': acela era calibrat pentru alta serie; aici plafonul real e 60/dwell."""
+    n = [(d, len(v11_evenimente(dwell_min_s=d, **kw)[1])) for d in (0.0, 4.0, DWELL_MIN_S)]
+    monoton = all(n[i][1] >= n[i + 1][1] for i in range(len(n) - 1))
+    plafon = 60.0 / DWELL_MIN_S + 1
+    ok = monoton and n[-1][1] <= plafon
+    return ok, "V11 dwell (figura de sensibilitate): n = %s pentru dwell %s; monoton %s; n(%.2f) = %d <= %.0f" % (
+        [x[1] for x in n], [x[0] for x in n], "DA" if monoton else "NU", DWELL_MIN_S, n[-1][1], plafon)
+
+
+def v12(**kw):
+    """Criteriul B2b pentru V12: cea mai INGUSTA banda (prag_plecare - prag_intoarcere) cu n <= 2."""
+    r = [(pp - pi, pp, pi, len(v12_evenimente(prag_plecare=pp, prag_intoarcere=pi, **kw)[1]))
+         for pp, pi in ((6.0, 2.5), (12.0, 5.0), (18.0, 7.5))]
+    trec = [x for x in r if x[3] <= 2]
+    ales = min(trec) if trec else None
+    return ales is not None, "V12 praguri: %s -> %s" % (
+        "; ".join("banda %.1f pp (%.0f/%.1f) n=%d" % x for x in r),
+        ("cea mai ingusta cu n <= 2: %.0f/%.1f pp" % (ales[1], ales[2])) if ales else "NICIUNA cu n <= 2")
 
 
 def main():
