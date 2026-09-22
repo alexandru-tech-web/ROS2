@@ -30,9 +30,11 @@ def viab(alpha):
     return Viabilitate(FEREASTRA, int(round(alpha * FEREASTRA)))
 
 
-def comutator(start="zenoh"):
+def comutator(start="zenoh", **kw):
+    """**kw (B2, 22.09): dwell_min_s / prag_plecare / prag_intoarcere, pentru baleiajul pre-inregistrat sec. 8b.
+    Fara kw -> exact parametrii pre-inregistrati ai V2a (dwell 8.55 s, 12/5 pp); verdictele V7-V9c nu se schimba."""
     return Comutator(POL, 4096, transport_initial=start, prag_jos_alpha=PRAG_JOS, prag_sus_alpha=PRAG_SUS,
-                     durata_fereastra_s=FEREASTRA / HZ_VIAB)
+                     durata_fereastra_s=FEREASTRA / HZ_VIAB, **kw)
 
 
 def ruleaza(com, alpha_fn, durata, t0=100.0):
@@ -82,14 +84,21 @@ def v8():
         len(ev), (t_n - 5.0) if t_n is not None else None, st.get("alpha_activ"))
 
 
-def v9():
-    com = comutator("zenoh")
+def v9_evenimente(**kw):
+    """B2: seria V9 (60 s) cu parametrii dati -> (comutator, evenimente). Metrica baleiajului e len(evenimente).
+    v9() e verdictul pre-inregistrat citit peste aceeasi serie; seria NU se schimba intre baleiaje."""
+    com = comutator("zenoh", **kw)
     osc = lambda t: 0.125 + 0.075 * math.sin(2 * math.pi * t / 4.0)          # noqa: E731  intre 0.05 si 0.20, perioada 4 s
     ev, _ = ruleaza(com, lambda t: {"zenoh": osc(t), "cyclonedds": 1.0}, 60.0)
+    return com, ev
+
+
+def v9(**kw):
+    com, ev = v9_evenimente(**kw)
     intoarceri = [e for e in ev if "intoarcere" in e[3]]
     ok = len(ev) <= 2 and len([e for e in ev if "evacuare" in e[3]]) == 1 and len(intoarceri) <= 1
     if intoarceri:
-        ok = ok and (intoarceri[0][0] - ev[0][0]) >= DWELL_MIN_S
+        ok = ok and (intoarceri[0][0] - ev[0][0]) >= com.dwell_min_s
     return ok, "V9 oscilatie activ: %d comutari in 60 s %s" % (len(ev), [(e[0], e[1], e[2], e[3][:10]) for e in ev])
 
 
