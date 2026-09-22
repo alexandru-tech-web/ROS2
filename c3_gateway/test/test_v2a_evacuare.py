@@ -109,13 +109,14 @@ def v9b():
     return len(ev) == 0, "V9b oscilatie celalalt: %d comutari (asteptat 0: nu evacuezi de pe o cale buna)" % len(ev)
 
 
-def v9c():
+def v9c(**kw):
     """E2: tabela vrea INAPOI pe calea evacuata (celula sintetica zenoh marja 40 pp); intoarcerea cere dwell complet SI alpha > prag_sus
     pe o fereastra intreaga (10 s). alpha_zenoh: cade la t=5 (evacuare), sta 0.05-0.20 pana la t=30 (tabela vrea zenoh, dar E2 blocheaza),
     apoi 1.0 -> intoarcere la >= max(dwell, fereastra) dupa t=30, deci in [40, 41] s; total exact 2 comutari."""
     pol = Politica({"schema": "c3_policy_table/1", "default_transport": "cyclonedds", "default_motiv": "sintetic",
                     "celule": [{"L": 0.0, "B": 1.0, "payload": 4096, "transport": "zenoh", "marja": 40.0, "covered": True, "sursa": "t.md"}]})
-    com = Comutator(pol, 4096, transport_initial="zenoh", prag_jos_alpha=PRAG_JOS, prag_sus_alpha=PRAG_SUS, durata_fereastra_s=FEREASTRA / HZ_VIAB)
+    com = Comutator(pol, 4096, transport_initial="zenoh", prag_jos_alpha=PRAG_JOS, prag_sus_alpha=PRAG_SUS,
+                    durata_fereastra_s=FEREASTRA / HZ_VIAB, **kw)
     est = Estimare(0.0, 1.0, 0.001, 1000, 50, True)
     osc = lambda t: 0.125 + 0.075 * math.sin(2 * math.pi * t / 4.0)          # noqa: E731
 
@@ -133,8 +134,67 @@ def v9c():
         if tr != inainte:
             ev.append((round(t, 3), inainte, tr, motiv))
     ok = (len(ev) == 2 and "evacuare" in ev[0][3] and ev[0][2] == "cyclonedds" and "intoarcere" in ev[1][3] and ev[1][2] == "zenoh"
-          and 40.0 <= ev[1][0] <= 41.0 and (ev[1][0] - ev[0][0]) >= DWELL_MIN_S)
+          and 40.0 <= ev[1][0] <= 41.0 and (ev[1][0] - ev[0][0]) >= com.dwell_min_s)
     return ok, "V9c intoarcere conditionata (E2): %d comutari %s" % (len(ev), [(e[0], e[1], e[2], e[3][:10]) for e in ev])
+
+
+# --------------------------------------------------------------------- B2b (DECIZII 22.09): seriile care SOLICITA parametrii
+# V9/V9c nu pot masura dwell-ul si pragurile: in V9 nu exista intoarcere (dwell-ul nu e consultat niciodata), iar in
+# V9c intoarcerea e deblocata de fereastra de viabilitate (10 s > orice dwell din {0,4,8.55}) si de marja de 40 pp
+# (peste orice prag din {6,12,18}). V11 si V12 scot evacuarea din ecuatie -- ambele cai viabile, alpha 1.0 -- ca toate
+# comutarile sa vina DIN TABELA, unde dwell-ul si pragurile sunt chiar portile care decid. RAPORT_B2.md sec. 5.
+AMBELE_VII = {"zenoh": 1.0, "cyclonedds": 1.0}
+
+
+def _tabela(celule):
+    return Politica({"schema": "c3_policy_table/1", "default_transport": "cyclonedds",
+                     "default_motiv": "sintetic", "celule": celule})
+
+
+def _cel(L, transport, marja):
+    return {"L": L, "B": 1.0, "payload": 4096, "transport": transport, "marja": marja, "covered": True, "sursa": "t.md"}
+
+
+def v11_evenimente(**kw):
+    """V11 (dwell): L_hat pe calea activa oscileaza 0.08-0.12, perioada 4 s, 60 s, adica trece de granita de 10 %
+    a tabelei de doua ori pe perioada. Marjele celulelor sunt 20 pp -- peste pragurile implicite 12/5 -- tocmai ca
+    poarta masurata sa fie DWELL-ul, nu pragul. Ambele cai viabile: fara evacuare, fara E2."""
+    pol = _tabela([_cel(8.0, "cyclonedds", 20.0), _cel(12.0, "zenoh", 20.0)])
+    com = Comutator(pol, 4096, transport_initial="cyclonedds", prag_jos_alpha=PRAG_JOS, prag_sus_alpha=PRAG_SUS,
+                    durata_fereastra_s=FEREASTRA / HZ_VIAB, **kw)
+    ev = []
+    for k in range(int(60.0 / PAS) + 1):
+        t = k * PAS
+        L = 0.10 + 0.02 * math.sin(2 * math.pi * t / 4.0)                # 0.08 - 0.12, granita tabelei la 0.10
+        inainte = com.transport
+        tr, motiv = com.decide(Estimare(L, 1.0, 0.001, 1000, 0, True), 100.0 + t,
+                               {c: viab(a) for c, a in AMBELE_VII.items()})
+        if tr != inainte:
+            ev.append((round(t, 2), inainte, tr, motiv))
+    return com, ev
+
+
+def v12_evenimente(**kw):
+    """V12 (praguri): aceeasi granita ca V11, dar MARJA celulei preferate oscileaza 5-15 pp (perioada 4 s, 60 s),
+    iar dwell-ul e fixat la 8.55 s. Pragul taie marja: cu 6 pp trec aproape toate cererile tabelei, cu 18 pp niciuna
+    (marja nu ajunge niciodata acolo). Ambele cai viabile."""
+    kw.setdefault("dwell_min_s", DWELL_MIN_S)
+    ev, com = [], None
+    for k in range(int(60.0 / PAS) + 1):
+        t = k * PAS
+        L = 0.10 + 0.02 * math.sin(2 * math.pi * t / 4.0)
+        marja = 10.0 + 5.0 * math.sin(2 * math.pi * t / 4.0)             # 5 - 15 pp
+        pol = _tabela([_cel(8.0, "cyclonedds", marja), _cel(12.0, "zenoh", marja)])
+        if com is None:
+            com = Comutator(pol, 4096, transport_initial="cyclonedds", prag_jos_alpha=PRAG_JOS,
+                            prag_sus_alpha=PRAG_SUS, durata_fereastra_s=FEREASTRA / HZ_VIAB, **kw)
+        com.politica = pol                                               # tabela se schimba, comutatorul isi pastreaza starea
+        inainte = com.transport
+        tr, motiv = com.decide(Estimare(L, 1.0, 0.001, 1000, 0, True), 100.0 + t,
+                               {c: viab(a) for c, a in AMBELE_VII.items()})
+        if tr != inainte:
+            ev.append((round(t, 2), inainte, tr, motiv))
+    return com, ev
 
 
 def main():
