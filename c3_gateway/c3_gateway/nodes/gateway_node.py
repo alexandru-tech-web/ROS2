@@ -317,7 +317,35 @@ class Gateway(Node):
                                   self.topicuri[idx][1])
 
     # ------------------------------------------------------------------- inchidere
+    def _goleste_in_zbor(self):
+        """P3 (24.09.2026): la oprire, tot ce a mai ramas in zbor se scrie ca PIERDUT.
+
+        Defectul reparat aici: _expira_in_zbor scria pierderile doar dupa timeout_ecou, deci
+        esantioanele trimise in ultimele timeout_ecou secunde -- si oricare ramase in zbor cand
+        bucla s-a oprit -- nu ajungeau NICIODATA in jurnal. Nu apareau nici ca primit=0: lipseau
+        cu totul. Masurat in V3-DIAG pe ge_c2/zenoh: 1862 de randuri pentru 1986 de mesaje
+        trimise, adica 124 (6.2 %) nelogate, iar orice livrare calculata PER RAND din app.csv
+        iesea optimista cu ~10 pp. Metrica de campanie nu era afectata (numitorul ei e lista
+        trimise), dar un jurnal din care lipsesc randuri nu e un jurnal de provenienta.
+        Invariantul de acum: un rand in app.csv pentru FIECARE mesaj trimis.
+        """
+        if self.jurnal is None:
+            return 0
+        acum = time.clock_gettime(time.CLOCK_MONOTONIC)
+        stare = self._stare_curenta()
+        n = 0
+        for transport, cale in self.cai.items():
+            for s in sorted(cale.in_zbor):
+                t_trimis, octeti, tip, idx = cale.in_zbor[s]
+                if tip == TIP_SONDA.decode("ascii"):
+                    cale.noteaza_sonda(False)
+                self.jurnal.esantion(acum, s, transport, tip, idx, octeti, False, None, stare)
+                n += 1
+            cale.in_zbor.clear()
+        return n
+
     def inchide(self):
+        n_golite = self._goleste_in_zbor()
         # Tot ce trebuie ca overhead-ul sa poata fi recalculat offline, cu numitorul lui:
         # ratele, payload-urile si numarul de pachete -- nu doar procentul final.
         extra = {"hz_sonda_viabilitate": self.a.hz_sonda,
@@ -331,7 +359,10 @@ class Gateway(Node):
                  "decizii_fara_raport_canal": self.n_canal_fara_raport,
                  "evacuari": self.n_evacuari, "intoarceri": self.n_intoarceri,
                  "prag_jos_alpha": self.a.prag_jos_alpha, "prag_sus_alpha": self.a.prag_sus_alpha,
-                 "transport_final": {i: c.transport for i, c in self.comutatoare.items()}}
+                 "transport_final": {i: c.transport for i, c in self.comutatoare.items()},
+                 # P3: cate esantioane au fost scrise ca pierdute la oprire (erau inca in zbor).
+                 # Cu ele, n_app din jurnal trebuie sa fie EGAL cu suma trimiselor de tip A.
+                 "in_zbor_golite_la_oprire": n_golite}
         for t, c in self.cai.items():
             extra["trimise_%s" % t] = c.n_trimise
             extra["ecouri_%s" % t] = c.n_ecouri
