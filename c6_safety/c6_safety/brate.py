@@ -46,11 +46,17 @@ class MarjaIntarziere(object):
     observabil, iar varsta raportului este. Consecinta de citit ca atare: A4 NU e Periotto, ci
     Periotto mutat pe semnalul disponibil aici, si asta se scrie oriunde e comparat cu A2.
 
+    ACEST OBIECT da DOAR termenul Periotto. Dupa ERATA 8 (S5.1) el se aduna peste BAZA lui A2
+    (marja_inchidere cu A_ef = 0); vezi filtru_pentru. Inainte de ERATA 8 era folosit singur, ceea ce
+    facea ca A4 sa difere de A2 prin doua lucruri deodata (baza si termenul de varsta) si sa nu poata
+    raspunde intrebarii lui Periotto -- masurat: pe canal ideal marja iesea exact 0, deci bratul lovea
+    obstacolul acolo unde nu exista nicio intarziere.
+
     Ce NU are, deliberat (ERATA 6: A4 e brat de comparatie, implementat corect, nu imbunatatit):
       - niciun termen v_o * A: marja nu stie cat de repede se poate misca pericolul;
       - niciun plafon A_max: nu exista stare sigura pe varsta, oricat de veche ar fi informatia;
-      - marja NU creste intre doua rapoarte -- e o statistica, nu varsta curenta. De aceea
-        dmarja_dt = 0 (vezi filtru_pentru), si de aceea A4 e vulnerabil exact acolo unde A2 nu e.
+      - termenul NU creste intre doua rapoarte -- e o statistica, nu varsta curenta. De aceea
+        dmarja_dt = 0 (vezi filtru_pentru), si de aceea A4' e vulnerabil exact acolo unde A2 nu e.
 
     std = abaterea standard de POPULATIE: definita si pentru un singur raport (0.0), deci marja nu
     sare cand fereastra abia s-a deschis."""
@@ -131,8 +137,9 @@ def filtru_pentru(brat, params, gamma=None, tau_act=0.0):
       A1: A_ef = 0            A2: A_ef = min(A, A_max)            A3: A_ef = A_max
     A2 peste A_max -> stare sigura u=(0,0), n_ws. Cu tau_act (doar g'): A_ef += tau_act.
     ERATA 6 / S5:
-      A4: marja = |v|*mean(A) + v_max*k_sigma*std(A) pe fereastra de rapoarte (MarjaIntarziere).
-          NU foloseste marja_inchidere si nu are plafon A_max: e alt model de marja, nu o varianta.
+      A4: A4' dupa ERATA 8 -- BAZA lui A2 (marja_inchidere cu A_ef = 0) + termenul Periotto
+          |v|*mean(A) + v_max*k_sigma*std(A) (MarjaIntarziere), FARA v_o*A. Singurul TERMEN care il
+          deosebeste de A2 e cel al varstei. Plafonul A_max ramane absent (ERATA 6, nerevocata).
       A5: o_hat inlocuit cu PREDICTIA o_hat + v_hat*A (PredictorVitezaConstanta), apoi marja cu
           A_ef = 0 (dupa predictie varsta nu se mai plateste a doua oara); plafonul A_max RAMANE.
     Un brat necunoscut e REFUZAT aici, nu tratat ca A3: pana la S5 cadea pe ramura else si o rulare
@@ -185,9 +192,15 @@ def filtru_pentru(brat, params, gamma=None, tau_act=0.0):
                                     "marja_extra": None, "ws": True}, False
             A_ef, dm = min(A, p.AoI_max), (v_o if A < p.AoI_max else 0.0)
         elif brat == "A4":
-            # fara plafon A_max si fara v_o*A: marja e statistica intarzierii, atat
-            m4 = a4.marja(st.v)
-            u4, info4 = sf.apply(st, cmd, o, m4, None, 0.0, a4.dmarja_dv(st.v),
+            # A4' (ERATA 8, S5.1): BAZA lui A2 -- adica marja_inchidere cu A_ef = 0, exact ce are A1 --
+            # PLUS termenul Periotto, si FARA v_o*A. Astfel singurul TERMEN care deosebeste A4' de A2 e
+            # cel al varstei: A2 pune v_o*A_ef (varsta CURENTA), A4' pune |v|*mean(A) + v_max*k*std(A)
+            # (STATISTICA intarzierii). Varianta dinainte de ERATA 8 nu avea nici baza, deci compara doua
+            # variabile deodata si nu raspundea intrebarii lui Periotto -- vezi caiet ERATA 8.
+            # Ce ramane diferit in afara marjei: plafonul A_max. A2 trece in stare sigura peste el, A4' nu
+            # (asa e specificat A4 din ERATA 6, si ERATA 8 nu a revocat-o) -- raportat, nu ascuns.
+            m4 = cbf_core.marja_inchidere(st.v, v_o, a, 0.0) + a4.marja(st.v)
+            u4, info4 = sf.apply(st, cmd, o, m4, None, 0.0, dmv + a4.dmarja_dv(st.v),
                                  dt_masurat=ctx.get("dt_masurat"))
             return u4, info4, (info4["feasible"] is False)
         elif brat == "A5":
