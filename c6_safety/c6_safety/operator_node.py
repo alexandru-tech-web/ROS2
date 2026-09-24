@@ -32,6 +32,7 @@ if _AICI not in sys.path:
 import episode                                               # noqa: E402
 import operator_core                                         # noqa: E402
 import rover_dyn                                             # noqa: E402
+import c6_params
 from c6_params import Params                                 # noqa: E402
 
 
@@ -52,10 +53,10 @@ class OperatorNode(Node):
         self.declare_parameter("qos", "reliable")       # | best_effort; factor pentru S4
         g = lambda k: self.get_parameter(k).value                        # noqa: E731
         self.P = Params(scenariu=g("scenariu"), v_o_max=float(g("v_o_max")), f_haz=float(g("f_haz")))
-        if self.P.scenariu != "traversare":
-            raise SystemExit("operator_node: scenariul %r NU e suportat in S3 (urmarirea cere "
-                             "pozitia roverului la GCS, care ajunge intarziata; decizie in S4)"
-                             % self.P.scenariu)
+        if self.P.scenariu not in c6_params.SCENARII_NODURI:
+            raise SystemExit("operator_node: scenariul %r NU e suportat de noduri; suportate: %s "
+                             "(urmarirea cere pozitia roverului la GCS, care ajunge intarziata)"
+                             % (self.P.scenariu, ", ".join(c6_params.SCENARII_NODURI)))
         self.op = operator_core.Operator(self.P, react=bool(g("react")))
         self.haz = episode.Hazard(self.P)
         self.st = rover_dyn.Stare(x=self.P.start[0], y=self.P.start[1], theta=self.P.start[2])

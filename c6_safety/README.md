@@ -21,9 +21,18 @@ Ce e pe disc, tot fara ROS si fara retea (`python3 <fisier> --selftest`):
 
 - `brate.py`       -- A0/A1/A2/A3 pe pericol MOBIL (traversare | urmarire), ERATA 4+5:
                       r_eff = r + (v+v_o)^2/(2a) + v_o*A_ef + delta_DT; certificat per rulare;
-                      `--selftest` (j),(b),(m),(a),(d) obligatorii, urmarirea doar raportata (H2)
+                      `--selftest` (j),(b),(m),(a),(d) obligatorii, urmarirea doar raportata (H2).
+                      S5 (ERATA 6): + A4 (`MarjaIntarziere`, marja pe statistica intarzierii, stil
+                      Periotto adaptat la varsta raportului la robot) si A5
+                      (`PredictorVitezaConstanta`, o_hat + v_hat*A, stil Molnar). Un brat
+                      necunoscut e REFUZAT, nu tratat ca A3.
 - `certif_core.py` -- certificatul M1: (i) h_true, (ii) DT-CBF pe fezabili, (iii) KKT,
                       (iv) re-simulare F; 2 controale negative in selftest
+
+Testele unitatii S5 (bratele noi si scenariul `schimba_directia`) stau separat, ca sa NU schimbe
+iesirea selftestelor de mai sus -- acelea raman martorul de regresie, bit cu bit:
+
+    python3 test/test_s5.py        # t1-t6; cod 0 = toate trec
 
 ## Nodurile ROS 2 (S3) -- subtiri, fara logica
 

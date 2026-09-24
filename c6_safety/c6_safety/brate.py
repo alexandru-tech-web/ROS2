@@ -30,25 +30,152 @@ import models                                                # noqa: E402
 import rover_dyn                                             # noqa: E402
 from c6_params import Params                                 # noqa: E402
 
-BRATE = ("A0", "A1", "A2", "A3")
+BRATE = ("A0", "A1", "A2", "A3", "A4", "A5")
+
+
+class MarjaIntarziere(object):
+    """A4 -- marja pe INTARZIERE, din statistica ultimelor `fereastra` RAPOARTE (stil Periotto).
+
+        marja = |v| * mean(A) + v_max * k_sigma * std(A)
+
+    ADAPTAREA, declarata: Periotto (arXiv 2403.18650) calculeaza marja din RTT-ul masurat LA
+    OPERATOR, adica dus-intors pe bucla de teleoperare. Aici marimea e varsta raportului de pericol
+    LA ROBOT, adica un singur sens si un singur flux (GCS -> rover). Cele doua nu sunt aceeasi
+    marime: RTT-ul contine si drumul de intoarcere al comenzii, iar varsta contine si perioada de
+    raportare 1/f_haz. Alegerea e deliberata -- C6 filtreaza pe robot, unde RTT-ul operatorului nu e
+    observabil, iar varsta raportului este. Consecinta de citit ca atare: A4 NU e Periotto, ci
+    Periotto mutat pe semnalul disponibil aici, si asta se scrie oriunde e comparat cu A2.
+
+    Ce NU are, deliberat (ERATA 6: A4 e brat de comparatie, implementat corect, nu imbunatatit):
+      - niciun termen v_o * A: marja nu stie cat de repede se poate misca pericolul;
+      - niciun plafon A_max: nu exista stare sigura pe varsta, oricat de veche ar fi informatia;
+      - marja NU creste intre doua rapoarte -- e o statistica, nu varsta curenta. De aceea
+        dmarja_dt = 0 (vezi filtru_pentru), si de aceea A4 e vulnerabil exact acolo unde A2 nu e.
+
+    std = abaterea standard de POPULATIE: definita si pentru un singur raport (0.0), deci marja nu
+    sare cand fereastra abia s-a deschis."""
+
+    def __init__(self, fereastra=30, k_sigma=2.0, v_max=1.0):
+        self.fereastra = int(fereastra)
+        self.k_sigma = float(k_sigma)
+        self.v_max = float(v_max)
+        self.A = []                      # varstele ultimelor `fereastra` rapoarte, in ordine
+
+    @property
+    def n(self):
+        return len(self.A)
+
+    def observa(self, A):
+        """Un RAPORT NOU, cu varsta lui la sosire. Fereastra numara rapoarte, nu pasi."""
+        self.A.append(float(A))
+        if len(self.A) > self.fereastra:
+            del self.A[0:len(self.A) - self.fereastra]
+
+    def _mu_sd(self):
+        if not self.A:
+            return 0.0, 0.0
+        return statistics.fmean(self.A), statistics.pstdev(self.A)
+
+    def marja(self, v):
+        mu, sd = self._mu_sd()
+        return abs(v) * mu + self.v_max * self.k_sigma * sd
+
+    def dmarja_dv(self, v):
+        """d(marja)/dv = sign(v) * mean(A); partea cu std nu depinde de v."""
+        mu, _ = self._mu_sd()
+        return (1.0 if v >= 0 else -1.0) * mu
+
+
+class PredictorVitezaConstanta(object):
+    """A5 -- pozitia pericolului extrapolata cu viteza constanta (stil Molnar, IEEE TCST 2023).
+
+        o_pred = o_hat + v_hat * A,   v_hat = (o_2 - o_1) / (t_tx,2 - t_tx,1)
+
+    v_hat vine din ULTIMELE DOUA rapoarte, pe timpii lor de EMISIE (t_tx = t_perete - A), nu pe cei
+    de sosire: intre doua rapoarte intarzierea variaza, iar o viteza impartita la intervalul de
+    SOSIRE ar contine jitterul canalului, nu miscarea pericolului.
+
+    Pana la al doilea raport nu exista viteza, deci nu exista predictie: prezice() intoarce None si
+    bratul cade pe o_hat brut. A nu se confunda cu 'predictie zero'."""
+
+    def __init__(self):
+        self.ultimele = []               # [(o, t_tx)] -- cel mult doua
+
+    def observa(self, o, t_tx):
+        self.ultimele.append((tuple(o), float(t_tx)))
+        if len(self.ultimele) > 2:
+            del self.ultimele[0:len(self.ultimele) - 2]
+
+    def v_hat(self):
+        if len(self.ultimele) < 2:
+            return None
+        (o1, t1), (o2, t2) = self.ultimele
+        dt = t2 - t1
+        if dt <= 1e-9:
+            return None
+        return ((o2[0] - o1[0]) / dt, (o2[1] - o1[1]) / dt)
+
+    def prezice(self, o, A):
+        """o_hat + v_hat * A, sau None cat timp nu exista inca doua rapoarte."""
+        v = self.v_hat()
+        if v is None or A is None:
+            return None
+        return (o[0] + v[0] * float(A), o[1] + v[1] * float(A))
 
 
 def filtru_pentru(brat, params, gamma=None, tau_act=0.0):
     """(safety_filter callable sau None, SafetyFilter sau None).
 
-    ERATA 4: r_eff = r + (v + v_o)^2/(2a) + v_o*A_ef (viteza de inchidere), in TOATE bratele;
+    ERATA 4: r_eff = r + (v + v_o)^2/(2a) + v_o*A_ef (viteza de inchidere), in bratele cu marja pe varsta;
     cbf_core.marja_inchidere da partea de peste d_fr(v).
       A1: A_ef = 0            A2: A_ef = min(A, A_max)            A3: A_ef = A_max
-    A2 peste A_max -> stare sigura u=(0,0), n_ws. Cu tau_act (doar g'): A_ef += tau_act."""
+    A2 peste A_max -> stare sigura u=(0,0), n_ws. Cu tau_act (doar g'): A_ef += tau_act.
+    ERATA 6 / S5:
+      A4: marja = |v|*mean(A) + v_max*k_sigma*std(A) pe fereastra de rapoarte (MarjaIntarziere).
+          NU foloseste marja_inchidere si nu are plafon A_max: e alt model de marja, nu o varianta.
+      A5: o_hat inlocuit cu PREDICTIA o_hat + v_hat*A (PredictorVitezaConstanta), apoi marja cu
+          A_ef = 0 (dupa predictie varsta nu se mai plateste a doua oara); plafonul A_max RAMANE.
+    Un brat necunoscut e REFUZAT aici, nu tratat ca A3: pana la S5 cadea pe ramura else si o rulare
+    cu un brat scris gresit ar fi produs cifre care pareau ale lui."""
+    if brat not in BRATE:
+        raise ValueError("brat necunoscut %r; cunoscute: %s" % (brat, ", ".join(BRATE)))
     if brat == "A0":
         return None, None
     sf = cbf_core.SafetyFilter(params, gamma)
     v_o, a = params.v_o_max, params.a_max
     dmv = v_o / a                                   # d(marja_extra)/dv, ERATA 4
+    a4 = MarjaIntarziere(params.A4_fereastra, params.A4_k_sigma, params.v_max) if brat == "A4" else None
+    a5 = PredictorVitezaConstanta() if brat == "A5" else None
+    # starea de detectie a unui RAPORT NOU, comuna lui A4 si A5: varsta scade sau pozitia raportata
+    # se schimba. Pe canal ideal A e mereu 0, deci prima conditie nu s-ar declansa niciodata --
+    # a doua o acopera. Ceasul de perete se acumuleaza din dt_masurat cand exista (nod ROS), altfel
+    # din dt nominal (core): t_tx = t_perete - A, si asta cere acelasi ceas cu varsta.
+    stare = {"A_prec": None, "o_prec": None, "t": 0.0}
+
+    def _raport_nou(A, o):
+        if o is None:
+            return False
+        if stare["o_prec"] is None:
+            return True
+        if A is not None and stare["A_prec"] is not None and A < stare["A_prec"] - 1e-12:
+            return True
+        return o != stare["o_prec"]
 
     def f(st, cmd, p, ctx=None):
         ctx = ctx or {}
         A = ctx.get("A_haz")
+        o_brut = ctx.get("o_hat") if ctx.get("o_hat") is not None else p.obst
+        stare["t"] += float(ctx.get("dt_masurat") or p.dt)
+        nou = _raport_nou(A, ctx.get("o_hat"))
+        if nou:
+            if a4 is not None:
+                a4.observa(0.0 if A is None else A)
+            if a5 is not None:
+                a5.observa(o_brut, stare["t"] - (0.0 if A is None else A))
+            stare["o_prec"] = ctx.get("o_hat")
+        stare["A_prec"] = A
+
+        o = o_brut
         if brat == "A1":
             A_ef, dm = 0.0, 0.0
         elif brat == "A2":
@@ -57,11 +184,25 @@ def filtru_pentru(brat, params, gamma=None, tau_act=0.0):
                 return (0.0, 0.0), {"h": None, "feasible": None, "kkt_res": None,
                                     "marja_extra": None, "ws": True}, False
             A_ef, dm = min(A, p.AoI_max), (v_o if A < p.AoI_max else 0.0)
-        else:                                       # A3
+        elif brat == "A4":
+            # fara plafon A_max si fara v_o*A: marja e statistica intarzierii, atat
+            m4 = a4.marja(st.v)
+            u4, info4 = sf.apply(st, cmd, o, m4, None, 0.0, a4.dmarja_dv(st.v),
+                                 dt_masurat=ctx.get("dt_masurat"))
+            return u4, info4, (info4["feasible"] is False)
+        elif brat == "A5":
+            if A is None or A > p.AoI_max:           # plafonul A_max RAMANE (ERATA 2)
+                sf.n_ws += 1
+                return (0.0, 0.0), {"h": None, "feasible": None, "kkt_res": None,
+                                    "marja_extra": None, "ws": True}, False
+            pred = a5.prezice(o_brut, A)
+            if pred is not None:
+                o = pred                             # se filtreaza pe pozitia PREZISA
+            A_ef, dm = 0.0, 0.0                      # varsta e platita prin predictie, nu prin marja
+        else:                                        # A3
             A_ef, dm = p.AoI_max, 0.0
         A_ef += tau_act
         m = cbf_core.marja_inchidere(st.v, v_o, a, A_ef)
-        o = ctx.get("o_hat") if ctx.get("o_hat") is not None else p.obst
         u, info = sf.apply(st, cmd, o, m, None, dm, dmv, dt_masurat=ctx.get("dt_masurat"))
         return u, info, (info["feasible"] is False)     # None = stare sigura (n_ws / n_dt), nu infezabil
     return f, sf

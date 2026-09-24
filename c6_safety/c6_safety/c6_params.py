@@ -6,6 +6,12 @@ Se schimba aici, nu in cod.
 """
 from dataclasses import dataclass, field
 
+# Scenariile pe care le stie NUCLEUL (episode.Hazard) si cele pe care le pot rula NODURILE ROS.
+# Sunt aici, intr-un singur loc, ca run_c6 --dry-run sa poata valida planul CONTRA codului
+# (golul gasit la K5b: un plan ratificat parea gata de rulat desi cerea ce nu exista).
+SCENARII = ("traversare", "urmarire", "schimba_directia")
+SCENARII_NODURI = ("traversare", "schimba_directia")   # urmarirea cere pozitia roverului la GCS
+
 
 @dataclass
 class Params:
@@ -45,7 +51,23 @@ class Params:
     hazard_end_y: float = 2.0           # se opreste la (6, +2)
     AoI_max: float = 1.0      # s; ERATA 2: plafonul marjei A2, SEMNAT 19.09 (K4.1); peste el -> stare sigura (n_ws)
     AoI_max_A3: float = 0.5   # s; = T_hold, varsta presupusa de A3 (ERATA v0.2)
-    scenariu: str = "traversare"   # ERATA 3: "traversare" | "urmarire"
+    scenariu: str = "traversare"   # vezi SCENARII: "traversare" | "urmarire" | "schimba_directia"
+
+    # --- ERATA 6 / S5 (24.09.2026): scenariul in care pericolul isi schimba directia ---
+    # Momentele de INVERSARE a directiei, in secunde de la inceputul episodului. Sunt PARAMETRU,
+    # nu constante in cod: planul le poate schimba per celula fara sa se atinga episode.py.
+    # Alegerea implicita, cu motivul: pericolul pleaca din y = -v_o*t_cross si traverseaza drumul
+    # (y = 0) la t_cross = 7.5 s, cand roverul e in dreptul lui. Prima inversare la 8.0 s il prinde
+    # DUPA traversare, deci pericolul se INTOARCE spre drum in loc sa plece -- exact cazul in care un
+    # predictor cu viteza constanta extrapoleaza increzator in directia gresita. A doua, la 10.0 s,
+    # il trimite iar spre drum. Rezultatul: trei treceri prin y = 0 (7.5, 8.5, 11.5 s) in fereastra
+    # in care roverul e langa obstacol. O inversare INAINTE de t_cross ar fi facut scenariul inofensiv
+    # (pericolul s-ar intoarce fara sa ajunga vreodata la drum) -- verificat, si de aceea nu e aleasa.
+    directie_t: tuple = (8.0, 10.0)
+
+    # --- ERATA 6 / S5: bratul A4 (marja pe intarziere, stil Periotto) ---
+    A4_fereastra: int = 30    # cate RAPOARTE intra in statistica (nu pasi)
+    A4_k_sigma: float = 2.0   # cate abateri standard intra in marja; acelasi K_SIGMA ca in C3
 
     @property
     def hazard_start(self):

@@ -46,11 +46,16 @@ def punct_control(state, l):
 
 
 class Hazard(object):
-    """Pericolul mobil, doua scenarii (ERATA 3):
-      "traversare": pleaca din hazard_start, merge pe +y cu v_o, se opreste la hazard_end_y
-                    (analitic in t);
-      "urmarire":   se misca spre pozitia CURENTA a roverului cu v_o (integrat pas cu pas;
-                    are nevoie de pozitia roverului, deci episode il face sa avanseze).
+    """Pericolul mobil, trei scenarii (ERATA 3 + ERATA 6):
+      "traversare":      pleaca din hazard_start, merge pe +y cu v_o, se opreste la hazard_end_y
+                         (analitic in t);
+      "urmarire":        se misca spre pozitia CURENTA a roverului cu v_o (integrat pas cu pas;
+                         are nevoie de pozitia roverului, deci episode il face sa avanseze).
+      "schimba_directia": ca traversarea, dar semnul vitezei se INVERSEAZA la fiecare moment din
+                         params.directie_t. Analitic in t, deci fara stare si fara samanta; rolul
+                         lui (ERATA 6) e sa arate unde cedeaza un predictor cu viteza constanta.
+                         Nu se opreste la hazard_end_y: plafonul de acolo ar ascunde tocmai
+                         intoarcerea pe care scenariul o testeaza.
     o_true(t) e ADEVARUL; roverul vede doar ce vine pe canal, la f_haz, cu intarziere."""
 
     def __init__(self, params, v_o=None, start=None, scenariu=None):
@@ -72,11 +77,26 @@ class Hazard(object):
                 self.y += pas * dy / d
         self.istoric[round(t, 4)] = self.o_true(t)
 
+    def _y_schimba(self, t):
+        """y(t) cu semnul vitezei inversat la fiecare moment din params.directie_t.
+        Liniar pe bucati, continuu, analitic -- nicio stare, deci o_true(t) se poate cere
+        in orice ordine (certificatul si redarea o cer si inapoi in timp)."""
+        y, semn, t_prec = self.y0, 1.0, 0.0
+        for tc in sorted(self.p.directie_t):
+            if t <= tc:
+                break
+            y += semn * self.v_o * (tc - t_prec)
+            semn = -semn
+            t_prec = tc
+        return y + semn * self.v_o * (t - t_prec)
+
     def o_true(self, t):
         if self.scenariu == "urmarire":
             if round(t, 4) in self.istoric:
                 return self.istoric[round(t, 4)]
             return (self.x, self.y)
+        if self.scenariu == "schimba_directia":
+            return (self.x0, self._y_schimba(t))
         y = self.y0 + self.v_o * t
         y = max(min(y, self.p.hazard_end_y), self.y0) if self.v_o >= 0 else y
         return (self.x0, y)

@@ -43,6 +43,7 @@ import io_core                                               # noqa: E402
 from operator_node import qos_din                            # noqa: E402
 import models                                                # noqa: E402
 import rover_dyn                                             # noqa: E402
+import c6_params                                             # noqa: E402
 from c6_params import Params                                 # noqa: E402
 
 
@@ -58,8 +59,9 @@ class RoverNode(Node):
         self.P = Params(scenariu=g("scenariu"), v_o_max=float(g("v_o_max")), seed=int(g("seed")))
         if self.brat not in brate.BRATE:
             raise SystemExit("rover_node: brat necunoscut %r" % self.brat)
-        if self.P.scenariu != "traversare":
-            raise SystemExit("rover_node: scenariul %r NU e suportat in S3 (vezi operator_node)" % self.P.scenariu)
+        if self.P.scenariu not in c6_params.SCENARII_NODURI:
+            raise SystemExit("rover_node: scenariul %r NU e suportat de noduri; suportate: %s"
+                             % (self.P.scenariu, ", ".join(c6_params.SCENARII_NODURI)))
         self.outputs = os.path.expanduser(g("outputs")) or None
         self.eticheta = g("eticheta")
         self.filtru, self.sf = brate.filtru_pentru(self.brat, self.P)
