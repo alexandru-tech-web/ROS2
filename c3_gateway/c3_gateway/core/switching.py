@@ -76,6 +76,21 @@ PRAG_PLECARE_PP = 12.0
 PRAG_INTOARCERE_PP = 5.0
 K_SIGMA = 2.0
 
+# A SASEA FRANA, de fapt un CORECTIV (V3, PLAN_C3_ETAPA_A sec. 9). Tabela de politica e indexata pe (L,B)
+# masurati aici, dar CELULELE ei vin din alt mediu (HIL): cand ordinea cailor difera intre mediul de unde a
+# fost importata si cel in care ruleaza, tabela alege constant calea proasta si nimic din franele 1-5 nu o
+# contrazice -- masurat la loss_15 pe lo: tabela a ales cyclonedds 5/5 si gateway-ul a livrat 24.6 %, in timp
+# ce zenoh-only livra 81.7 % (RAPORT_V3PRE). Corectivul repara EXACT acest caz si nimic altceva: daca ambele
+# cai au fereastra plina si cealalta cale intoarce cu cel putin PRAG_CORECTIV_PP puncte procentuale mai multe
+# sonde SUB TERMENUL APLICATIEI (T_app), se comuta pe ea, cu dwell-ul obisnuit. In rest decide tabela, ca azi.
+# NU e un inlocuitor al tabelei: la ge_c2 diferenta e 4 pp si corectivul tace, iar acolo tabela are dreptate
+# (cdds-only 85.7 % vs zenoh 69.9 %) -- de aceea pragul e sus, nu jos.
+# PRIORITATE: evacuare > corectiv > tabela. Evacuarea raspunde la 'calea pe care stai a murit', corectivul la
+# 'cealalta cale livreaza vizibil mai bine la termenul aplicatiei', tabela la 'ce zice modelul canalului'.
+PRAG_CORECTIV_PP = 9.0          # ERATA 2026-09-24 in plan sec. 9 (era 12.0 = PRAG_PLECARE_PP); PARAMETRU
+T_APP_MS = 250.0                # termenul APLICATIEI, nu al sondei (T_sonda = 1 s ramane al viabilitatii)
+FEREASTRA_VIAB = 50             # mostre; 'fereastra plina' = atatea sonde in fereastra, pe AMBELE cai
+
 # A CINCEA FRANA (V2a, DECIZII D7, 21.09.2026): EVACUAREA. Franele 1-4 raspund la 'merita sa te misti?'.
 # Niciuna nu raspunde la 'calea pe care stai a murit'. Controlul pozitiv din V1.1 a masurat golul: alpha
 # activ 1.0 -> 0.0, 0 comutari, livrare 0 % (tabela dadea implicitul cu marja 0, sub prag). Regula:
@@ -110,15 +125,26 @@ class Viabilitate(object):
     Obiect de date. NU contine (L,B): daca ar contine, cineva ar fi tentat sa il bage in
     tabela de politica -- exact greseala reparata la etapa 3.5."""
 
-    __slots__ = ("n_trimise", "n_intoarse")
+    __slots__ = ("n_trimise", "n_intoarse", "n_in_termen")
 
-    def __init__(self, n_trimise, n_intoarse):
+    def __init__(self, n_trimise, n_intoarse, n_in_termen=None):
         self.n_trimise = int(n_trimise)
         self.n_intoarse = int(n_intoarse)
+        # V3: cate dintre sondele din fereastra s-au intors SUB T_app. Optional si implicit None: o
+        # Viabilitate construita ca inainte de V3 raspunde 'nu stiu' la alpha_Tapp, nu '0 %'. Nu incalca
+        # regula de mai sus (tot un raspuns binar per mostra, doar cu alt termen), si NU e (L,B).
+        self.n_in_termen = None if n_in_termen is None else int(n_in_termen)
 
     @property
     def livrare(self):
         return self.n_intoarse / float(self.n_trimise) if self.n_trimise else 0.0
+
+    @property
+    def alpha_tapp(self):
+        """Fractiunea sondelor din fereastra intoarse sub T_app. None = sonda nu a raportat rtt."""
+        if self.n_in_termen is None or not self.n_trimise:
+            return None
+        return self.n_in_termen / float(self.n_trimise)
 
     def __repr__(self):
         return ("Viabilitate(%d/%d = %.0f%%)"
@@ -145,7 +171,8 @@ class Comutator(object):
     def __init__(self, politica, payload, transport_initial=None,
                  dwell_min_s=DWELL_MIN_S, prag_plecare=PRAG_PLECARE_PP,
                  prag_intoarcere=PRAG_INTOARCERE_PP, k_sigma=K_SIGMA,
-                 prag_jos_alpha=LIVRARE_MINIMA_PCT / 100.0, prag_sus_alpha=0.50, durata_fereastra_s=10.0):
+                 prag_jos_alpha=LIVRARE_MINIMA_PCT / 100.0, prag_sus_alpha=0.50, durata_fereastra_s=10.0,
+                 prag_corectiv=PRAG_CORECTIV_PP, t_app_ms=T_APP_MS, fereastra_viab=FEREASTRA_VIAB):
         self.politica = politica
         self.payload = int(payload)
         self.implicit = politica.implicit
@@ -166,11 +193,24 @@ class Comutator(object):
         self.nicio_cale_viabila = False
         self.alpha_activ = None
         self.ultima_decizie = {}             # t, cale_de, cale_spre, motiv, alpha ambele cai, ce voia tabela
+        # V3: corectivul pe alpha_Tapp. Toate trei sunt PARAMETRI, nu constante: intra in manifest_c3.json
+        # si run_c3.py --dry-run le verifica prezenta, ca o campanie sa nu poata rula pe alte valori decat
+        # cele scrise in plan fara sa se vada in provenienta.
+        self.prag_corectiv = float(prag_corectiv)
+        self.t_app_ms = float(t_app_ms)
+        self.fereastra_viab = int(fereastra_viab)
+        self.n_corectiv = 0
+        self._alpha_tapp_ultim = {}          # {cale: alpha_Tapp} de la ultimul apel al lui decide()
 
     def stare(self):
-        """Ce publica nodul in mesajul de stare (E3): nicio_cale_viabila, alpha_activ, transport, cale_evacuata."""
+        """Ce publica nodul in /c3/stare: E3 (nicio_cale_viabila, alpha_activ, transport, cale_evacuata)
+        plus, de la V3, alpha_Tapp pe fiecare cale si parametrii corectivului -- ca sa se poata citi din
+        jurnal de ce a decis (sau nu a decis) corectivul, fara sa se reconstruiasca fereastra."""
         return {"nicio_cale_viabila": self.nicio_cale_viabila, "alpha_activ": self.alpha_activ,
-                "transport": self.transport, "cale_evacuata": self.cale_evacuata}
+                "transport": self.transport, "cale_evacuata": self.cale_evacuata,
+                "alpha_tapp": dict(self._alpha_tapp_ultim), "n_corectiv": self.n_corectiv,
+                "prag_corectiv_pp": self.prag_corectiv, "t_app_ms": self.t_app_ms,
+                "fereastra_viab": self.fereastra_viab}
 
     @staticmethod
     def _alpha(v):
@@ -179,9 +219,79 @@ class Comutator(object):
             return None
         return v.livrare
 
-    def _noteaza(self, acum, de_la, la, motiv, alfe, tabela):
+    def _noteaza(self, acum, de_la, la, motiv, alfe, tabela, castigator=None, corectiv=None):
+        """Jurnalul unei decizii. V3 (sec. S4): pe ACEEASI linie trebuie sa stea alpha_Tapp pe ambele cai,
+        verdictul tabelei, verdictul corectivului si CINE a castigat -- altfel o comutare nu poate fi
+        atribuita dupa campanie, exact problema avuta la V1.1 pe cale_moarta_zenoh."""
         self.ultima_decizie = {"t": acum, "cale_de": de_la, "cale_spre": la, "motiv": motiv,
-                               "alpha": dict(alfe), "tabela_voia": tabela}
+                               "alpha": dict(alfe), "tabela_voia": tabela,
+                               "alpha_tapp": dict(self._alpha_tapp_ultim),
+                               "corectiv_voia": corectiv, "castigator": castigator}
+
+    def _corectiv(self, acum, viabilitati, d):
+        """V3 (sec. S2). Intoarce (transport, motiv) daca CORECTIVUL decide o comutare, altfel None.
+
+        Trei conditii, toate obligatorii:
+          (1) fereastra PLINA pe AMBELE cai (fereastra_viab mostre) -- regula U6. Pe o fereastra partiala
+              alpha_Tapp e degenerat (o cale cu 1 mostra si alta cu 0 dau o 'diferenta' de 100 pp), iar o
+              decizie luata acolo nu spune nimic despre canal;
+          (2) alpha_Tapp(celalalt) - alpha_Tapp(activ) >= prag_corectiv;
+          (3) dwell-ul obisnuit de la ultima comutare -- corectivul NU e o urgenta ca evacuarea.
+        Nu are prag de intoarcere propriu: revenirea trece prin aceleasi trei conditii cu rolurile schimbate,
+        deci pragul joaca in ambele sensuri.
+        """
+        alfa = {t: (v.alpha_tapp if v is not None else None) for t, v in viabilitati.items()}
+        self._alpha_tapp_ultim = {t: (None if a is None else round(a, 4)) for t, a in alfa.items()}
+        a_activ = alfa.get(self.transport)
+        if a_activ is None:
+            return None
+        plina = all(v is not None and v.n_trimise >= self.fereastra_viab and v.alpha_tapp is not None
+                    for v in viabilitati.values())
+        if not plina:
+            return None                                  # (1) fara fereastra plina, nicio decizie
+        candidati = [(a - a_activ, t) for t, a in alfa.items()
+                     if t != self.transport and a is not None]
+        if not candidati:
+            return None
+        dif, cale = max(candidati)
+        if dif * 100.0 < self.prag_corectiv:
+            # (2a) CALEA ACTIVA E MAI BUNA CU PESTE PRAG -> se RAMANE, fara sa se ceara parerea tabelei.
+            # Pragul joaca in AMBELE sensuri (sec. S2, ultimul paragraf), si asta nu e o infrumusetare:
+            # citirea "tabela decide ori de cate ori diferenta e sub prag" (fara modul) muta de pe calea
+            # buna pe cea rea si produce oscilatie cu perioada dwell-ului -- exact avertismentul din
+            # RAPORT_V3PRE sec. 1, punctul (2). Masurat cu citirea gresita, pe loss_15: corectivul ducea pe
+            # zenoh, tabela il aducea inapoi pe cyclonedds 8.55 s mai tarziu, si tot asa (2-3 comutari per
+            # rulare, 73 % din timp pe zenoh in loc de ~100 %).
+            if -dif * 100.0 >= self.prag_corectiv:
+                self._noteaza(acum, self.transport, self.transport,
+                              "corectiv: calea activa %s e mai buna cu %.1f pp la T_app; tabela nu se consulta"
+                              % (self.transport, -dif * 100.0),
+                              {t: self._alpha(v) for t, v in viabilitati.items()},
+                              None if d is None else "%s (marja %.1f pp)" % (d.transport, d.marja),
+                              castigator="corectiv",
+                              corectiv="%s (ramane, %+.1f pp)" % (self.transport, -dif * 100.0))
+                return self.transport, self.ultima_decizie["motiv"]
+            return None                                  # (2b) cai comparabile -> decide tabela
+        if (self.t_ultima_comutare is not None
+                and acum - self.t_ultima_comutare < self.dwell_min_s):
+            return None                                  # (3) dwell; tabela are oricum acelasi dwell
+        if not cale_utilizabila(viabilitati.get(cale))[0]:
+            return None                                  # nu sarim pe o cale pe care veto-ul o refuza
+        de_la = self.transport
+        self.transport = cale
+        self.t_ultima_comutare = acum
+        self.n_comutari += 1
+        self.n_corectiv += 1
+        vrea_tabela = None if d is None else "%s (marja %.1f pp)" % (d.transport, d.marja)
+        corectiv = "%s (alpha_Tapp %+.1f pp)" % (cale, dif * 100.0)
+        motiv = ("corectiv: alpha_Tapp(%s)=%.2f - alpha_Tapp(%s)=%.2f = %+.1f pp >= %.1f pp; tabela voia %s"
+                 % (cale, alfa[cale], de_la, a_activ, dif * 100.0, self.prag_corectiv,
+                    vrea_tabela if vrea_tabela else "-"))
+        if d is not None and d.transport != cale:
+            motiv += " -- CORECTIVUL BATE TABELA"
+        alfe = {t: self._alpha(v) for t, v in viabilitati.items()}
+        self._noteaza(acum, de_la, cale, motiv, alfe, vrea_tabela, castigator="corectiv", corectiv=corectiv)
+        return self.transport, motiv
 
     def _evacuare(self, acum, viabilitati, d):
         """E1 / E3 / E4. Intoarce (transport, motiv) daca a decis ceva (comutare sau 'nicio cale viabila'), altfel None."""
@@ -249,6 +359,11 @@ class Comutator(object):
             ev = self._evacuare(acum, viabilitati, d)
             if ev is not None:
                 return ev
+            # V3: corectivul, DUPA evacuare si INAINTE de tabela. Nu are nevoie de estimarea canalului,
+            # deci se judeca si cand d is None (sonda de canal tace) -- ca si evacuarea.
+            co = self._corectiv(acum, viabilitati, d)
+            if co is not None:
+                return co
         if d is None:
             return self.transport, "fara raport proaspat de la sonda de canal"
         candidat = d.transport
@@ -297,7 +412,8 @@ class Comutator(object):
         else:
             motiv = "comutat pe %s (marja %.1f pp, sursa %s)" % (candidat, d.marja, d.sursa)
         alfe = {t: self._alpha(v) for t, v in (viabilitati or {}).items()}
-        self._noteaza(acum, de_la, candidat, motiv, alfe, "%s (marja %.1f pp)" % (d.transport, d.marja))
+        self._noteaza(acum, de_la, candidat, motiv, alfe, "%s (marja %.1f pp)" % (d.transport, d.marja),
+                      castigator="tabela")
         return self.transport, motiv
 
 
@@ -398,7 +514,14 @@ def _selftest():
     # 10. VIABILITATEA NU E O ESTIMARE. Daca cineva ii adauga vreodata un camp L sau B,
     # urmatorul pas ar fi sa il bage in tabela de politica -- fix greseala reparata la
     # etapa 3.5, unde (L,B) vazut PRIN transport hranea lookup-ul. Se blocheaza aici.
-    assert set(Viabilitate.__slots__) == {"n_trimise", "n_intoarse"}, Viabilitate.__slots__
+    # V3 a adaugat n_in_termen: tot o NUMARATOARE de mostre intoarse, doar cu alt termen
+    # (T_app in loc de T_sonda), deci de aceeasi natura cu n_intoarse. Lista ramane ALBA si
+    # scurta tocmai ca adaugarea urmatoare sa treaca pe aici si sa fie argumentata.
+    assert set(Viabilitate.__slots__) == {"n_trimise", "n_intoarse", "n_in_termen"}, Viabilitate.__slots__
+    assert not any(c in {"L", "B", "sigma_L", "stable"} for c in Viabilitate.__slots__), \
+        "Viabilitate nu are voie sa contina (L,B): ar ajunge in tabela de politica"
+    assert Viabilitate(50, 50).alpha_tapp is None, \
+        "fara n_in_termen, alpha_Tapp trebuie sa fie 'nu stiu' (None), nu 0 %"
     assert not hasattr(Viabilitate(1, 1), "__dict__"), \
         "Viabilitate trebuie sa ramana cu __slots__, ca sa nu i se poata lipi campuri"
 

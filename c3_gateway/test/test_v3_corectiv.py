@@ -117,6 +117,12 @@ def redare(dosar, prag_pp=PRAG_CORECTIV_PP):
     tab = TabelaFixa(_alegeri_tabela(dosar))
     com = Comutator(tab, 4096, transport_initial=START, durata_fereastra_s=FEREASTRA / 5.0,
                     prag_corectiv=prag_pp, t_app_ms=T_APP_MS, fereastra_viab=FEREASTRA)
+    # Fereastra de masurare a LIVRARII: de la aplicarea netem incolo. Metrica de referinta
+    # (3_livrare_in_termen_pct din summary.json) se calculeaza pe fereastra de DUPA netem
+    # (3_n_app_fereastra ~ 2016 mostre = ~40 s la 50 Hz), deci si ponderarea in timp trebuie facuta
+    # pe acelasi interval -- altfel se compara un amestec pe toata rularea cu un numar post-netem.
+    man = json.load(open(os.path.join(dosar, "manifest_c3.json"), encoding="utf-8"))
+    t_netem = (man.get("t_netem_mono") or 0.0) - (man.get("t0_mono") or 0.0)
     fer = {c: [] for c in CAI}
     ts = sorted({t for c in CAI for t, _, _ in M[c]})
     idx = {c: {t: (p, it) for t, p, it in M[c]} for c in CAI}
@@ -129,7 +135,7 @@ def redare(dosar, prag_pp=PRAG_CORECTIV_PP):
                 fer[c].append(idx[c][t])
                 if len(fer[c]) > FEREASTRA:
                     del fer[c][0:len(fer[c]) - FEREASTRA]
-        if t_prev is not None:
+        if t_prev is not None and t_prev >= t_netem:
             timp[com.transport] += t - t_prev
         t_prev = t
         viab = {c: Viabilitate(len(fer[c]), sum(1 for p, _ in fer[c] if p),
@@ -147,7 +153,7 @@ def redare(dosar, prag_pp=PRAG_CORECTIV_PP):
     tot = sum(timp.values()) or 1.0
     return {"run": os.path.basename(dosar), "final": com.transport, "n_comutari": com.n_comutari,
             "n_corectiv": n_corectiv, "n_tabela": n_tabela,
-            "f_zenoh": timp["zenoh"] / tot, "urme": urme}
+            "f_zenoh": timp["zenoh"] / tot, "t_netem": round(t_netem, 2), "urme": urme}
 
 
 def _dosar(tag):
@@ -252,12 +258,15 @@ def v16():
                     prag_corectiv=PRAG_CORECTIV_PP, t_app_ms=T_APP_MS, fereastra_viab=FEREASTRA)
     n = FEREASTRA
     viab = {"zenoh": Viabilitate(n, n, int(0.70 * n)), "cyclonedds": Viabilitate(n, n, int(0.90 * n))}
-    t = 0.0
-    for k in range(1, 61):                                # umple fereastra si lasa dwell-ul sa treaca
+    d = {}
+    for k in range(1, 61):                                # pana la PRIMA schimbare de transport
         t = k * 0.2
         tab.t = t
+        inainte = com.transport
         com.decide(EST, t, viab)
-    d = com.ultima_decizie or {}
+        if com.transport != inainte:
+            d = dict(com.ultima_decizie or {})
+            break                                         # V16 judeca DECIZIA DE CONFLICT, nu starea de dupa
     ok = (com.transport == "cyclonedds" and d.get("castigator") == "corectiv"
           and d.get("tabela_voia") is not None and d.get("corectiv_voia") is not None
           and d.get("alpha_tapp") is not None)
