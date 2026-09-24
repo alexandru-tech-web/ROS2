@@ -59,7 +59,37 @@ CONDITIONS = [
     # Refoloseste ramura gilbert din netem_cmd; base_ms/jitter_ms dau 'delay 200ms 50ms',
     # (p,r) = ge_15_8. netem_cmd emite: delay 200ms 50ms loss gemodel 2.206% 12.500% 100% 0%.
     dict(name="lat200_jit50_ge_15_8", base_ms=200, jitter_ms=50, loss=0.15, type="gilbert", p=0.022059, r=0.125),
+    # --- CELULE DE CONTROL pe fier, PRE-INREGISTRATE (PLAN_C3_ETAPA_A.md sec. 4c, 23.09.2026).
+    # Separa cele trei explicatii ale semnaturii lui lat200_jit50 (zenoh 4/5 repetitii moarte pe HIL):
+    # reordonarea introdusa de jitter, HOL la un transport fiabil, si politica publicatorului.
+    # K1 lat200_jit50_pfifo: ACEEASI intarziere si acelasi jitter, dar cu un copil pfifo care
+    #    reserializeaza ce netem ar livra amestecat -> jitter FARA reordonare.
+    # K2 lat200_fix: latenta mare fara jitter si fara reordonare (martorul).
+    # K3 NU e o conditie de retea: e acelasi lat200_jit50 cu alta politica de coada la publicator
+    #    (KEEP_ALL in loc de KEEP_LAST 50), deci se cere din bench_client, nu de aici.
+    dict(name="lat200_jit50_pfifo", base_ms=200, jitter_ms=50, loss=0.00, child="pfifo limit 1000"),
+    dict(name="lat200_fix",         base_ms=200, jitter_ms=0,  loss=0.00),
 ]
+
+
+def qos_arg(istorie="keep_last", adancime=50):
+    """Argumentul de QoS pentru create_publisher/create_subscription.
+
+    Implicitul ('keep_last', 50) intoarce INTREGUL 50 -- exact ce se scria in cod pana acum,
+    deci calea implicita ramane neschimbata bit cu bit si nicio cifra veche nu se muta.
+    'keep_all' intoarce un QoSProfile EXPLICIT RELIABLE + KEEP_ALL: celula de control K3 din
+    PLAN_C3_ETAPA_A sec. 4c, care intreaba daca semnatura lui lat200_jit50 vine din politica
+    publicatorului (ce se intampla cu mostrele cand coada se umple), nu din transport.
+    Importul de rclpy se face INAUNTRU: bench_core ramane un nucleu pur, testabil fara ROS.
+    """
+    if istorie == "keep_last":
+        return int(adancime)
+    if istorie != "keep_all":
+        raise ValueError("istorie necunoscuta: %r (keep_last | keep_all)" % (istorie,))
+    from rclpy.qos import QoSProfile, HistoryPolicy, ReliabilityPolicy, DurabilityPolicy
+    return QoSProfile(history=HistoryPolicy.KEEP_ALL, depth=int(adancime),
+                      reliability=ReliabilityPolicy.RELIABLE,
+                      durability=DurabilityPolicy.VOLATILE)
 
 
 def make_payload(n: int) -> str:
@@ -103,6 +133,29 @@ def netem_cmd(iface: str, c: dict) -> str:
     return (f"tc qdisc replace dev {iface} root netem "
             f"delay {c.get('base_ms', 0)}ms {c.get('jitter_ms', 0)}ms "
             f"{loss_tok}")
+
+def netem_cmds(iface: str, c: dict) -> list:
+    """TOATE comenzile tc ale unei conditii, in ordinea in care se emit.
+
+    Fara 'child' e exact netem_cmd de mai sus, intr-o lista de un element: conditiile vechi
+    raman bit cu bit ce erau. Cu 'child' (celula de control K1) netem devine radacina cu
+    handle explicit, iar copilul se ataseaza dedesubt:
+        tc qdisc replace dev X root handle 1: netem delay 200ms 50ms
+        tc qdisc replace dev X parent 1:1 handle 10: pfifo limit 1000
+    Forma e cea PRE-INREGISTRATA in PLAN_C3_ETAPA_A sec. 4c ('handle 1:' + 'parent 1:1 handle 10:
+    pfifo limit 1000'). tc-netem(8) de pe masina asta (iproute2-6.1.0) NU documenteaza copilul
+    pfifo, deci sintaxa a fost verificata EMPIRIC pe lo (24.09.2026): dupa cele doua comenzi,
+    'tc qdisc show' raporteaza 'qdisc netem 1: root ... delay 200ms 50ms' SI 'qdisc pfifo 10:
+    parent 1:1 limit 1000p'. Verificarea asta se reface la fiecare rulare, pe ambele masini,
+    si intra in manifest -- nu ne bazam pe faptul ca tc a acceptat comanda.
+    'replace' (nu 'add') si aici: idempotent, ca restul bancului.
+    """
+    baza = netem_cmd(iface, c)
+    if not c.get("child"):
+        return [baza]
+    radacina = baza.replace("root netem", "root handle 1: netem", 1)
+    return [radacina, "tc qdisc replace dev %s parent 1:1 handle 10: %s" % (iface, c["child"])]
+
 
 def netem_clear_cmd(iface: str) -> str:
     return f"tc qdisc del dev {iface} root"

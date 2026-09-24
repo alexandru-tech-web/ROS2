@@ -30,7 +30,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from bench_core import CONDITIONS, netem_cmd, netem_clear_cmd
+from bench_core import CONDITIONS, netem_cmd, netem_cmds, netem_clear_cmd
 
 JOURNAL_DEFAULT = os.path.join(os.path.expanduser("~"), "DATE_CAMPANIE",
                                "netem_journal_M2.log")
@@ -117,7 +117,7 @@ def main():
         return
 
     if a.clear or a.condition is None:
-        cmd = netem_clear_cmd(a.iface)
+        cmds = [netem_clear_cmd(a.iface)]
         label = "CLEAR"
     else:
         by_name = {c["name"]: c for c in CONDITIONS}
@@ -128,14 +128,19 @@ def main():
             sys.exit("conditie INGHETATA pe HIL (interferenta corelata): %s. "
                      "Pe legatura fizica ruleaza doar loss_* + lat200_* "
                      "(deschidere deliberata: --allow-corr)." % a.condition)
-        cmd = netem_cmd(a.iface, c)
+        # netem_cmds, nu netem_cmd: o conditie cu qdisc-copil (celula de control K1,
+        # lat200_jit50_pfifo) are DOUA comenzi -- radacina netem si copilul pfifo. Conditiile
+        # fara copil intorc exact o comanda, identica cu cea de pana acum.
+        cmds = netem_cmds(a.iface, c)
         label = c["name"]
 
-    print(cmd)
+    for cmd in cmds:
+        print(cmd)
     if a.dry:
         return
-    subprocess.run(["sudo", "bash", "-c", cmd], check=False)
-    append_journal(journal, journal_line(now_iso(), a.iface, label, cmd))
+    for cmd in cmds:
+        subprocess.run(["sudo", "bash", "-c", cmd], check=False)
+        append_journal(journal, journal_line(now_iso(), a.iface, label, cmd))
 
 
 if __name__ == "__main__":

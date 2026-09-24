@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""bench_client.py — microbenchmarkul de transport (latency pub/sub din
+"""bench_client.py -- microbenchmarkul de transport (latency pub/sub din
 planul tezei): publica mesaje cu timbru de timp si sarcina utila de
 dimensiune data, masoara RTT pe ecou, scrie CSV-ul brut + rezumatul JSON.
 
@@ -11,7 +11,7 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from bench_core import make_payload, rtt_stats
+from bench_core import make_payload, rtt_stats, qos_arg
 
 class Client(Node):
     def __init__(self, a):
@@ -23,8 +23,9 @@ class Client(Node):
         self.seq = 0
         self.warm = 10                      # primele 10: incalzire, ignorate
         self.t_end = time.time() + a.duration + 1.0
-        self.pub = self.create_publisher(String, "/bench/ping", 50)
-        self.create_subscription(String, "/bench/pong", self.on_pong, 50)
+        q = qos_arg(a.qos_history, a.qos_depth)      # implicit: 50, adica exact ce era
+        self.pub = self.create_publisher(String, "/bench/ping", q)
+        self.create_subscription(String, "/bench/pong", self.on_pong, q)
         self.create_timer(1.0 / a.rate, self.tick)
 
     def tick(self):
@@ -48,6 +49,11 @@ def main():
     ap.add_argument("--rate", type=float, default=50.0)
     ap.add_argument("--duration", type=float, default=30.0)
     ap.add_argument("--out", default="transport.csv")
+    # Politica de coada ca PARAMETRU, nu constanta (celula de control K3, sec. 4c). Implicitul
+    # reproduce comportamentul de pana acum; se inregistreaza in rezumat, ca celula sa se poata
+    # deosebi dupa fapt fara sa te uiti in cod.
+    ap.add_argument("--qos-history", choices=("keep_last", "keep_all"), default="keep_last")
+    ap.add_argument("--qos-depth", type=int, default=50)
     a = ap.parse_args()
     rclpy.init(); n = Client(a)
     t_stop = time.time() + a.duration + 1.5   # +1.5 s: ecourile in zbor
@@ -56,7 +62,8 @@ def main():
     sent_eff = max(0, n.seq - n.warm)
     st = rtt_stats([r for _, r in n.rtts], sent_eff, len(n.rtts))
     st.update(payload=a.payload, rate_hz=a.rate, duration_s=a.duration,
-              rmw=os.environ.get("RMW_IMPLEMENTATION", "default"))
+              rmw=os.environ.get("RMW_IMPLEMENTATION", "default"),
+              qos_history=a.qos_history, qos_depth=a.qos_depth)
     os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
     with open(a.out, "w") as f:
         f.write("seq,rtt_ms\n")
