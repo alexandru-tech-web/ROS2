@@ -1,0 +1,85 @@
+=== c3_gateway/core/switching.py --selftest
+SELFTEST switching OK (dwell derivat din sonda de canal = 8.55 s, histerezis asimetric, poarta de incertitudine, veto binar de viabilitate).
+exit=0
+=== c3_gateway/core/policy.py --selftest
+SELFTEST policy OK (tabela pe (L,B,payload), vecin, implicit conservator).
+exit=0
+=== c3_gateway/core/estimator.py --selftest
+SELFTEST estimator OK (convergenta pe 5 celule C2, stabilitate, incertitudine).
+exit=0
+=== c3_gateway/core/overhead.py --selftest
+SELFTEST overhead OK (fragmentare, octeti pe fir, bilant in ambele unitati).
+exit=0
+=== c3_gateway/core/canal_ge.py --selftest
+SELFTEST channel OK (canal GE determinist, 9 celule C2 reproduse).
+exit=0
+=== test/test_c3_core.py
+== selftesturile modulelor ==
+SELFTEST channel OK (canal GE determinist, 9 celule C2 reproduse).
+SELFTEST estimator OK (convergenta pe 5 celule C2, stabilitate, incertitudine).
+SELFTEST overhead OK (fragmentare, octeti pe fir, bilant in ambele unitati).
+SELFTEST policy OK (tabela pe (L,B,payload), vecin, implicit conservator).
+SELFTEST switching OK (dwell derivat din sonda de canal = 8.55 s, histerezis asimetric, poarta de incertitudine, veto binar de viabilitate).
+
+== teste de integrare ==
+  I1 lant complet: 3 celule, decizia urmeaza tabela C2
+  I2 anti-flapping: 13 comutari cu frane vs 106 fara, in 120 s (plafon teoretic 15, dwell 8.6 s)
+  I3 marja 1.7 pp < incertitudine 4.4 pp -> NU se comuta (marja 1.7 pp sub pragul de 12.0 pp)
+  I4 nucleu pur: 6 module, verificate pe AST
+  I5 dwell 8.55 s = 171 esantioane / 20 Hz (sonda de canal), veto pe Viabilitate
+
+SUITA C3 (nucleu) OK.
+exit=0
+=== test/test_nodes_fara_politica.py
+  __init__.py                  OK
+  gateway_node.py              OK
+  __init__.py                  OK
+  transport_agent.py           OK
+  control negativ: 4 urme prinse intr-un fisier care incalca regula
+
+NODURILE SUNT CURATE: 4 fisiere, nicio urma de politica.
+exit=0
+=== test/test_v2a_evacuare.py
+  PASS  V7 evacuare asimetrica: 1 comutari [(14.12, 'zenoh', 'cyclonedds')]; t = 9.12 s de la inceputul caderii (<= 11)
+  PASS  V7' evacuare fara dwell (t_ultima_comutare recent): 1 comutari, t = 9.12
+  PASS  V8 moarte simultana: 0 comutari; nicio_cale_viabila la t = 9.12 s de la cadere (<= 11); alpha_activ = 0.0
+  PASS  V9 oscilatie activ: 1 comutari in 60 s [(2.32, 'zenoh', 'cyclonedds', 'evacuare: ')]
+  PASS  V9b oscilatie celalalt: 0 comutari (asteptat 0: nu evacuezi de pe o cale buna)
+  PASS  V9c intoarcere conditionata (E2): 2 comutari [(6.32, 'zenoh', 'cyclonedds', 'evacuare: '), (40.0, 'cyclonedds', 'zenoh', 'intoarcere')]
+TESTE V2a (V7, V7', V8, V9, V9b, V9c) OK.
+exit=0
+=== test/test_v2b_reordonare.py
+  PASS  T0 identitate fara timp: L=0.1267097934 B=1.0615702119 n=1999 goluri=221 (ref 0.1267097934 / 1.0615702119 / 1999 / 221)
+  PASS  V10 reordonare != pierdere: 135 inversiuni in sosire; L_hat=0.0000 (< 0.02), goluri=0, creditate=135, reparate=0, L_fer=0.0000
+  PASS  T_cred: creditate=1 goluri=0 L=0.0000 n=5
+  PASS  T_rep: reparate=1 creditate=0 goluri=1 L=0.0098 (pierderea ramane in L, reparatul e separat)
+  PASS  T_neint: goluri=1 neintoarse=3 B=1.400 (asteptat 1 + 0.2*(3-1) = 1.400) n=19 (asteptat 19)
+  PASS  T_l15 pierdere 15 % + jitter: L_hat=0.1272 (|dL| <= 0.03), L_fer=0.1100, B=1.16, goluri=164 creditate=105 reparate=0
+TESTE V2b OK.
+exit=0
+=== test/test_dwell_mediana.py
+dwell = 171 esantioane (mediana asezarii). Verific daca decizia luata ATUNCI
+coincide cu decizia luata pe estimarea complet asezata.
+
+  celula    payload  sursa   la dwell (L,B -> ales)   asezat (L,B -> ales)     acord
+  L5B1      65536    L0B1    L=0.034 B=1.0 -> cyclonedds L=0.077 B=1.0 -> zenoh     DEZACORD 2/20
+  L5B1      65536    L30B8   L=0.081 B=2.3 -> zenoh     L=0.055 B=1.0 -> cyclonedds DEZACORD 11/20
+  L5B3      65536    L0B1    L=0.075 B=2.3 -> zenoh     L=0.034 B=2.0 -> cyclonedds DEZACORD 3/20
+  L15B3     65536    L0B1    L=0.081 B=2.3 -> zenoh     L=0.212 B=3.1 -> cyclonedds DEZACORD 8/20
+  L15B3     65536    L30B8   L=0.153 B=3.7 -> cyclonedds L=0.170 B=2.6 -> zenoh     DEZACORD 5/20
+  L30B1     65536    L0B1    L=0.268 B=1.0 -> zenoh     L=0.319 B=1.0 -> cyclonedds DEZACORD 8/20
+  L30B1     65536    L30B8   L=0.271 B=1.0 -> zenoh     L=0.308 B=1.0 -> cyclonedds DEZACORD 9/20
+  L30B3     65536    L0B1    L=0.171 B=2.3 -> zenoh     L=0.366 B=3.0 -> cyclonedds DEZACORD 10/20
+  L30B3     65536    L30B8   L=0.218 B=2.5 -> zenoh     L=0.366 B=3.0 -> cyclonedds DEZACORD 5/20
+
+  Cautarea bruta in tabela: 9 combinatii in dezacord.
+    dintre care la 4096 B: 0 | la 65536 B: 9
+  Decizia COMUTATORULUI (cu marja + incertitudine + veto): 0 dezacorduri din 720 comparatii.
+
+REZULTAT: cautarea bruta in tabela basculeaza pe 9 combinatii, TOATE la
+payload-ul de 65536 B -- unde grila C2 are doar 3 celule masurate, deci
+vecinul cel mai apropiat se schimba usor. DAR decizia comutatorului NU se
+schimba pe niciuna: franele (marja, incertitudine) le suprima pe toate.
+Concluzie: mediana ramane valida pentru dwell; ce e subtire la 64 KB e
+ACOPERIREA GRILEI, nu timpul de asezare. Se repara cu date, nu cu praguri.
+exit=0
