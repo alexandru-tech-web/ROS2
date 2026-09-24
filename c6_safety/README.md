@@ -6,7 +6,7 @@ Ce e pe disc, tot fara ROS si fara retea (`python3 <fisier> --selftest`):
                       tau_act intra ca MARJA prin `d_fr(v)`, optional ca dinamica de test
 - `cbf_core.py`    -- filtrul CBF-QP pe OSQP, v0.2: cost ponderat W, marginea de
                       liniarizare eps_lin (Lema 2), marja_inchidere (ERATA 4), rezerva
-                      delta_DT = (v_o dt + eps_lin)/gamma (ERATA 5, Lema 3); `--selftest` 8 cazuri
+                      delta_DT = (v_o dt_max_admis + eps_lin)/gamma (ERATA 5, Lema 3, rezerva pe plafon dupa S4.1); `--selftest` 8 cazuri
 - `c6_params.py`   -- toti parametrii intr-un loc; fiecare camp trimite la sectiunea din caiet
 - `models.py`      -- `Unicycle` (peste rover_core) si `SkidSteerAdapter` (imprumuta
                       `SkidSteer4W` din teleop_rover, READ-ONLY, cu izolare de import:

@@ -50,7 +50,7 @@ class RoverNode(Node):
     def __init__(self):
         super().__init__("c6_rover")
         for k, v in (("brat", "A2"), ("scenariu", "traversare"), ("v_o_max", 0.5), ("seed", 1),
-                     ("react", False), ("outputs", ""), ("eticheta", "s3"), ("qos", "reliable"), ("mod_dt", "max"),
+                     ("react", False), ("outputs", ""), ("eticheta", "s3"), ("qos", "reliable"), ("mod_dt", "plafon"),
                      ("dt_max_admis", 0.15)):
             self.declare_parameter(k, v)
         g = lambda k: self.get_parameter(k).value                        # noqa: E731
@@ -64,7 +64,7 @@ class RoverNode(Node):
         self.eticheta = g("eticheta")
         self.filtru, self.sf = brate.filtru_pentru(self.brat, self.P)
         if self.sf is not None:
-            self.sf.mod_dt = str(g("mod_dt"))                 # "pas" | "max" (V0.1)
+            self.sf.mod_dt = str(g("mod_dt"))                 # "plafon" (S4.1, implicit) | "max" | "pas" (V0.1)
             self.sf.dt_max_admis = float(g("dt_max_admis"))   # P0-HIL: peste -> stare sigura, n_dt
         self.model = models.Unicycle(self.P.tau_act)
         self.haz = episode.Hazard(self.P)

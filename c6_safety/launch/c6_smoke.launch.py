@@ -25,7 +25,7 @@ def generate_launch_description():
     arg = [DeclareLaunchArgument(k, default_value=v) for k, v in (
         ("brat", "A2"), ("scenariu", "traversare"), ("v_o_max", "0.5"), ("seed", "1"),
         ("react", "false"), ("f_haz", "5.0"), ("outputs", ""), ("eticheta", "s3"),
-        ("rmw", "rmw_cyclonedds_cpp"), ("qos", "reliable"), ("mod_dt", "max"), ("dt_max_admis", "0.15"),
+        ("rmw", "rmw_cyclonedds_cpp"), ("qos", "reliable"), ("mod_dt", "plafon"), ("dt_max_admis", "0.15"),
         ("python", VENV if os.path.exists(VENV) else ""))]
     prefix = [L("python"), " "]
     F = lambda k: ParameterValue(L(k), value_type=float)                  # noqa: E731

@@ -128,7 +128,8 @@ def _selftest(dir_iesire=None):
     Pt = bloc("traversare", ("A0", "A1", "A2", "A3"), canale=("ideal", "DL"))
     Pu = bloc("urmarire", ("A1", "A2"), canale=("ideal", "DL"))
     print("  ERATA 4+5: r_eff = r + (v + v_o)^2/(2a) + v_o*A_ef + delta_DT; DL = DelayLoss(0.2,0.05,0.15); seed 1-5; react=False")
-    print("  delta_DT = (v_o dt + eps_lin)/gamma = %.5f m (rezerva de fezabilitate, Lema 3)" % cbf_core.SafetyFilter(P).delta_DT)
+    print("  delta_DT = (v_o dt_max_admis + eps_lin)/gamma = %.5f m (rezerva pe plafonul admis, Lema 3, S4.1)"
+          % cbf_core.SafetyFilter(P).delta_DT)
     print("  traversare: t_cross=%.1f -> start %s; urmarire: start %s; v_o=%.1f, f_haz=%.0f Hz"
           % (P.t_cross, tuple(round(x, 2) for x in Pt.hazard_start), Pu.hazard_start, P.v_o_max, P.f_haz))
     print("  %-11s %-5s %-4s %-4s %s" % ("scenariu", "canal", "brat", "seed", "V    d_min  J_int  T_G    n_inf n_ws  v_min  (i)/(ii) cert"))

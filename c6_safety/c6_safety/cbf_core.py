@@ -6,7 +6,8 @@ NOTATIE (ASCII)
   intrare  u = (v_cmd, omega)
   punct de control  p_c = p + l * (cos theta, sin theta)
   h(x) = ||p_c - o_hat|| - r_eff,   r_eff = r + d_fr(v) + marja_extra + delta_DT
-         delta_DT = (v_o dt + eps_lin)/gamma, rezerva de fezabilitate (ERATA 5, Lema 3)
+         delta_DT = (v_o dt_r + eps_lin)/gamma, rezerva de fezabilitate (ERATA 5, Lema 3)
+         dt_r = dt_max_admis (S4.1, implicit), NU dt nominal si NU maximul observat
          d_fr(v) = v^2 / (2 a_max) + v tau_act          (rover_dyn.d_fr)
          marja_extra e PARAMETRU: 0 in S2; v_o * AoI in S2b.
 
@@ -42,6 +43,19 @@ Solver: OSQP direct (P, q, A, l, u), NU cvxpy in bucla -- viteza conteaza la
 Liniarizarea e pe modelul cu clamp; VEHICULUL real (rover_dyn) are tau_act si
 integreaza pozitia cu v_{k+1}. Diferenta e exact ce masoara selftestul (c):
 invariantul pe modelul REAL, cu cel mai mic reziduu raportat, nu presupus.
+
+S4.1 (24.09.2026) -- REZERVA PE PLAFONUL ADMIS. Bugetul de varsta si rezerva de
+fezabilitate se iau din dt_max_admis (= 3 dt nominal = 0.150 s), CONSTANT, nu din
+maximul observat pana la pasul curent. Motivul, masurat: cu mod_dt="max" bugetul e
+monoton crescator, deci la PRIMUL pas mai lung decat toate cele dinainte (un
+"pas-record") compensarea marjei ramane in urma cu cel mult v_o*(dt_nou - dt_max_vazut)
+si conditia (ii) a certificatului poate fi incalcata cu atat. S-a intamplat in S4 lot 1
+in 3 din 60 de rulari A2 (RAPORT_S4_LOT1 sec. 1b si 1c). Pe plafon, compensarea acopera
+prin constructie orice pas ADMIS, fiindca un pas peste plafon nu mai e pas de control:
+acolo filtrul intoarce u = (0, 0) si numara n_dt (neschimbat). Pretul e o marja mai mare,
+marginita si stiuta dinainte: v_o * dt_max_admis, adica 7.5 cm la v_o = 0.5 si 22.5 cm la
+v_o = 1.5. mod_dt="max" si "pas" raman in cod, ca sa se poata reproduce comportamentul
+de dinainte (S4 lot 1); implicitul e "plafon".
 
 Rulare: python3 cbf_core.py --selftest
 """
@@ -102,37 +116,55 @@ class SafetyFilter(object):
         self._P = sp.csc_matrix(2.0 * self.W)
         s_max = (p.v_max + p.l * p.omega_max) * p.dt
         self.eps_lin = s_max ** 2 / (2.0 * p.r)              # Lema 2
-        # ERATA 5: rezerva de fezabilitate (Lema 3). Intre doua pachete h_A scade cu v_o*dt
-        # indiferent de u; QP-ul ramane fezabil doar daca h_A >= (v_o dt + eps_lin)/gamma.
-        # Un CBF cu gamma-decay lasa h -> 0 (S3.1: h ~ 0.005, apoi infezabil), deci
-        # pragul intra in r_eff: bariera h = ||p_c - o_hat|| - r_eff atinge 0 exact cand
-        # distanta reala ajunge la r + delta_DT, iar de acolo QP-ul are inca loc de un pas.
-        self.delta_DT = (p.v_o_max * p.dt + self.eps_lin) / self.gamma
         # V0.1: pe hardware pasul REAL dt_k = t_k - t_{k-1} nu e dt nominal (tick 52-56 ms sub grafic incarcat).
-        # Varsta informatiei creste cu dt_k, deci bugetul din Lema 3 si marginile eps_lin/delta_DT se iau din
-        # dt_k (marginit la [0.5, 3] x dt nominal). In simulare (episode.py) dt_k = dt si nimic nu se schimba.
+        # Varsta informatiei creste cu dt_k, deci bugetul din Lema 3 se ia din dt_k (marginit la [0.5, 3] x dt nominal).
         self.dt_ef = p.dt
         self.n_dt_marginit = 0
         self.dt_max = p.dt
         # mod_dt: "pas" = eps_lin, delta_DT si bugetul de varsta din dt_k al pasului (V0.1 literal; masurat: r_eff se
         # misca cu v_o*ddt/gamma ~ 8 mm intre pasi si certificatul (ii) pica mai rau); "max" = bugetul de varsta din
-        # dt maxim vazut pana acum (conservator, monoton), eps_lin si delta_DT NOMINALE (constante de proiectare)
-        self.mod_dt = "max"                   # implicit dupa V0.1 (decizie de confirmat)
+        # dt maxim vazut pana acum (monoton, dar in urma la un pas-record: S4 lot 1, 3 incalcari (ii));
+        # "plafon" (S4.1, implicit) = bugetul si rezerva din dt_max_admis, CONSTANT -- acopera prin constructie
+        # orice pas admis, fiindca un pas peste plafon devine stare sigura si nu mai e pas de control.
+        self.mod_dt = "plafon"                # implicit dupa S4.1 (24.09.2026); "max" / "pas" raman reproductibile
         # P0-HIL: peste dt_max_admis (implicit 3 x dt = 150 ms) pasul nu mai e un pas de control (tick pierdut,
         # proces blocat): filtrul NU intinde marginile, ci intoarce starea sigura u=(0,0) si numara n_dt
         # (separat de n_ws, care e pentru informatie prea veche pe canal). Pasul urmator se judeca normal.
         self.dt_max_admis = 3.0 * p.dt
         self.n_dt = 0
 
+    @property
+    def dt_rezerva(self):
+        """Pasul pe care se DIMENSIONEAZA rezerva: plafonul admis (S4.1) sau dt nominal (modurile vechi).
+
+        E proprietate, nu camp, fiindca rover_node suprascrie dt_max_admis DUPA constructie
+        (parametru ROS): o rezerva calculata o singura data in __init__ ar ramane in urma.
+        """
+        return self.dt_max_admis if self.mod_dt == "plafon" else self.p.dt
+
+    @property
+    def delta_DT(self):
+        """ERATA 5: rezerva de fezabilitate (Lema 3). Intre doua pachete h_A scade cu v_o*dt_r
+        indiferent de u; QP-ul ramane fezabil doar daca h_A >= (v_o dt_r + eps_lin)/gamma.
+        Un CBF cu gamma-decay lasa h -> 0 (S3.1: h ~ 0.005, apoi infezabil), deci pragul intra in
+        r_eff: bariera h = ||p_c - o_hat|| - r_eff atinge 0 exact cand distanta reala ajunge la
+        r + delta_DT, iar de acolo QP-ul are inca loc de un pas.
+        S4.1: dt_r = dt_max_admis, deci rezerva acopera si cel mai lung pas ADMIS, nu doar unul nominal."""
+        return (self.p.v_o_max * self.dt_rezerva + self.eps_lin) / self.gamma
+
     def _dt_efectiv(self, dt_masurat):
         p = self.p
+        if dt_masurat is not None:
+            lo, hi = 0.5 * p.dt, 3.0 * p.dt
+            d = min(max(float(dt_masurat), lo), hi)
+            if d != dt_masurat:
+                self.n_dt_marginit += 1
+            self.dt_max = max(self.dt_max, d)          # doar raportare (dt_max_vazut) in modul "plafon"
+        if self.mod_dt == "plafon":
+            # constant, independent de ce s-a observat: bugetul de varsta si rezerva acopera orice pas admis
+            return self.dt_max_admis, self.eps_lin, self.delta_DT
         if dt_masurat is None:
             return p.dt, self.eps_lin, self.delta_DT
-        lo, hi = 0.5 * p.dt, 3.0 * p.dt
-        d = min(max(float(dt_masurat), lo), hi)
-        if d != dt_masurat:
-            self.n_dt_marginit += 1
-        self.dt_max = max(self.dt_max, d)
         if self.mod_dt == "max":
             return self.dt_max, self.eps_lin, self.delta_DT
         s_max = (p.v_max + p.l * p.omega_max) * d
@@ -366,6 +398,34 @@ def _selftest(dir_iesire=None):
                 "V=%d cert (i)=%d (ii)=%d" % (sf_i.dt_max_admis, sf_i.n_dt, sf_i.n_ws, sf_i.n_inf, mi["V"],
                                               ci["incalcari_i"], ci["incalcari_ii"])))
 
+    # (j) S4.1: bugetul de varsta folosit la pasul k trebuie sa acopere imbatranirea de pe
+    # intervalul [k, k+1]. La pasul k filtrul stie doar intervalele DEJA incheiate, deci in modul
+    # "max" bugetul ramane in urma exact cand intervalul urmator e un record nou -- defectul masurat
+    # in S4 lot 1 (3 rulari, RAPORT_S4_LOT1 sec. 1b). CONTROL NEGATIV pe acelasi obiect: modul vechi
+    # TREBUIE sa arate lipsa, modul nou TREBUIE sa nu o arate pentru niciun pas admis.
+    def _lipsa_buget(mod, pasi):
+        sfj = SafetyFilter(P)
+        sfj.mod_dt = mod
+        bugete = [sfj._dt_efectiv(d_)[0] for d_ in pasi]
+        return max([pasi[k + 1] - bugete[k] for k in range(len(pasi) - 1)]), sfj
+    # un sir de tick-uri admise (toate <= dt_max_admis = 0.150 s), cu trei recorduri succesive
+    pasi_j = [0.0500, 0.0505, 0.0500, 0.0530, 0.0520, 0.1490, 0.0500]
+    lipsa_max, sf_m = _lipsa_buget("max", pasi_j)
+    lipsa_plafon, sf_p = _lipsa_buget("plafon", pasi_j)
+    # rezerva se recalculeaza daca dt_max_admis e suprascris dupa constructie (parametru ROS)
+    sf_p2 = SafetyFilter(P)
+    sf_p2.dt_max_admis = 0.300
+    d_inainte = sf_p2.delta_DT
+    sf_p2.mod_dt = "max"
+    ok_j = (lipsa_max > 0.0 and lipsa_plafon <= 0.0
+            and sf_p.delta_DT > sf_m.delta_DT
+            and abs(d_inainte - (P.v_o_max * 0.300 + sf_p2.eps_lin) / sf_p2.gamma) < 1e-12
+            and abs(sf_p2.delta_DT - (P.v_o_max * P.dt + sf_p2.eps_lin) / sf_p2.gamma) < 1e-12)
+    rez.append(("j", "PASS" if ok_j else "FAIL",
+                "buget de varsta pe %d tick-uri admise: lipsa max(mod 'max') = %+.4f s (defectul S4), "
+                "lipsa max(mod 'plafon') = %+.4f s; delta_DT %.5f m (plafon) vs %.5f m (max)"
+                % (len(pasi_j), lipsa_max, lipsa_plafon, sf_p.delta_DT, sf_m.delta_DT)))
+
     for c, v, cif in rez:
         print("  (%s) %-8s %s" % (c, v, cif))
     if not ok_a:
@@ -373,7 +433,7 @@ def _selftest(dir_iesire=None):
     if dir_iesire:
         io_core.scrie(dir_iesire, m, tr, "s2_1_a_filtru")
         print("  urme scrise in %s" % dir_iesire)
-    picate = [c for c, v, _ in rez if v == "FAIL" and c in ("a", "c", "d", "e", "i")]
+    picate = [c for c, v, _ in rez if v == "FAIL" and c in ("a", "c", "d", "e", "i", "j")]
     if picate:
         print("SELFTEST cbf_core: FAIL pe obligatorii %s" % picate)
         return 1
