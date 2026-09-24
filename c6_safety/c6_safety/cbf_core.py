@@ -316,10 +316,36 @@ def _selftest(dir_iesire=None):
     m, tr, sf = _ruleaza(P, GAMMA_IMPLICIT)
     print("  eps_lin = %.3e  (Lema 2, din Params)" % sf.eps_lin)
 
-    ok_a = (m["V"] == 0 and m["n_inf"] == 0 and m["T_G"] is not None)
+    # (a) VERIFICARE DE CONSERVATORISM (S4.2, 24.09.2026). Pana la S4.1 cazul asta cerea ca
+    # roverul sa AJUNGA la tinta; cu rezerva pe plafonul admis (delta_DT pe dt_max_admis) nu mai
+    # ajunge, si asta e comportamentul CERUT, nu un defect. Geometria: obstacol FIX la (5.0, 0.5),
+    # adica la 0.5 m de linia drumului (0,0) -> (10,0), iar filtrul din acest caz nu are marja de
+    # varsta (marja_extra = 0), deci bariera cere r + d_fr(v) + delta_DT = 1.0 + 0.5 + 0.257 =
+    # 1.757 m la viteza maxima. Culoarul nu incape. Ce se verifica aici e ce FACE filtrul cand nu
+    # incape: se opreste (T_G = None) FARA sa intre in obstacol (V = 0) si FARA sa iasa infezabil
+    # (n_inf = 0) -- adica raspunsul la un culoar prea stramt e refuzul misiunii, nu incalcarea.
+    # Un T_G != None aici ar insemna ca bariera s-a strans si ar trebui recitit S4.1.
+    # Perechea lui e (a'): acelasi filtru cu culoarul larg, unde AJUNGEREA e obligatorie.
+    ok_a = (m["V"] == 0 and m["n_inf"] == 0 and m["T_G"] is None)
     rez.append(("a", "PASS" if ok_a else "FAIL",
-                "V=%d n_inf=%d T_G=%s B=%.3f (fara filtru, orb: T_G=%s V=%d)"
-                % (m["V"], m["n_inf"], m["T_G"], m["B"], m0["T_G"], m0["V"])))
+                "conservatorism: culoar de 0.5 m < r+d_fr+delta_DT = %.3f m -> V=%d n_inf=%d "
+                "T_G=%s (asteptat None) B=%.3f (fara filtru, orb: T_G=%s V=%d)"
+                % (P.r + rover_dyn.d_fr(P.v_max, P.a_max, P.tau_act) + sf.delta_DT,
+                   m["V"], m["n_inf"], m["T_G"], m["B"], m0["T_G"], m0["V"])))
+
+    # (a') PERECHEA lui (a): acelasi filtru, acelasi operator orb, acelasi scenariu -- singura
+    # diferenta e ca obstacolul e mutat lateral DINCOLO de bariera, la r + d_fr(v_max) + delta_DT
+    # plus o marja de 0.25 m. Acolo constrangerea CBF nu are de ce sa lege, deci roverul trebuie sa
+    # ajunga la tinta. Fara (a'), un (a) care asteapta blocaj ar trece si daca filtrul ar bloca
+    # ORICE: (a') e controlul care arata ca blocajul din (a) e al culoarului, nu al filtrului.
+    lat = P.r + rover_dyn.d_fr(P.v_max, P.a_max, P.tau_act) + sf.delta_DT + 0.25
+    P_larg = Params(obst=(P.obst[0], round(lat, 6)))
+    ma, tra, sfa = _ruleaza(P_larg, GAMMA_IMPLICIT)
+    ok_a2 = (ma["V"] == 0 and ma["n_inf"] == 0 and ma["T_G"] is not None)
+    rez.append(("a'", "PASS" if ok_a2 else "FAIL",
+                "culoar larg: obstacol la %.3f m > r+d_fr+delta_DT = %.3f m -> V=%d n_inf=%d "
+                "T_G=%s (asteptat != None) d_min=%.3f"
+                % (lat, lat - 0.25, ma["V"], ma["n_inf"], ma["T_G"], ma["d_min"])))
     rez.append(("b", "PASS" if (m["J_int"] > 0 and m["d_min"] >= P.r - 0.01) else "FAIL",
                 "J_int=%.4f d_min=%.4f (fara filtru: %.3f)" % (m["J_int"], m["d_min"], m0["d_min"])))
 
@@ -428,12 +454,14 @@ def _selftest(dir_iesire=None):
 
     for c, v, cif in rez:
         print("  (%s) %-8s %s" % (c, v, cif))
-    if not ok_a:
-        _fezabilitate_la_blocaj(tr, P, sf)
+    if not ok_a2:
+        # blocaj ACOLO UNDE NU TREBUIE: singurul loc unde diagnosticul de fezabilitate mai spune ceva.
+        # In (a) blocajul e asteptat (culoar prea stramt), deci acolo un dump nu ar fi o anomalie.
+        _fezabilitate_la_blocaj(tra, P_larg, sfa)
     if dir_iesire:
         io_core.scrie(dir_iesire, m, tr, "s2_1_a_filtru")
         print("  urme scrise in %s" % dir_iesire)
-    picate = [c for c, v, _ in rez if v == "FAIL" and c in ("a", "c", "d", "e", "i", "j")]
+    picate = [c for c, v, _ in rez if v == "FAIL" and c in ("a", "a'", "c", "d", "e", "i", "j")]
     if picate:
         print("SELFTEST cbf_core: FAIL pe obligatorii %s" % picate)
         return 1
