@@ -1,0 +1,689 @@
+schema_version: "1.0.0"
+artifact: "TASK-008 ViPRO physical evidence manifest"
+manifest_state: "EMPTY_INSPECTION_TEMPLATE"
+
+status_vocabulary:
+  - "CONFIRMED"
+  - "UNKNOWN"
+  - "NOT_PRESENT"
+  - "NOT_APPLICABLE"
+
+status_rules:
+  CONFIRMED: >-
+    value is non-null and evidence contains at least one applicable original
+    observation/document/export with locator, capture metadata and SHA-256.
+  UNKNOWN: >-
+    value is null, provenance is UNKNOWN, and notes/next_action explain what
+    evidence is missing, ambiguous, inaccessible or conflicting.
+  NOT_PRESENT: >-
+    evidence establishes absence within a clearly recorded inspection scope;
+    absence is never inferred from one unreadable or missing label.
+  NOT_APPLICABLE: >-
+    justification and evidence establish that the item does not apply to the
+    verified architecture.
+
+evidence_record_contract:
+  required_fields:
+    - "evidence_id"
+    - "kind"
+    - "uri"
+    - "sha256"
+    - "capture_utc"
+    - "captured_by"
+    - "physical_location"
+    - "locator"
+    - "is_original"
+    - "notes"
+  allowed_kinds:
+    - "PHOTO"
+    - "VIDEO"
+    - "NAMEPLATE_TRANSCRIPTION"
+    - "MANUAL"
+    - "SCHEMATIC"
+    - "PARAMETER_EXPORT"
+    - "ENGINEERING_PROJECT_EXPORT"
+    - "CALIBRATION_CERTIFICATE"
+    - "AUTHORIZED_STATEMENT"
+    - "READ_ONLY_MEASUREMENT"
+
+inspection:
+  inspection_id: null
+  bench_asset_id: null
+  laboratory_location: null
+  started_utc: null
+  completed_utc: null
+  inspectors: []
+  responsible_person: null
+  approved_scope: null
+  equipment_state: null
+  raw_evidence_directory: null
+  notes: >-
+    Populate only after authorized physical inspection. No fieldbus
+    transmission or motor command is part of this manifest.
+
+prior_repository_leads_not_physical_confirmation:
+  logical_pairs:
+    value: ["A0/B0", "A1/B1", "A2/B2"]
+    provenance: "MANUAL"
+    source: "/home/ubuntu/Downloads/RESEARCH_CONTEXT.md:126-136"
+  motor_manufacturer_claim:
+    value: "ABB"
+    provenance: "MANUAL"
+    source: "joint_emulator/README_JOINT.md:1-7"
+  suspected_modbus_direction:
+    value: null
+    provenance: "UNKNOWN"
+    source: "joint_emulator/modbus_backend.py:2-35"
+    notes: "Historical placeholder; not evidence that the bench uses Modbus RTU."
+
+items:
+  component_identity:
+    motors:
+      - item_id: "motor_a0_identity"
+        logical_slot: "A0"
+        question: "Exact manufacturer, model/type, part/order number, serial and ratings."
+        status: "UNKNOWN"
+        value: null
+        unit: null
+        provenance: "UNKNOWN"
+        expected_evidence: ["context photo", "readable original nameplate photo"]
+        evidence: []
+        next_action: "Photograph physical location and full nameplate before confirming A0 mapping."
+        notes: "Logical collection slot; physical mapping is not confirmed."
+      - item_id: "motor_b0_identity"
+        logical_slot: "B0"
+        question: "Exact manufacturer, model/type, part/order number, serial and ratings."
+        status: "UNKNOWN"
+        value: null
+        unit: null
+        provenance: "UNKNOWN"
+        expected_evidence: ["context photo", "readable original nameplate photo"]
+        evidence: []
+        next_action: "Photograph physical location and full nameplate before confirming B0 mapping."
+        notes: "Logical collection slot; physical mapping is not confirmed."
+      - item_id: "motor_a1_identity"
+        logical_slot: "A1"
+        question: "Exact manufacturer, model/type, part/order number, serial and ratings."
+        status: "UNKNOWN"
+        value: null
+        unit: null
+        provenance: "UNKNOWN"
+        expected_evidence: ["context photo", "readable original nameplate photo"]
+        evidence: []
+        next_action: "Photograph physical location and full nameplate before confirming A1 mapping."
+        notes: "Logical collection slot; physical mapping is not confirmed."
+      - item_id: "motor_b1_identity"
+        logical_slot: "B1"
+        question: "Exact manufacturer, model/type, part/order number, serial and ratings."
+        status: "UNKNOWN"
+        value: null
+        unit: null
+        provenance: "UNKNOWN"
+        expected_evidence: ["context photo", "readable original nameplate photo"]
+        evidence: []
+        next_action: "Photograph physical location and full nameplate before confirming B1 mapping."
+        notes: "Logical collection slot; physical mapping is not confirmed."
+      - item_id: "motor_a2_identity"
+        logical_slot: "A2"
+        question: "Exact manufacturer, model/type, part/order number, serial and ratings."
+        status: "UNKNOWN"
+        value: null
+        unit: null
+        provenance: "UNKNOWN"
+        expected_evidence: ["context photo", "readable original nameplate photo"]
+        evidence: []
+        next_action: "Photograph physical location and full nameplate before confirming A2 mapping."
+        notes: "Logical collection slot; physical mapping is not confirmed."
+      - item_id: "motor_b2_identity"
+        logical_slot: "B2"
+        question: "Exact manufacturer, model/type, part/order number, serial and ratings."
+        status: "UNKNOWN"
+        value: null
+        unit: null
+        provenance: "UNKNOWN"
+        expected_evidence: ["context photo", "readable original nameplate photo"]
+        evidence: []
+        next_action: "Photograph physical location and full nameplate before confirming B2 mapping."
+        notes: "Logical collection slot; physical mapping is not confirmed."
+
+    drives:
+      - item_id: "drive_a0_identity"
+        logical_slot: "drive-A0"
+        question: "Exact drive model, option modules, firmware, serial and cabinet location."
+        status: "UNKNOWN"
+        value: null
+        unit: null
+        provenance: "UNKNOWN"
+        expected_evidence: ["cabinet context photo", "drive nameplate", "option-module labels", "parameter export"]
+        evidence: []
+        next_action: "Inventory drive locations before assigning A0."
+        notes: "Requested collection slot; physical drive count/mapping is not yet confirmed."
+      - item_id: "drive_b0_identity"
+        logical_slot: "drive-B0"
+        question: "Exact drive model, option modules, firmware, serial and cabinet location."
+        status: "UNKNOWN"
+        value: null
+        unit: null
+        provenance: "UNKNOWN"
+        expected_evidence: ["cabinet context photo", "drive nameplate", "option-module labels", "parameter export"]
+        evidence: []
+        next_action: "Inventory drive locations before assigning B0."
+        notes: "Requested collection slot; physical drive count/mapping is not yet confirmed."
+      - item_id: "drive_a1_identity"
+        logical_slot: "drive-A1"
+        question: "Exact drive model, option modules, firmware, serial and cabinet location."
+        status: "UNKNOWN"
+        value: null
+        unit: null
+        provenance: "UNKNOWN"
+        expected_evidence: ["cabinet context photo", "drive nameplate", "option-module labels", "parameter export"]
+        evidence: []
+        next_action: "Inventory drive locations before assigning A1."
+        notes: "Requested collection slot; physical drive count/mapping is not yet confirmed."
+      - item_id: "drive_b1_identity"
+        logical_slot: "drive-B1"
+        question: "Exact drive model, option modules, firmware, serial and cabinet location."
+        status: "UNKNOWN"
+        value: null
+        unit: null
+        provenance: "UNKNOWN"
+        expected_evidence: ["cabinet context photo", "drive nameplate", "option-module labels", "parameter export"]
+        evidence: []
+        next_action: "Inventory drive locations before assigning B1."
+        notes: "Requested collection slot; physical drive count/mapping is not yet confirmed."
+      - item_id: "drive_a2_identity"
+        logical_slot: "drive-A2"
+        question: "Exact drive model, option modules, firmware, serial and cabinet location."
+        status: "UNKNOWN"
+        value: null
+        unit: null
+        provenance: "UNKNOWN"
+        expected_evidence: ["cabinet context photo", "drive nameplate", "option-module labels", "parameter export"]
+        evidence: []
+        next_action: "Inventory drive locations before assigning A2."
+        notes: "Requested collection slot; physical drive count/mapping is not yet confirmed."
+      - item_id: "drive_b2_identity"
+        logical_slot: "drive-B2"
+        question: "Exact drive model, option modules, firmware, serial and cabinet location."
+        status: "UNKNOWN"
+        value: null
+        unit: null
+        provenance: "UNKNOWN"
+        expected_evidence: ["cabinet context photo", "drive nameplate", "option-module labels", "parameter export"]
+        evidence: []
+        next_action: "Inventory drive locations before assigning B2."
+        notes: "Requested collection slot; physical drive count/mapping is not yet confirmed."
+
+    control_and_communication:
+      - item_id: "controller_identity"
+        question: "Exact controller/PLC/industrial-PC model, firmware/OS, serial and role."
+        status: "UNKNOWN"
+        value: null
+        unit: null
+        provenance: "UNKNOWN"
+        expected_evidence: ["context photo", "nameplate", "engineering project/export"]
+        evidence: []
+        next_action: "Identify every device capable of controlling the drives."
+        notes: null
+      - item_id: "fieldbus_module_identity"
+        question: "Exact suspected RTU/fieldbus module model, options, firmware and ports."
+        status: "UNKNOWN"
+        value: null
+        unit: null
+        provenance: "UNKNOWN"
+        expected_evidence: ["module nameplate", "front/rear connector photos", "exact manual"]
+        evidence: []
+        next_action: "Photograph complete label and physical relation to controller/drives."
+        notes: "The label RTU, if present, must not be interpreted without the exact manual."
+      - item_id: "usb_serial_converter_identity"
+        question: "Existing USB/serial/RS-485 converter model, isolation and serial number."
+        status: "UNKNOWN"
+        value: null
+        unit: null
+        provenance: "UNKNOWN"
+        expected_evidence: ["adapter label", "connector photos", "manual"]
+        evidence: []
+        next_action: "Inventory existing converters without connecting a new active device."
+        notes: null
+
+    feedback_and_mechanics:
+      - item_id: "encoder_a0_identity"
+        question: "A0 encoder model, technology, resolution, interface and mounting."
+        status: "UNKNOWN"
+        value: null
+        unit: null
+        provenance: "UNKNOWN"
+        expected_evidence: ["encoder/motor label", "manual", "drive parameter export"]
+        evidence: []
+        next_action: "Determine whether encoder is integral or external and verify mapping."
+        notes: null
+      - item_id: "encoder_b0_identity"
+        question: "B0 encoder model, technology, resolution, interface and mounting."
+        status: "UNKNOWN"
+        value: null
+        unit: null
+        provenance: "UNKNOWN"
+        expected_evidence: ["encoder/motor label", "manual", "drive parameter export"]
+        evidence: []
+        next_action: "Determine whether encoder is integral or external and verify mapping."
+        notes: null
+      - item_id: "encoder_a1_identity"
+        question: "A1 encoder model, technology, resolution, interface and mounting."
+        status: "UNKNOWN"
+        value: null
+        unit: null
+        provenance: "UNKNOWN"
+        expected_evidence: ["encoder/motor label", "manual", "drive parameter export"]
+        evidence: []
+        next_action: "Determine whether encoder is integral or external and verify mapping."
+        notes: null
+      - item_id: "encoder_b1_identity"
+        question: "B1 encoder model, technology, resolution, interface and mounting."
+        status: "UNKNOWN"
+        value: null
+        unit: null
+        provenance: "UNKNOWN"
+        expected_evidence: ["encoder/motor label", "manual", "drive parameter export"]
+        evidence: []
+        next_action: "Determine whether encoder is integral or external and verify mapping."
+        notes: null
+      - item_id: "encoder_a2_identity"
+        question: "A2 encoder model, technology, resolution, interface and mounting."
+        status: "UNKNOWN"
+        value: null
+        unit: null
+        provenance: "UNKNOWN"
+        expected_evidence: ["encoder/motor label", "manual", "drive parameter export"]
+        evidence: []
+        next_action: "Determine whether encoder is integral or external and verify mapping."
+        notes: null
+      - item_id: "encoder_b2_identity"
+        question: "B2 encoder model, technology, resolution, interface and mounting."
+        status: "UNKNOWN"
+        value: null
+        unit: null
+        provenance: "UNKNOWN"
+        expected_evidence: ["encoder/motor label", "manual", "drive parameter export"]
+        evidence: []
+        next_action: "Determine whether encoder is integral or external and verify mapping."
+        notes: null
+      - item_id: "pair0_reducer_coupling_identity"
+        question: "Pair-0 reducer(s), ratio(s), coupling model, geometry and mounting."
+        status: "UNKNOWN"
+        value: null
+        unit: null
+        provenance: "UNKNOWN"
+        expected_evidence: ["mechanical overview", "part labels", "drawing/datasheet"]
+        evidence: []
+        next_action: "Capture both motor-to-shaft paths and every intermediate element."
+        notes: null
+      - item_id: "pair1_reducer_coupling_identity"
+        question: "Pair-1 reducer(s), ratio(s), coupling model, geometry and mounting."
+        status: "UNKNOWN"
+        value: null
+        unit: null
+        provenance: "UNKNOWN"
+        expected_evidence: ["mechanical overview", "part labels", "drawing/datasheet"]
+        evidence: []
+        next_action: "Capture both motor-to-shaft paths and every intermediate element."
+        notes: null
+      - item_id: "pair2_reducer_coupling_identity"
+        question: "Pair-2 reducer(s), ratio(s), coupling model, geometry and mounting."
+        status: "UNKNOWN"
+        value: null
+        unit: null
+        provenance: "UNKNOWN"
+        expected_evidence: ["mechanical overview", "part labels", "drawing/datasheet"]
+        evidence: []
+        next_action: "Capture both motor-to-shaft paths and every intermediate element."
+        notes: null
+      - item_id: "pair0_torque_transducer_identity"
+        question: "Whether pair 0 has an independent shaft-torque sensor; model/location/conditioner if present."
+        status: "UNKNOWN"
+        value: null
+        unit: null
+        provenance: "UNKNOWN"
+        expected_evidence: ["scope-complete mechanical photos", "sensor label", "wiring/drawing", "calibration certificate"]
+        evidence: []
+        next_action: "Inspect load path and signal-conditioning hardware."
+        notes: "Do not mark NOT_PRESENT without scope-complete evidence."
+      - item_id: "pair1_torque_transducer_identity"
+        question: "Whether pair 1 has an independent shaft-torque sensor; model/location/conditioner if present."
+        status: "UNKNOWN"
+        value: null
+        unit: null
+        provenance: "UNKNOWN"
+        expected_evidence: ["scope-complete mechanical photos", "sensor label", "wiring/drawing", "calibration certificate"]
+        evidence: []
+        next_action: "Inspect load path and signal-conditioning hardware."
+        notes: "Do not mark NOT_PRESENT without scope-complete evidence."
+      - item_id: "pair2_torque_transducer_identity"
+        question: "Whether pair 2 has an independent shaft-torque sensor; model/location/conditioner if present."
+        status: "UNKNOWN"
+        value: null
+        unit: null
+        provenance: "UNKNOWN"
+        expected_evidence: ["scope-complete mechanical photos", "sensor label", "wiring/drawing", "calibration certificate"]
+        evidence: []
+        next_action: "Inspect load path and signal-conditioning hardware."
+        notes: "Do not mark NOT_PRESENT without scope-complete evidence."
+
+  topology:
+    - item_id: "physical_pair_mapping"
+      question: "Physical mapping from A0/B0 through A2/B2 to motors, drives, terminals and cables."
+      status: "UNKNOWN"
+      value: null
+      unit: null
+      provenance: "UNKNOWN"
+      expected_evidence: ["cable trace", "terminal labels", "schematic", "parameter/project export"]
+      evidence: []
+      next_action: "Complete logical-to-physical mapping table without commanding hardware."
+      notes: null
+    - item_id: "communication_connectors_labels"
+      question: "Connector types, pin labels and protocol/physical-layer labels on controller/modules/drives."
+      status: "UNKNOWN"
+      value: null
+      unit: null
+      provenance: "UNKNOWN"
+      expected_evidence: ["connector photos", "exact hardware manual"]
+      evidence: []
+      next_action: "Capture overview and close-up of every communication endpoint."
+      notes: null
+    - item_id: "communication_physical_layer_protocol"
+      question: "Actual physical layer and protocol for every bus segment."
+      status: "UNKNOWN"
+      value: null
+      unit: null
+      provenance: "UNKNOWN"
+      expected_evidence: ["module identity", "configuration export", "applicable communication manual"]
+      evidence: []
+      next_action: "Reconcile hardware option and configuration; do not infer Modbus from RS-485."
+      notes: null
+    - item_id: "communication_wiring"
+      question: "Endpoint-to-endpoint A/B/D+/D-/GND/reference/shield wiring where applicable."
+      status: "UNKNOWN"
+      value: null
+      unit: null
+      provenance: "UNKNOWN"
+      expected_evidence: ["wiring schematic", "terminal photos", "cable trace"]
+      evidence: []
+      next_action: "Populate cable map using printed labels verbatim."
+      notes: null
+    - item_id: "bus_topology"
+      question: "Daisy-chain/star/ring/point-to-point segments and node order."
+      status: "UNKNOWN"
+      value: null
+      unit: null
+      provenance: "UNKNOWN"
+      expected_evidence: ["cabinet overview", "cable trace", "network drawing"]
+      evidence: []
+      next_action: "Draw each physically separate segment."
+      notes: null
+    - item_id: "termination_and_bias"
+      question: "Termination and biasing arrangement for applicable bus segments."
+      status: "UNKNOWN"
+      value: null
+      unit: null
+      provenance: "UNKNOWN"
+      expected_evidence: ["schematic", "module switch/terminal photo", "manual"]
+      evidence: []
+      next_action: "Inspect only under approved electrical-safe conditions."
+      notes: null
+    - item_id: "galvanic_isolation"
+      question: "Isolation boundaries between host/controller/bus/drives and protective earth/reference."
+      status: "UNKNOWN"
+      value: null
+      unit: null
+      provenance: "UNKNOWN"
+      expected_evidence: ["schematic", "module/adapter manual", "part identity"]
+      evidence: []
+      next_action: "Document isolation ratings from exact manuals."
+      notes: null
+    - item_id: "existing_bus_master"
+      question: "Whether a master already exists and which asset owns bus arbitration."
+      status: "UNKNOWN"
+      value: null
+      unit: null
+      provenance: "UNKNOWN"
+      expected_evidence: ["controller configuration", "topology drawing", "authorized statement"]
+      evidence: []
+      next_action: "Resolve before any RPi transmission."
+      notes: "UNKNOWN keeps RTU_READ_GO false."
+    - item_id: "controller_to_drive_cabling"
+      question: "Complete controller/gateway-to-drive cabling and service-access paths."
+      status: "UNKNOWN"
+      value: null
+      unit: null
+      provenance: "UNKNOWN"
+      expected_evidence: ["cable map", "connector photos", "schematic"]
+      evidence: []
+      next_action: "Trace without disconnecting or probing energized conductors."
+      notes: null
+
+  safety:
+    - item_id: "emergency_stop_chain"
+      question: "Physical E-stop devices, logic, outputs, feedback and reset behavior."
+      status: "UNKNOWN"
+      value: null
+      unit: null
+      provenance: "UNKNOWN"
+      expected_evidence: ["safety schematic", "device identity", "approved validation record"]
+      evidence: []
+      next_action: "Review with responsible safety person; visual inspection is not a functional test."
+      notes: null
+    - item_id: "drive_enable_chain"
+      question: "Physical drive-enable source, interlocks and state feedback."
+      status: "UNKNOWN"
+      value: null
+      unit: null
+      provenance: "UNKNOWN"
+      expected_evidence: ["electrical schematic", "controller/drive configuration", "terminal mapping"]
+      evidence: []
+      next_action: "Document state machine without activating it."
+      notes: null
+    - item_id: "safe_torque_off"
+      question: "Presence, channels, wiring and behavior of STO or equivalent safe function."
+      status: "UNKNOWN"
+      value: null
+      unit: null
+      provenance: "UNKNOWN"
+      expected_evidence: ["safety manual", "schematic", "drive option/configuration"]
+      evidence: []
+      next_action: "Match exact model and wiring; a label alone is insufficient."
+      notes: null
+    - item_id: "approved_operating_limits"
+      question: "Approved experimental torque/current/rate/speed/position/power/thermal limits."
+      status: "UNKNOWN"
+      value: null
+      unit: "mixed SI"
+      provenance: "UNKNOWN"
+      expected_evidence: ["approved risk assessment", "commissioning record", "exact manuals/parameters"]
+      evidence: []
+      next_action: "Separate nameplate ratings from approved research limits."
+      notes: null
+    - item_id: "communication_powered_with_drives_disabled"
+      question: "Whether read-only communication remains available with torque/power stage safely disabled."
+      status: "UNKNOWN"
+      value: null
+      unit: null
+      provenance: "UNKNOWN"
+      expected_evidence: ["manual", "schematic", "approved non-commanding observation"]
+      evidence: []
+      next_action: "Establish an approved read-only equipment state."
+      notes: null
+
+  documentation_and_exports:
+    - item_id: "drive_parameter_backups"
+      question: "Drive parameter backups for every installed drive, with tool/version and asset mapping."
+      status: "UNKNOWN"
+      value: null
+      unit: null
+      provenance: "UNKNOWN"
+      expected_evidence: ["original read-only export", "export procedure", "file hash"]
+      evidence: []
+      next_action: "Request export from responsible engineer."
+      notes: null
+    - item_id: "abb_engineering_project"
+      question: "Applicable ABB engineering project/export and software version."
+      status: "UNKNOWN"
+      value: null
+      unit: null
+      provenance: "UNKNOWN"
+      expected_evidence: ["original project/export", "version/applicability record", "file hash"]
+      evidence: []
+      next_action: "Request a read-only copy under laboratory policy."
+      notes: null
+    - item_id: "electrical_schematics"
+      question: "Applicable cabinet, motor, encoder, communication and safety schematics."
+      status: "UNKNOWN"
+      value: null
+      unit: null
+      provenance: "UNKNOWN"
+      expected_evidence: ["original controlled drawings", "revision/applicability"]
+      evidence: []
+      next_action: "Obtain current revision and reconcile asset IDs."
+      notes: null
+    - item_id: "communication_manual"
+      question: "Exact communication module/drive manual matching type and firmware."
+      status: "UNKNOWN"
+      value: null
+      unit: null
+      provenance: "UNKNOWN"
+      expected_evidence: ["official manual", "document number/revision", "applicability"]
+      evidence: []
+      next_action: "Search only after exact part number is confirmed."
+      notes: null
+    - item_id: "register_or_fieldbus_mapping"
+      question: "Applicable read objects/registers, data types, addressing convention and semantics."
+      status: "UNKNOWN"
+      value: null
+      unit: null
+      provenance: "UNKNOWN"
+      expected_evidence: ["official mapping manual", "configured object/register export"]
+      evidence: []
+      next_action: "Do not use generic ABB maps or historical placeholders."
+      notes: null
+    - item_id: "mechanical_datasheets"
+      question: "Encoder, reducer, coupling and torque-sensor datasheets."
+      status: "UNKNOWN"
+      value: null
+      unit: null
+      provenance: "UNKNOWN"
+      expected_evidence: ["official datasheets", "part-number applicability"]
+      evidence: []
+      next_action: "Collect after component identities are confirmed."
+      notes: null
+    - item_id: "calibration_certificates"
+      question: "Current certificates for torque, current, encoder and signal-conditioning chains."
+      status: "UNKNOWN"
+      value: null
+      unit: null
+      provenance: "UNKNOWN"
+      expected_evidence: ["certificate", "serial mapping", "validity dates", "uncertainty"]
+      evidence: []
+      next_action: "Reconcile each certificate with installed hardware."
+      notes: null
+
+  available_measurements:
+    - item_id: "position_measurement_availability"
+      question: "Physical A/B position sources, interfaces, units, rate, timestamp and calibration."
+      status: "UNKNOWN"
+      value: null
+      unit: "rad after validated conversion"
+      provenance: "UNKNOWN"
+      expected_evidence: ["manual", "parameter/mapping export", "read-only source evidence"]
+      evidence: []
+      next_action: "Identify per-side feedback source and raw representation."
+      notes: null
+    - item_id: "velocity_measurement_availability"
+      question: "Physical A/B velocity source or estimator, update/filter behavior and timing."
+      status: "UNKNOWN"
+      value: null
+      unit: "rad/s after validated conversion"
+      provenance: "UNKNOWN"
+      expected_evidence: ["manual", "mapping export", "algorithm/source description"]
+      evidence: []
+      next_action: "Distinguish measured, drive-estimated and host-derived velocity."
+      notes: null
+    - item_id: "motor_current_availability"
+      question: "Current quantity definition, source, scale, bandwidth, timing and calibration."
+      status: "UNKNOWN"
+      value: null
+      unit: "A after validated conversion"
+      provenance: "UNKNOWN"
+      expected_evidence: ["manual", "mapping export", "calibration/current-sensor evidence"]
+      evidence: []
+      next_action: "Identify phase/RMS/DC/q-axis meaning before use."
+      notes: null
+    - item_id: "drive_torque_estimate_availability"
+      question: "Drive torque estimate source, reference point, algorithm dependence, scale and timing."
+      status: "UNKNOWN"
+      value: null
+      unit: "N.m after validated conversion"
+      provenance: "UNKNOWN"
+      expected_evidence: ["manual", "mapping export", "independent calibration evidence"]
+      evidence: []
+      next_action: "Do not classify a command register as torque feedback."
+      notes: null
+    - item_id: "shaft_torque_measurement_availability"
+      question: "Independent shaft/port torque measurement, location, conditioner and calibration."
+      status: "UNKNOWN"
+      value: null
+      unit: "N.m"
+      provenance: "UNKNOWN"
+      expected_evidence: ["sensor identity", "mounting evidence", "signal path", "calibration certificate"]
+      evidence: []
+      next_action: "Inspect all three mechanical paths and cabinet conditioners."
+      notes: "Critical ViPRO-00B evidence."
+    - item_id: "temperature_measurement_availability"
+      question: "Motor/drive temperature channels, sensor locations, update and conversion."
+      status: "UNKNOWN"
+      value: null
+      unit: "K after validated conversion"
+      provenance: "UNKNOWN"
+      expected_evidence: ["manual", "mapping export", "sensor/source identity"]
+      evidence: []
+      next_action: "Separate motor and drive sensing locations."
+      notes: null
+    - item_id: "fault_status_availability"
+      question: "Raw drive/controller status, warning, saturation and fault information."
+      status: "UNKNOWN"
+      value: null
+      unit: "1"
+      provenance: "UNKNOWN"
+      expected_evidence: ["status-word manual", "mapping export", "firmware applicability"]
+      evidence: []
+      next_action: "Preserve raw words and document each decoded bit/enum."
+      notes: null
+    - item_id: "device_timestamp_availability"
+      question: "Device-native timestamps/ticks and clock synchronization information."
+      status: "UNKNOWN"
+      value: null
+      unit: "raw ticks and s after characterized conversion"
+      provenance: "UNKNOWN"
+      expected_evidence: ["manual", "interface mapping", "clock/synchronization configuration"]
+      evidence: []
+      next_action: "Record clock ID, tick period, wrap and sync method."
+      notes: null
+
+decision_gates:
+  rtu_read_go:
+    value: false
+    provenance: "DERIVED"
+    method: "Fail closed while any required physical evidence remains UNKNOWN."
+    required_item_ids:
+      - "fieldbus_module_identity"
+      - "communication_physical_layer_protocol"
+      - "communication_wiring"
+      - "bus_topology"
+      - "termination_and_bias"
+      - "galvanic_isolation"
+      - "existing_bus_master"
+      - "communication_manual"
+      - "register_or_fieldbus_mapping"
+    authorization_evidence: []
+  motor_command_permitted:
+    value: false
+    provenance: "DERIVED"
+    method: "TASK-008 never authorizes motor command; TASK-006 command blockers remain unresolved."
+    authorization_evidence: []

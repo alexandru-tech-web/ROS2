@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 """senzori_core.py -- NUCLEU PUR pentru familia de senzori documentati. SINTETIC.
 
 ETICHETA CARE NU SE STERGE: tot ce produce fisierul asta e SINTETIC, cu model

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 """homing_node.py -- secventa de pornire, nod SUBTIRE peste transmisie_core.
 
 Ce face si de ce, din document [PDF p.10]: encoderele de sold si genunchi sunt

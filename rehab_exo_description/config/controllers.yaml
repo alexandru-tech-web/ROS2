@@ -36,6 +36,11 @@ leg_trajectory_controller:
     state_interfaces:
       - position
       - velocity
+    # La activare, interfata de comanda a simulatorului poate contine inca 0.0,
+    # desi encoderele arata postura initiala (de ex. genunchi ~pi/2). Implicitul
+    # Jazzy foloseste ultima comanda ca stare si produce astfel un salt artificial
+    # spre zero. Initializam explicit din starea masurata.
+    set_last_command_interface_value_as_state_on_activation: false
     # Toleranta de urmarire DEZACTIVATA (0.0): in fizica reala, eroarea
     # tranzitorie depaseste usor cativa sutimi de radian, iar o toleranta
     # stransa face JTC sa ABORTEZE traiectoria imediat (simptom: robotul

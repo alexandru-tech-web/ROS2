@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 """spec_derivate.py -- NUCLEU PUR: limitele de efort si viteza, derivate din documentatie.
 
 Fiecare cifra de aici are proveniente: ori e citita din documentul tehnic si poarta

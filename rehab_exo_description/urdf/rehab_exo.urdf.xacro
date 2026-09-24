@@ -208,6 +208,13 @@
   <material name="cloth"><color rgba="0.18 0.42 0.40 1.0"/></material>
   <material name="pants"><color rgba="0.25 0.25 0.28 1.0"/></material>
   <material name="shoe"><color rgba="0.10 0.10 0.10 1.0"/></material>
+  <!-- Culorile de instrumentatie fac lizibile componentele documentate. Geometria
+       lor este SCHEMATICA (fara cote in PDF), exclusiv visual: nu schimba masa,
+       coliziunile sau dinamica. -->
+  <material name="sensor_cuplu"><color rgba="0.95 0.55 0.05 1.0"/></material>
+  <material name="sensor_unghi"><color rgba="0.58 0.25 0.75 1.0"/></material>
+  <material name="sensor_forta"><color rgba="0.90 0.12 0.12 1.0"/></material>
+  <material name="sensor_rigla"><color rgba="0.10 0.75 0.70 1.0"/></material>
 
   <link name="world"/>
   <joint name="world_to_base" type="fixed">
@@ -371,9 +378,23 @@
       <mass value="32.000"/>
       <inertia ixx="1.029333" ixy="0" ixz="0" iyy="0.874667" iyz="0" izz="0.461867"/>
     </inertial>
+    <!-- Pacientul ramane o anvelopa antropometrica VIZUALA, nu un model biomecanic.
+         Volumele rotunjite de mai jos inlocuiesc paralelipipedul unic si sunt legate
+         vizual la bazin, umeri si coate. Coliziunea si inertialul raman neschimbate,
+         deci aceasta imbunatatire estetica NU schimba matematica simularii. -->
     <visual>
-      <origin xyz="-0.1000 0.0000 0.2800" rpy="0 0 0"/>
-      <geometry><box size="0.2400 0.3400 0.5200"/></geometry>
+      <origin xyz="-0.1000 0.0000 0.0800" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.1350" length="0.1600"/></geometry>
+      <material name="pants"/>
+    </visual>
+    <visual>
+      <origin xyz="-0.1000 0.0000 0.2450" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.1300" length="0.2500"/></geometry>
+      <material name="cloth"/>
+    </visual>
+    <visual>
+      <origin xyz="-0.1000 0.0000 0.4200" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.1650" length="0.1800"/></geometry>
       <material name="cloth"/>
     </visual>
     <visual>
@@ -397,6 +418,16 @@
       <material name="cloth"/>
     </visual>
     <visual>
+      <origin xyz="-0.1000 0.1700 0.4550" rpy="0 0 0"/>
+      <geometry><sphere radius="0.0650"/></geometry>
+      <material name="cloth"/>
+    </visual>
+    <visual>
+      <origin xyz="-0.1000 -0.1700 0.4550" rpy="0 0 0"/>
+      <geometry><sphere radius="0.0650"/></geometry>
+      <material name="cloth"/>
+    </visual>
+    <visual>
       <origin xyz="0.1300 0.2350 0.2350" rpy="0 1.5708 0"/>
       <geometry><cylinder radius="0.0400" length="0.2400"/></geometry>
       <material name="skin"/>
@@ -404,6 +435,16 @@
     <visual>
       <origin xyz="0.1300 -0.2350 0.2350" rpy="0 1.5708 0"/>
       <geometry><cylinder radius="0.0400" length="0.2400"/></geometry>
+      <material name="skin"/>
+    </visual>
+    <visual>
+      <origin xyz="0.0000 0.2300 0.2450" rpy="0 0 0"/>
+      <geometry><sphere radius="0.0470"/></geometry>
+      <material name="skin"/>
+    </visual>
+    <visual>
+      <origin xyz="0.0000 -0.2300 0.2450" rpy="0 0 0"/>
+      <geometry><sphere radius="0.0470"/></geometry>
       <material name="skin"/>
     </visual>
     <visual>
@@ -453,6 +494,13 @@
       <material name="frame_gri"/>
     </visual>
     <visual>
+      <!-- M2210B la sold, intre iesirea reductorului si axul de transmisie.
+           Pozitia functionala vine din PDF; diametrul/grosimea sunt SCHEMATICE. -->
+      <origin xyz="0.0000 ${sy * 0.1175} 0.0000" rpy="1.5708 0 0"/>
+      <geometry><cylinder radius="0.0550" length="0.0250"/></geometry>
+      <material name="sensor_cuplu"/>
+    </visual>
+    <visual>
       <origin xyz="${g_coapsa_nom/2} 0.0000 0.0000" rpy="0 0 0"/>
       <geometry><box size="${g_coapsa_nom} 0.0500 0.0700"/></geometry>
       <material name="${material}"/>
@@ -492,6 +540,12 @@
       <geometry><cylinder radius="${g_d_genunchi/2}" length="0.0800"/></geometry>
       <material name="frame_gri"/>
     </visual>
+    <visual>
+      <!-- M2210B la genunchi; doar reper vizual, fara coliziune/inertie. -->
+      <origin xyz="0.0000 ${sy * 0.0925} 0.0000" rpy="1.5708 0 0"/>
+      <geometry><cylinder radius="0.0470" length="0.0250"/></geometry>
+      <material name="sensor_cuplu"/>
+    </visual>
     <collision>
       <origin xyz="-0.0500 0.0000 0.0000" rpy="0 0 0"/>
       <geometry><box size="0.1600 0.0400 0.0600"/></geometry>
@@ -516,6 +570,13 @@
       <origin xyz="${g_gamba_nom/2} 0.0000 0.0000" rpy="0 0 0"/>
       <geometry><box size="${g_gamba_nom} 0.0450 0.0500"/></geometry>
       <material name="${material}"/>
+    </visual>
+    <visual>
+      <!-- Rigla electronica 406, montata longitudinal pe reglajul gambei.
+           Sectiunea este conventionala; canalul sau ramane explicit sintetic. -->
+      <origin xyz="${g_gamba_nom/2} ${sy * 0.0550} 0.0450" rpy="0 0 0"/>
+      <geometry><box size="${g_gamba_nom - 0.08} 0.0180 0.0180"/></geometry>
+      <material name="sensor_rigla"/>
     </visual>
     <visual>
       <origin xyz="${g_gamba_nom/2} ${sy * -0.1150} 0.0000" rpy="0 1.5708 0"/>
@@ -569,6 +630,21 @@
       <origin xyz="${g_glezna_offset} 0.0000 ${g_talpa_lungime/4}" rpy="0 0 0"/>
       <geometry><box size="0.0250 0.1300 ${g_talpa_lungime}"/></geometry>
       <material name="frame_gri"/>
+    </visual>
+    <visual>
+      <!-- BWK216: senzorul dedicat de unghi al gleznei. Forma si cota de montaj
+           sunt schematice; prezenta si rolul sunt documentate in PDF. -->
+      <origin xyz="0.0000 ${sy * 0.0525} 0.0000" rpy="1.5708 0 0"/>
+      <geometry><cylinder radius="0.0280" length="0.0250"/></geometry>
+      <material name="sensor_unghi"/>
+    </visual>
+    <visual>
+      <!-- TR69-1500 sub talpa: forta Ff, apasare FN si moment MC. Blocul rosu
+           este numai un reper functional, nu model CAD si nu contact Gazebo. -->
+      <origin xyz="${g_glezna_offset - 0.018} ${sy * -0.0575} ${g_talpa_lungime/4}"
+              rpy="0 0 0"/>
+      <geometry><box size="0.0120 0.1050 0.1150"/></geometry>
+      <material name="sensor_forta"/>
     </visual>
     <visual>
       <origin xyz="${g_glezna_offset - 0.035} ${sy * -0.1150} ${g_talpa_lungime/4}" rpy="0 0 0"/>

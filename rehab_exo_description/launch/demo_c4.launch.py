@@ -7,7 +7,8 @@
 Porneste, in ordinea in care dependentele o cer:
   Gazebo headless -> robot_state_publisher -> spawn -> joint_state_broadcaster ->
   homing -> leg_trajectory_controller -> adjust_position_controller ->
-  senzori sintetici + playerul de exercitii + tabloul de monitorizare la 2 Hz.
+  senzori sintetici + playerul de exercitii + recorder + monitor si, optional,
+  HMI-ul si graficele live pentru cele sase articulatii actionate.
 
 DE CE HEADLESS: 'gz sim gui' moare pe masina asta cu symbol lookup error pe
 biblioteci scurse din snap-ul VSCode, si ia serverul cu el. Fizica ruleaza si fara
@@ -82,14 +83,17 @@ def generate_launch_description():
     jsb, traj, adjust = spawner("joint_state_broadcaster"), \
         spawner("leg_trajectory_controller"), spawner("adjust_position_controller")
 
-    homing = Node(package="rehab_exo_description", executable="homing_node.py",
+    homing = Node(package="rehab_exo_description",
+                  executable="initializare_encodere_absolute.py",
                   output="screen", parameters=[{"use_sim_time": True}])
 
-    senzori = Node(package="rehab_exo_description", executable="senzori_node.py",
+    senzori = Node(package="rehab_exo_description",
+                   executable="simulator_senzori_reabilitare.py",
                    output="screen", parameters=[{"use_sim_time": True}])
 
     exercitiu = Node(
-        package="rehab_exo_description", executable="exercise_controller.py",
+        package="rehab_exo_description",
+        executable="controler_exercitii_reabilitare.py",
         output="screen",
         parameters=[{"backend": "trajectory",
                      "exercise": LaunchConfiguration("exercitiu"),
@@ -101,27 +105,44 @@ def generate_launch_description():
     # per articulatie. Porneste implicit; supervizor:=false doar pentru a ARATA ce se
     # intampla fara el (controlul negativ din raportul zilei 3).
     supervizor = Node(
-        package="rehab_exo_description", executable="supervizor_electric.py",
+        package="rehab_exo_description",
+        executable="supervizor_siguranta_electrica.py",
         output="screen", condition=IfCondition(LaunchConfiguration("supervizor")),
         parameters=[{"marja_jos_deg": LaunchConfiguration("marja_jos_deg"),
                      "marja_sus_deg": LaunchConfiguration("marja_sus_deg"),
                      "postura": LaunchConfiguration("postura"),
                      "use_sim_time": True}])
 
-    # Inregistratorul de sesiune. Implicit OPRIT: o demonstratie nu trebuie sa lase
-    # fisiere in urma decat daca cineva a cerut-o. Scrie in ~/DATE_TWIN, niciodata in
-    # ~/DATE_CAMPANIE, care e arhiva canonica a tezei si ramane read-only.
+    # Inregistratorul de sesiune este implicit PORNIT si scrie in ~/DATE_TWIN,
+    # niciodata in ~/DATE_CAMPANIE, care e arhiva canonica si ramane read-only.
     recorder = Node(
-        package="rehab_exo_description", executable="session_recorder.py",
+        package="rehab_exo_description",
+        executable="inregistrator_sesiune_reabilitare.py",
         output="screen", condition=IfCondition(LaunchConfiguration("inregistrare")),
         parameters=[{"exercitiu": LaunchConfiguration("exercitiu"),
                      "postura": LaunchConfiguration("postura"),
                      "viteza": LaunchConfiguration("viteza"),
                      "marja_sus_deg": LaunchConfiguration("marja_sus_deg"),
+                     "director_date": LaunchConfiguration("director_date"),
                      "use_sim_time": True}])
 
+    # Grafice live pentru cele sase motoare: pozitie, viteza si efortul raportat de
+    # Gazebo prin /joint_states. Efortul este SIMULAT, nu cuplu fizic masurat.
+    grafice = Node(
+        package="rehab_exo_description", executable="grafice_reabilitare_live.py",
+        output="screen", condition=IfCondition(LaunchConfiguration("grafice")),
+        parameters=[{"use_sim_time": True}])
+
+    # HMI de operare: selectie programe, reglaje antropometrice, stare senzori si
+    # calea datelor. Este o interfata de cercetare, nu dispozitiv medical certificat.
+    hmi = Node(
+        package="rehab_exo_description", executable="panou_operator_reabilitare.py",
+        output="screen", condition=IfCondition(LaunchConfiguration("hmi")),
+        parameters=[{"use_sim_time": True}])
+
     # Tabloul iese pe ecran; are nevoie de terminalul curat, deci porneste ultimul.
-    monitor = Node(package="rehab_exo_description", executable="monitor_senzori.py",
+    monitor = Node(package="rehab_exo_description",
+                   executable="monitor_senzori_reabilitare.py",
                    output="screen", parameters=[{"hz": 2.0, "use_sim_time": True}])
 
     # Gardianul e PRIMA veriga dupa spawn, si e o POARTA: restul lantului porneste
@@ -139,7 +160,7 @@ def generate_launch_description():
         RegisterEventHandler(OnProcessExit(target_action=traj, on_exit=[adjust])),
         RegisterEventHandler(OnProcessExit(target_action=adjust,
                                            on_exit=[senzori, supervizor, recorder,
-                                                    exercitiu, monitor])),
+                                                    exercitiu, monitor, grafice, hmi])),
     ]
 
     argumente = [
@@ -149,11 +170,13 @@ def generate_launch_description():
                               description="factor pe axa timpului, 0.1 .. 3.0"),
         DeclareLaunchArgument("repetari", default_value="3",
                               description="numarul de repetari"),
-        DeclareLaunchArgument("inaltime", default_value="1.2",
-                              description="inaltimea de aparitie [m]; tine talpile "
-                                          "deasupra solului"),
-        DeclareLaunchArgument("inregistrare", default_value="false",
-                              description="scrie un CSV de sesiune in ~/DATE_TWIN"),
+        DeclareLaunchArgument("inaltime", default_value="0.0",
+                              description="deplasarea verticala a intregului model [m]; "
+                                          "0 aseaza placa de baza pe podea"),
+        DeclareLaunchArgument("inregistrare", default_value="true",
+                              description="scrie automat un CSV complet de sesiune"),
+        DeclareLaunchArgument("director_date", default_value="~/DATE_TWIN",
+                              description="radacina exportului CSV de simulare"),
         DeclareLaunchArgument("supervizor", default_value="true",
                               description="stratul electric de siguranta (M5). "
                                           "supervizor:=false e PORTITA DE DEPANARE, "
@@ -168,6 +191,11 @@ def generate_launch_description():
                               description="setul de limite supravegheat: culcat|sezut"),
         DeclareLaunchArgument("gui", default_value="false",
                               description="porneste si GUI-ul Gazebo (vezi antetul)"),
+        DeclareLaunchArgument("grafice", default_value=LaunchConfiguration("gui"),
+                              description="fereastra live cu pozitie, viteza si efort; "
+                                          "implicit urmeaza valoarea lui gui"),
+        DeclareLaunchArgument("hmi", default_value=LaunchConfiguration("gui"),
+                              description="panoul operatorului; implicit urmeaza gui"),
     ]
     return LaunchDescription(argumente + [argument_rmw(), cu_rmw(
         [gz_sim, rsp, clock_bridge, spawn] + lant, "demo_c4", cu_gardian=False)])

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 """monitor_senzori.py -- tabloul LIVE al demonstratiei, in terminal, la 2 Hz.
 
 De ce in terminal si nu o fereastra: pe masina asta procesele grafice pornite din
@@ -126,9 +126,15 @@ def main(argv=None):
     except KeyboardInterrupt:
         pass
     finally:
-        n.destroy_node()
-        if rclpy.ok():
-            rclpy.shutdown()
+        try:
+            n.destroy_node()
+        except KeyboardInterrupt:
+            pass
+        try:
+            if rclpy.ok():
+                rclpy.shutdown()
+        except KeyboardInterrupt:
+            pass
 
 
 if __name__ == "__main__":

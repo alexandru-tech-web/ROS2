@@ -1,8 +1,12 @@
 # Demonstratia C4 -- ce se porneste, ce se vede, ce inseamna
 
+> Pentru utilizarea curenta urmeaza `docs/GHID_UTILIZARE.md`. Cifrele datate din
+> acest fisier sunt jurnalul tehnic al etapelor de dezvoltare, nu rezultatele
+> ultimei sesiuni si nu instructiuni pentru un dispozitiv fizic.
+
 O singura comanda:
 
-    ros2 launch rehab_exo_description demo_c4.launch.py
+    ros2 launch rehab_exo_description demo_c4.launch.py gui:=true
 
 Cu optiuni:
 
@@ -14,14 +18,34 @@ Cu optiuni:
 | `exercitiu:=` | `knee_extension` | numele din `exercise_core.EXERCISES` |
 | `viteza:=` | `1.0` | factor pe axa TIMPULUI (0.1 .. 3.0). NU schimba amplitudinea |
 | `repetari:=` | `3` | numarul de repetari |
-| `inaltime:=` | `1.2` | inaltimea de aparitie [m]; tine talpile deasupra solului |
+| `inaltime:=` | `0.0` | offset vertical [m]; placa de baza este asezata pe podea |
+| `inregistrare:=` | `true` | CSV complet de la pornire pana la oprire |
+| `director_date:=` | `~/DATE_TWIN` | radacina exporturilor de simulare |
 | `supervizor:=` | `true` | stratul electric de siguranta (M5) |
-| `marja_deg:=` | `5.0` | cat sub opritorul mecanic sta pragul electric; IPOTEZA |
+| `marja_jos_deg:=` | `0.0` | marja electrica la limita inferioara; zero la repaus |
+| `marja_sus_deg:=` | `5.0` | cat sub opritorul superior sta pragul electric; IPOTEZA |
 | `postura:=` | `culcat` | setul de limite supravegheat: `culcat` sau `sezut` |
 | `gui:=` | `false` | porneste si GUI-ul Gazebo (vezi *De ce headless*) |
+| `grafice:=` | valoarea lui `gui` | grafice live pentru cele 6 articulatii |
+| `hmi:=` | valoarea lui `gui` | HMI: exercitii, reglaje, senzori si calea CSV |
 | `rmw:=` | `cyclonedds` | implementarea RMW, pinuita pe TOATE nodurile |
 
+Pentru prima utilizare si predarea proiectului, incepe cu
+`docs/START_AICI.md`. Arhitectura fizica si diferenta LLR/LTE sunt descrise in
+`docs/MANUAL_TEHNIC_LLR.md`.
+
 Oprire: `Ctrl+C`. Lansarea inchide tot lantul, inclusiv serverul Gazebo.
+Recorderul inchide si valideaza CSV-ul la aceeasi oprire. Fiecare sesiune ajunge in
+`~/DATE_TWIN/<timestamp>_<exercitiu>/sesiune.csv`; `*.effort_sim` este efortul raportat
+de Gazebo, iar `cuplu.*` este senzor sintetic. Niciunul nu este masurare fizica.
+
+Pentru graficele exportate dupa oprire:
+
+    ros2 run rehab_exo_description plot_sesiune.py \
+        ~/DATE_TWIN/<timestamp>_<exercitiu>
+
+Se genereaza separat pozitiile, vitezele, eforturile simulate ale actuatoarelor,
+cuplurile senzorilor sintetici, fortele 6D si unghiurile gleznelor.
 
 ## Ce se vede
 
@@ -138,10 +162,9 @@ nu vine din snap, scriptul nu e necesar -- `gui:=true` merge direct.
 
 ## Trei lucruri de stiut inainte sa se modifice ceva
 
-1. **Robotul trebuie ridicat de la podea.** La `inaltime:=0` talpile intra in planul
-   solului, iar contactul tine genunchiul flectat peste tinta cu 0.153 rad si ~69 Nm
-   de cuplu inutil. Eroarea NU raspunde la castig (identica la 15 si la 100) -- de
-   aceea arata ca o problema de acordare fara sa fie.
+1. **Placa de baza se lanseaza la `inaltime:=0`.** Geometria actuala are o margine
+   verificata de 30 mm pentru intreg domeniul legal al talpilor. Valoarea veche de
+   1.2 m provenea din geometria anterioara si lasa intregul aparat suspendat.
 2. **`gazebo:=true` strica controlul de pozitie.** Cele 6 plugin-uri `ApplyJointForce`
    scriu `JointForceCmd` la fiecare pas si suprascriu comanda lui `gz_ros2_control`.
    Se exclud reciproc; implicitul e `false`.

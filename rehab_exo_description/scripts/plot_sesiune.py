@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 """plot_sesiune.py -- figuri dintr-un CSV de sesiune, cu titlul luat din antet.
 
     python3 scripts/plot_sesiune.py ~/DATE_TWIN/20260822_101439_knee_extension/
@@ -25,7 +25,11 @@ import recorder_core as rc                                        # noqa: E402
 
 FAMILII = (
     ("pozitii", "Pozitii masurate vs comenzi", lambda c: c.endswith((".pos", ".cmd"))),
-    ("cupluri", "Cupluri articulare", lambda c: c.startswith("cuplu.")),
+    ("viteze", "Viteze articulare", lambda c: c.endswith(".vel")),
+    ("efort_actuator_sim", "Efort actuator din Gazebo (NU masurare fizica)",
+     lambda c: c.endswith(".effort_sim")),
+    ("cuplu_senzor_sintetic", "Cuplu senzor SINTETIC (model declarat)",
+     lambda c: c.startswith("cuplu.")),
     ("forta6d", "Senzor 6D (NaN = canal nemasurat)", lambda c: c.startswith("f6d.")),
     ("glezna", "Unghi de glezna si rigla de gamba",
      lambda c: c.startswith(("unghi_glezna.", "rigla."))),
@@ -84,7 +88,8 @@ def _selftest():
 
     import tempfile
     # CSV sintetic, cu antet, cu NaN si cu o coloana integral NaN
-    col = ["a_joint.pos", "a_joint.cmd", "cuplu.left_hip", "f6d.left.force.y",
+    col = ["a_joint.pos", "a_joint.vel", "a_joint.effort_sim", "a_joint.cmd",
+           "cuplu.left_hip", "f6d.left.force.y",
            "unghi_glezna.left", "rigla.left"]
     f = tempfile.NamedTemporaryFile(suffix=".csv", mode="w", delete=False)
     for l in rc.antet({"exercitiu": "test_ex", "commit": "abc1234", "conventie": "B1",
@@ -92,10 +97,10 @@ def _selftest():
                       ipoteze=["o ipoteza"]):
         f.write(l + "\n")
     f.write("t_sim," + ",".join(col) + "\n")
-    f.write("0.0,0.1,0.1,2.0,NaN,0.01,0.5\n")
-    f.write("0.1,0.2,0.2,2.1,NaN,0.02,0.5\n")
+    f.write("0.0,0.1,0.2,1.1,0.1,2.0,NaN,0.01,0.5\n")
+    f.write("0.1,0.2,0.3,1.2,0.2,2.1,NaN,0.02,0.5\n")
     f.write("# EVENIMENT t=0.15 ceva\n")           # comentariu in mijlocul datelor
-    f.write("0.2,NaN,0.3,2.2,NaN,0.03,0.5\n")
+    f.write("0.2,NaN,0.4,1.3,0.3,2.2,NaN,0.03,0.5\n")
     f.close()
 
     meta, coloane, t, date = incarca(f.name)
@@ -123,7 +128,11 @@ def _selftest():
     # 4. familiile grupeaza corect si nu inventeaza familii goale
     fam = dict((k, c) for k, _, c in familii(coloane))
     ok(set(fam["pozitii"]) == {"a_joint.pos", "a_joint.cmd"}, fam.get("pozitii"))
-    ok(fam["cupluri"] == ["cuplu.left_hip"], fam.get("cupluri"))
+    ok(fam["viteze"] == ["a_joint.vel"], fam.get("viteze"))
+    ok(fam["efort_actuator_sim"] == ["a_joint.effort_sim"],
+       fam.get("efort_actuator_sim"))
+    ok(fam["cuplu_senzor_sintetic"] == ["cuplu.left_hip"],
+       fam.get("cuplu_senzor_sintetic"))
     ok(fam["forta6d"] == ["f6d.left.force.y"], fam.get("forta6d"))
     ok(set(fam["glezna"]) == {"unghi_glezna.left", "rigla.left"}, fam.get("glezna"))
     ok(len(familii(["nimic_relevant"])) == 0,

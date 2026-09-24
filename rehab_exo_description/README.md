@@ -1,12 +1,24 @@
-In afara tezei; ajutor punctual pentru un coleg, fara rol in coloana; inghetat ad283c9 (22.08.2026).
+Proiect colaborativ pentru simularea si instrumentarea sistemului LLR de
+reabilitare. Model de cercetare, fara statut de dispozitiv medical.
 
 # rehab_exo_description
+
+> **Punct de intrare pentru un utilizator nou:**
+> [docs/GHID_UTILIZARE.md](docs/GHID_UTILIZARE.md), apoi
+> [docs/START_AICI.md](docs/START_AICI.md). Pentru arhitectura si senzorii LLR,
+> vezi [docs/MANUAL_TEHNIC_LLR.md](docs/MANUAL_TEHNIC_LLR.md), iar pentru rolul
+> fiecarui fisier vezi [docs/HARTA_FISIERELOR.md](docs/HARTA_FISIERELOR.md).
 
 Descrierea robotului de reabilitare LLR (demonstratorul C4 al tezei): scaun medical
 + doua picioare mecanice, 6 articulatii revolute active in plan sagital
 (sold/genunchi/glezna x2) plus 5 axe prismatice de pozitionare, cu configurare
 ros2_control, scripturi de control si lansari pentru RViz si Gazebo.
 Model de dezvoltare/simulare, NU controller medical certificat.
+
+Auditul curent al fidelitatii si traseul spre digital twin sunt in
+[`docs/AUDIT_SIMULARE_2026-09-23.md`](docs/AUDIT_SIMULARE_2026-09-23.md). Copia din
+workspace se transfera conservator in repository-ul RehabRob cu
+`tools/sync_rehabrob.py`; vezi [`docs/SINCRONIZARE_REHABROB.md`](docs/SINCRONIZARE_REHABROB.md).
 
 ## O SINGURA SURSA DE ADEVAR
 

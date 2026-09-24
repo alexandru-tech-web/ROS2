@@ -19,6 +19,7 @@ Doua gardieni identici, in doua POZITII diferite:
 Se ruleaza din test/test_rmw_mutant.py, care citeste codurile lor de iesire.
 """
 import os
+import sys
 
 from launch import LaunchDescription
 from launch.actions import (DeclareLaunchArgument, GroupAction, OpaqueFunction,
@@ -32,7 +33,10 @@ GARDIAN = os.path.join(os.path.dirname(AICI), "..", "scripts", "rmw_guard.py")
 
 
 def _gardian(eticheta):
-    return Node(executable="python3", arguments=[os.path.abspath(GARDIAN),
+    # Folosim exact interpretul cu care este rulat testul. Un `python3` rezolvat din
+    # PATH poate indica /usr/local/bin/python3, in timp ce ROS Jazzy si PyYAML sunt
+    # instalate pentru /usr/bin/python3; mutantul ar muri atunci inainte sa testeze RMW.
+    return Node(executable=sys.executable, arguments=[os.path.abspath(GARDIAN),
                                                  "--rmw-asteptat", "cyclonedds",
                                                  "--eticheta", eticheta],
                 name=eticheta, output="screen")

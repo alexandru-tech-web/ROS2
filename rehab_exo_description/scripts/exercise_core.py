@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 """
 exercise_core.py -- Nucleul procesului de control al celor 6 servomotoare
 (2 sold + 2 genunchi + 2 glezna), FARA dependinte ROS.  [v2: sesiuni]

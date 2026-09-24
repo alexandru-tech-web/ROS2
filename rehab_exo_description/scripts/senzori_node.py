@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 """senzori_node.py -- nod SUBTIRE peste senzori_core. Publica familia documentata.
 
 Toate valorile sunt SINTETICE, cu model declarat in senzori_core.py, si fara nicio
@@ -139,10 +139,14 @@ def main(argv=None):
     except KeyboardInterrupt:
         pass
     finally:
-        nod.destroy_node()
         try:
-            rclpy.shutdown()
-        except Exception:
+            nod.destroy_node()
+        except KeyboardInterrupt:
+            pass
+        try:
+            if rclpy.ok():
+                rclpy.shutdown()
+        except (Exception, KeyboardInterrupt):
             pass
     return 0
 

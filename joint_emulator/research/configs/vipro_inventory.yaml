@@ -1,0 +1,639 @@
+schema_version: "1.0"
+artifact: "TASK-001 ViPRO evidence inventory"
+audit_date_utc: "2026-09-23"
+repository:
+  root: "/home/ubuntu/ros2_ws/src"
+  branch: "main"
+  commit:
+    value: "0d7d864ba85805090d97edcf639586ff27f457c8"
+    unit: null
+    provenance: CODE_CONFIG
+    source:
+      file: "/home/ubuntu/ros2_ws/src/.git/HEAD"
+      lines: null
+    confidence: HIGH
+    ambiguity: "Working tree contains the untracked research/ outputs."
+
+artifact_search:
+  searched_names:
+    - "vipro_inventory.*"
+    - "vipo_inventory.*"
+    - "ros_graph.*"
+    - "signals.*"
+  searched_working_tree: "/home/ubuntu/ros2_ws"
+  searched_git_history: "all refs under /home/ubuntu/ros2_ws/src"
+  preexisting_matches:
+    value: null
+    unit: null
+    provenance: UNKNOWN
+    source:
+      file: null
+      lines: null
+    confidence: HIGH
+    ambiguity: "No preexisting artifact matched either spelling; TASK-002 documentation only mentioned the expected vipo_* names."
+
+physical_bench:
+  evidence_status: "PARTIALLY_DOCUMENTED_NOT_CODE_CONNECTED"
+  pair_count:
+    value: 3
+    unit: "1"
+    provenance: MANUAL_REFERENCE
+    source:
+      file: "/home/ubuntu/Downloads/RESEARCH_CONTEXT.md"
+      lines: "126-136"
+    confidence: MEDIUM
+    ambiguity: "Canonical research description; no hardware drawing, nameplate inventory, or live I/O confirms it in the repository."
+  actuators_per_pair:
+    value: 2
+    unit: "1"
+    provenance: MANUAL_REFERENCE
+    source:
+      file: "/home/ubuntu/Downloads/RESEARCH_CONTEXT.md"
+      lines: "55-62"
+    confidence: MEDIUM
+    ambiguity: "Roles A/B are declared, not verified against cabinet wiring."
+  actuator_count:
+    value: 6
+    unit: "1"
+    provenance: DERIVED
+    source:
+      file: "/home/ubuntu/Downloads/RESEARCH_CONTEXT.md"
+      lines: "55-62,126-136"
+    confidence: MEDIUM
+    ambiguity: "Derived as 3 pairs x 2 actuators; README_JOINT.md:1 independently calls the bench a six-servomotor bench."
+  pair_labels:
+    value: ["A0/B0", "A1/B1", "A2/B2"]
+    unit: null
+    provenance: MANUAL_REFERENCE
+    source:
+      file: "/home/ubuntu/Downloads/RESEARCH_CONTEXT.md"
+      lines: "126-136"
+    confidence: MEDIUM
+    ambiguity: "Logical labels; mapping to physical terminals, drive addresses, and serial numbers is UNKNOWN."
+  role_A:
+    value: "actuator under test / active actuator"
+    unit: null
+    provenance: MANUAL_REFERENCE
+    source:
+      file: "/home/ubuntu/Downloads/RESEARCH_CONTEXT.md"
+      lines: "57-62"
+    confidence: MEDIUM
+    ambiguity: "Research role, not a verified drive mode or wiring assignment."
+  role_B:
+    value: "physical load actuator"
+    unit: null
+    provenance: MANUAL_REFERENCE
+    source:
+      file: "/home/ubuntu/Downloads/RESEARCH_CONTEXT.md"
+      lines: "57-62,99-124"
+    confidence: MEDIUM
+    ambiguity: "Research role; physical realization and control interface are not present in code."
+  coupling_within_pair:
+    value: "rigid common shaft/coupling"
+    unit: null
+    provenance: MANUAL_REFERENCE
+    source:
+      file: "/home/ubuntu/Downloads/RESEARCH_CONTEXT.md"
+      lines: "57-75"
+    confidence: MEDIUM
+    ambiguity: "No measured torsional stiffness, backlash, geometry, drawing, or coupling part number is available."
+  mechanical_coupling_between_pairs:
+    value: null
+    unit: null
+    provenance: UNKNOWN
+    source:
+      file: "/home/ubuntu/Downloads/RESEARCH_CONTEXT.md"
+      lines: "126-138"
+    confidence: LOW
+    ambiguity: "The context says the pairs are physically separate only conditionally: if the real inventory does not show otherwise."
+  joint_anatomical_mapping:
+    value: null
+    unit: null
+    provenance: UNKNOWN
+    source:
+      file: null
+      lines: null
+    confidence: HIGH
+    ambiguity: "No evidence maps pair 0/1/2 to wrist/elbow/shoulder. Existing documents describe prior mappings as hypotheses."
+
+hardware:
+  motor_manufacturer_claim:
+    value: "ABB"
+    unit: null
+    provenance: MANUAL_REFERENCE
+    source:
+      file: "joint_emulator/README_JOINT.md"
+      lines: "1-7"
+    confidence: LOW
+    ambiguity: "Project documentation claim only; no nameplate, official manual, part number, or serial number is stored."
+  motor_models:
+    value: null
+    unit: null
+    provenance: UNKNOWN
+    source:
+      file: null
+      lines: null
+    confidence: HIGH
+    ambiguity: "No motor nameplate or manual was found."
+  motor_serial_numbers:
+    value: null
+    unit: null
+    provenance: UNKNOWN
+    source:
+      file: null
+      lines: null
+    confidence: HIGH
+    ambiguity: "No serial-number inventory was found."
+  drive_manufacturer_claim:
+    value: "ABB"
+    unit: null
+    provenance: MANUAL_REFERENCE
+    source:
+      file: "joint_emulator/modbus_backend.py"
+      lines: "2-6"
+    confidence: LOW
+    ambiguity: "The same file is explicitly a nonfunctional skeleton; this is not confirmation of model or protocol."
+  drive_models:
+    value: null
+    unit: null
+    provenance: UNKNOWN
+    source:
+      file: "joint_emulator/drive_iface.py"
+      lines: "2-6"
+    confidence: HIGH
+    ambiguity: "Code explicitly postpones the real backend until the exact drive models are known."
+  real_drive_protocol:
+    value: null
+    unit: null
+    provenance: UNKNOWN
+    source:
+      file: "joint_emulator/README_JOINT.md"
+      lines: "79-88"
+    confidence: HIGH
+    ambiguity: "CAN/CANopen, EtherCAT, Modbus, analog, or a vendor interface remain alternatives; none is confirmed."
+  real_drive_control_mode:
+    value: null
+    unit: null
+    provenance: UNKNOWN
+    source:
+      file: null
+      lines: null
+    confidence: HIGH
+    ambiguity: "Torque mode is a proposed safety/control requirement, not evidence of current drive configuration."
+  encoder_type:
+    value: null
+    unit: null
+    provenance: UNKNOWN
+    source:
+      file: null
+      lines: null
+    confidence: HIGH
+    ambiguity: "No manufacturer, technology, or mounting information exists."
+  encoder_resolution:
+    value: null
+    unit: "count/rev"
+    provenance: UNKNOWN
+    source:
+      file: "joint_emulator/nodes/encoder_monitor_node.py"
+      lines: "58-64"
+    confidence: HIGH
+    ambiguity: "4096 count/rev is a SIM quantization setting, not a measured or manual-derived hardware resolution."
+  encoder_signs_offsets:
+    value: null
+    unit: null
+    provenance: UNKNOWN
+    source:
+      file: "joint_emulator/encoder_core.py"
+      lines: "127-150"
+    confidence: HIGH
+    ambiguity: "Software supports sign/offset alignment, but physical calibration values are absent."
+  gear_ratios:
+    value: null
+    unit: "1"
+    provenance: UNKNOWN
+    source:
+      file: null
+      lines: null
+    confidence: HIGH
+    ambiguity: "No gearbox inventory or ratio is present."
+  torque_transducer:
+    value: null
+    unit: null
+    provenance: UNKNOWN
+    source:
+      file: null
+      lines: null
+    confidence: HIGH
+    ambiguity: "No external torque-sensor component, interface, calibration, or signal appears in code/configuration."
+  current_measurement:
+    value: null
+    unit: "A"
+    provenance: UNKNOWN
+    source:
+      file: null
+      lines: null
+    confidence: HIGH
+    ambiguity: "No motor-current acquisition path is implemented."
+  drive_torque_estimate:
+    value: null
+    unit: "N.m"
+    provenance: UNKNOWN
+    source:
+      file: null
+      lines: null
+    confidence: HIGH
+    ambiguity: "No drive-internal torque feedback signal is implemented."
+  temperature_measurement:
+    value: null
+    unit: "degC"
+    provenance: UNKNOWN
+    source:
+      file: null
+      lines: null
+    confidence: HIGH
+    ambiguity: "No temperature signal or acquisition path is implemented."
+  physical_limits:
+    value: null
+    unit: null
+    provenance: UNKNOWN
+    source:
+      file: null
+      lines: null
+    confidence: HIGH
+    ambiguity: "Rated/peak torque, current, speed, position, power, thermal, and torque-rate limits are absent. SIM limits must not be transferred to hardware."
+
+implemented_simulation:
+  runtime_backend:
+    value: "SimBackend only"
+    unit: null
+    provenance: CODE_CONFIG
+    source:
+      file: "joint_emulator/nodes/emulator_node.py"
+      lines: "47-67"
+    confidence: HIGH
+    ambiguity: "Any backend value other than sim terminates the node."
+  simulated_pair_count:
+    value: 3
+    unit: "1"
+    provenance: CODE_CONFIG
+    source:
+      file: "joint_emulator/nodes/emulator_node.py"
+      lines: "48-67"
+    confidence: HIGH
+    ambiguity: null
+  motor_id_mapping:
+    value: "A_i=2*i; B_i=2*i+1"
+    unit: null
+    provenance: DERIVED
+    source:
+      file: "joint_emulator/nodes/emulator_node.py"
+      lines: "103-105,172-176,280-307"
+    confidence: HIGH
+    ambiguity: "Logical SIM mapping only; no physical drive-address mapping."
+  simulated_mechanical_model:
+    value: "J*q_ddot = tau_A + tau_B - b_fric*q_dot - tau_coulomb*sign(q_dot)"
+    unit: null
+    provenance: CODE_CONFIG
+    source:
+      file: "joint_emulator/joint_core.py"
+      lines: "171-192"
+    confidence: HIGH
+    ambiguity: "A single latent q is shared by both simulated sides; parameters are generic defaults, not identified ABB parameters."
+  default_sim_inertia:
+    value: 0.004
+    unit: "kg.m^2"
+    provenance: CODE_CONFIG
+    source:
+      file: "joint_emulator/joint_core.py"
+      lines: "175-180"
+    confidence: HIGH
+    ambiguity: "SIM default only; physical value UNKNOWN."
+  default_sim_viscous_friction:
+    value: 0.01
+    unit: "N.m.s/rad"
+    provenance: CODE_CONFIG
+    source:
+      file: "joint_emulator/joint_core.py"
+      lines: "175-180"
+    confidence: HIGH
+    ambiguity: "SIM default only; physical value UNKNOWN."
+  default_sim_coulomb_friction:
+    value: 0.0
+    unit: "N.m"
+    provenance: CODE_CONFIG
+    source:
+      file: "joint_emulator/joint_core.py"
+      lines: "175-180"
+    confidence: HIGH
+    ambiguity: "SIM default only; physical value UNKNOWN."
+  A_control_input:
+    value: "torque command"
+    unit: "N.m"
+    provenance: CODE_CONFIG
+    source:
+      file: "joint_emulator/nodes/emulator_node.py"
+      lines: "159-176"
+    confidence: HIGH
+    ambiguity: "Commanded SIM torque; not measured torque and not an ABB interface."
+  B_control_law_default:
+    value: "tau_B=-K*(q-q0)-B*q_dot, saturated"
+    unit: "N.m"
+    provenance: CODE_CONFIG
+    source:
+      file: "joint_emulator/joint_core.py"
+      lines: "25-46"
+    confidence: HIGH
+    ambiguity: "Impedance and contact modes are available; physical drive behavior is UNKNOWN."
+  default_K:
+    value: 20.0
+    unit: "N.m/rad"
+    provenance: CODE_CONFIG
+    source:
+      file: "joint_emulator/nodes/emulator_node.py"
+      lines: "48-53"
+    confidence: HIGH
+    ambiguity: "SIM default only."
+  default_B:
+    value: 0.8
+    unit: "N.m.s/rad"
+    provenance: CODE_CONFIG
+    source:
+      file: "joint_emulator/nodes/emulator_node.py"
+      lines: "48-53"
+    confidence: HIGH
+    ambiguity: "SIM default only."
+  default_torque_clamp:
+    value: 2.0
+    unit: "N.m"
+    provenance: CODE_CONFIG
+    source:
+      file: "joint_emulator/nodes/emulator_node.py"
+      lines: "48-53,172-176"
+    confidence: HIGH
+    ambiguity: "SIM software clamp; not a certified hardware limit."
+  watchdog_timeout:
+    value: 0.1
+    unit: "s"
+    provenance: CODE_CONFIG
+    source:
+      file: "joint_emulator/nodes/emulator_node.py"
+      lines: "90-100"
+    confidence: HIGH
+    ambiguity: "Uses simulated measurement time inside the SIM process; not a physical watchdog."
+  ROS_timer_rate:
+    value: 200.0
+    unit: "Hz"
+    provenance: CODE_CONFIG
+    source:
+      file: "joint_emulator/launch/full_sim.launch.py"
+      lines: "42-63,112-114"
+    confidence: HIGH
+    ambiguity: "Nominal ROS timer configuration; no measured deadline/jitter evidence."
+  simulation_inner_step:
+    value: 0.0005
+    unit: "s"
+    provenance: CODE_CONFIG
+    source:
+      file: "joint_emulator/joint_core.py"
+      lines: "195-204"
+    confidence: HIGH
+    ambiguity: "Numerical substep, not proof of a 2 kHz real-time hardware loop."
+  state_publish_rate_full_launch:
+    value: 100.0
+    unit: "Hz"
+    provenance: CODE_CONFIG
+    source:
+      file: "joint_emulator/launch/full_sim.launch.py"
+      lines: "112-115"
+    confidence: HIGH
+    ambiguity: "Node default is 50 Hz; full_sim launch overrides it to 100 Hz."
+  encoder_report_rate:
+    value: 50.0
+    unit: "Hz"
+    provenance: CODE_CONFIG
+    source:
+      file: "joint_emulator/nodes/encoder_monitor_node.py"
+      lines: "45-64,109-114"
+    confidence: HIGH
+    ambiguity: "This is publication timer rate. Encoder CSV rows are generated in the /joint/state callback and therefore follow incoming state messages."
+  simulated_encoder_resolution:
+    value: 4096
+    unit: "count/rev"
+    provenance: CODE_CONFIG
+    source:
+      file: "joint_emulator/nodes/encoder_monitor_node.py"
+      lines: "58-69"
+    confidence: HIGH
+    ambiguity: "Synthetic requantization only."
+  velocity_filter_time_constant:
+    value: 0.1
+    unit: "s"
+    provenance: CODE_CONFIG
+    source:
+      file: "joint_emulator/nodes/encoder_monitor_node.py"
+      lines: "59-73"
+    confidence: HIGH
+    ambiguity: "Estimator setting; not hardware bandwidth."
+  acceleration_filter_time_constant:
+    value: 0.15
+    unit: "s"
+    provenance: CODE_CONFIG
+    source:
+      file: "joint_emulator/nodes/encoder_monitor_node.py"
+      lines: "59-73"
+    confidence: HIGH
+    ambiguity: "Estimator setting; acceleration is derived, not measured."
+
+real_interface_implementation:
+  status:
+    value: "ABSENT"
+    unit: null
+    provenance: DERIVED
+    source:
+      file: "joint_emulator/nodes/emulator_node.py"
+      lines: "33,47-67"
+    confidence: HIGH
+    ambiguity: "Static workspace audit found no runtime import/instantiation of a physical backend."
+  placeholder_backend:
+    value: "ModbusBackend skeleton"
+    unit: null
+    provenance: CODE_CONFIG
+    source:
+      file: "joint_emulator/modbus_backend.py"
+      lines: "1-48"
+    confidence: HIGH
+    ambiguity: "REG_TORQUE_REF, REG_POSITION, REG_VELOCITY, REG_ENABLE and all scales are null; construction exits."
+  placeholder_serial_defaults:
+    value:
+      method: "rtu"
+      port: "/dev/ttyUSB0"
+      baud: 19200
+      parity: "E"
+      stopbits: 1
+      unit_ids: [1, 2, 3, 4, 5, 6]
+    unit: null
+    provenance: CODE_CONFIG
+    source:
+      file: "joint_emulator/modbus_backend.py"
+      lines: "21-35"
+    confidence: HIGH
+    ambiguity: "Explicit placeholders/examples; they are not evidence of the physical interface and must not be used to arm hardware."
+
+logging:
+  default_data_directory:
+    value: "/home/ubuntu/Analiza_Teza/ViPRO/DATE"
+    unit: null
+    provenance: CODE_CONFIG
+    source:
+      file: "joint_emulator/launch/full_sim.launch.py"
+      lines: "119-125"
+    confidence: HIGH
+    ambiguity: "Runtime-configurable launch argument."
+  raw_state_pattern:
+    value: "session_<session_id>_states.csv"
+    unit: null
+    provenance: CODE_CONFIG
+    source:
+      file: "joint_emulator/session_export.py"
+      lines: "44-68"
+    confidence: HIGH
+    ambiguity: "Current project calls this primary CSV, but formal RAW/PROCESSED classification is deferred to TASK-003."
+  event_pattern:
+    value: "session_<session_id>_events.csv"
+    unit: null
+    provenance: CODE_CONFIG
+    source:
+      file: "joint_emulator/nodes/emulator_node.py"
+      lines: "114-134"
+    confidence: HIGH
+    ambiguity: null
+  motor_encoder_pattern:
+    value: "motor_encoders_<session_id>.csv"
+    unit: null
+    provenance: CODE_CONFIG
+    source:
+      file: "joint_emulator/nodes/encoder_monitor_node.py"
+      lines: "50-57,103-108"
+    confidence: HIGH
+    ambiguity: "Contains simulated/requantized encoder channels in the current runtime."
+  axis_encoder_pattern:
+    value: "encoders_<session_id>.csv"
+    unit: null
+    provenance: CODE_CONFIG
+    source:
+      file: "joint_emulator/nodes/encoder_monitor_node.py"
+      lines: "50-57,103-108"
+    confidence: HIGH
+    ambiguity: "Contains common-axis estimates derived from /joint/state."
+  file_overwrite_policy:
+    value: "exclusive create"
+    unit: null
+    provenance: CODE_CONFIG
+    source:
+      file: "joint_emulator/session_export.py"
+      lines: "50-63"
+    confidence: HIGH
+    ambiguity: "CSV open mode x rejects an existing path."
+  excel_role:
+    value: "snapshot/export, not primary data source"
+    unit: null
+    provenance: CODE_CONFIG
+    source:
+      file: "joint_emulator/session_export.py"
+      lines: "1-7,174-196"
+    confidence: HIGH
+    ambiguity: null
+
+clocks:
+  simulation_time:
+    value: "PairSim.t accumulated from numerical dt"
+    unit: "s"
+    provenance: CODE_CONFIG
+    source:
+      file: "joint_emulator/joint_core.py"
+      lines: "175-192"
+    confidence: HIGH
+    ambiguity: "Used as /joint/state t and CSV time_s/t_s; not an OS monotonic timestamp."
+  csv_utc:
+    value: "datetime.now(timezone.utc) at logging/callback time"
+    unit: "ISO 8601 UTC"
+    provenance: CODE_CONFIG
+    source:
+      file: "joint_emulator/session_export.py"
+      lines: "33-35,70-110"
+    confidence: HIGH
+    ambiguity: "Wall-clock timestamp; acquisition and application timestamps are not separated."
+  joint_state_header:
+    value: "ROS node clock at translation time"
+    unit: "ROS Time"
+    provenance: CODE_CONFIG
+    source:
+      file: "joint_emulator/nodes/state_to_jointstate_node.py"
+      lines: "22-31"
+    confidence: HIGH
+    ambiguity: "This timestamp is generated by the bridge, not preserved from /joint/state."
+  logged_os_monotonic_time:
+    value: null
+    unit: "ns"
+    provenance: UNKNOWN
+    source:
+      file: null
+      lines: null
+    confidence: HIGH
+    ambiguity: "No monotonic OS timestamp is present in current session or encoder CSV schemas."
+  physical_device_timestamp:
+    value: null
+    unit: null
+    provenance: UNKNOWN
+    source:
+      file: null
+      lines: null
+    confidence: HIGH
+    ambiguity: "No physical device acquisition exists."
+
+physical_load_observability:
+  tau_A_command:
+    value: "available in SIM as commanded/clipped value"
+    unit: "N.m"
+    provenance: CODE_CONFIG
+    source:
+      file: "joint_emulator/nodes/emulator_node.py"
+      lines: "159-176,313-330"
+    confidence: HIGH
+    ambiguity: "Not a physical torque observation."
+  tau_B_requested:
+    value: "available in SIM as calculated/gated command"
+    unit: "N.m"
+    provenance: CODE_CONFIG
+    source:
+      file: "joint_emulator/nodes/emulator_node.py"
+      lines: "276-330"
+    confidence: HIGH
+    ambiguity: "Not a physical torque observation."
+  q_A_q_B:
+    value: "available only as synthetic channels derived from one SIM axis"
+    unit: "rad"
+    provenance: CODE_CONFIG
+    source:
+      file: "joint_emulator/nodes/emulator_node.py"
+      lines: "280-323"
+    confidence: HIGH
+    ambiguity: "Physical encoder acquisition is absent."
+  physical_port_torque:
+    value: null
+    unit: "N.m"
+    provenance: UNKNOWN
+    source:
+      file: null
+      lines: null
+    confidence: HIGH
+    ambiguity: "No independent sensor or calibrated estimator exists in the workspace."
+  physical_load_on_A:
+    value: null
+    unit: "N.m"
+    provenance: UNKNOWN
+    source:
+      file: null
+      lines: null
+    confidence: HIGH
+    ambiguity: "Cannot be determined from tau_B command alone. Current workspace cannot measure fidelity error tau_physical - tau_requested."

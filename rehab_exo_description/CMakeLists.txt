@@ -61,7 +61,9 @@ install(
     scripts/exercise_core.py
     scripts/sensor_recorder.py
     scripts/operator_panel.py
+    scripts/panou_operator_reabilitare.py
     scripts/telemetry_display.py
+    scripts/grafice_reabilitare_live.py
     scripts/plot_recording.py
     scripts/safety_supervisor.py
     scripts/operator_heartbeat.py
@@ -71,11 +73,17 @@ install(
     scripts/spec_derivate.py
     scripts/transmisie_core.py
     scripts/homing_node.py
+    scripts/initializare_encodere_absolute.py
     scripts/senzori_core.py
     scripts/senzori_node.py
+    scripts/simulator_senzori_reabilitare.py
     scripts/monitor_senzori.py
+    scripts/monitor_senzori_reabilitare.py
     scripts/supervizor_electric.py
+    scripts/supervizor_siguranta_electrica.py
     scripts/session_recorder.py
+    scripts/inregistrator_sesiune_reabilitare.py
+    scripts/controler_exercitii_reabilitare.py
     scripts/plot_sesiune.py
     scripts/recorder_core.py
     scripts/demo_cu_gui.sh
@@ -124,6 +132,13 @@ if(BUILD_TESTING)
     OUTPUT_FILE "${CMAKE_BINARY_DIR}/test_plot_sesiune.log"
     RESULT_FILE "${CMAKE_BINARY_DIR}/test_plot_sesiune.xunit.xml"
     TIMEOUT 60)
+
+  ament_add_test(test_raport_sesiune
+    GENERATE_RESULT_FOR_RETURN_CODE_ZERO
+    COMMAND "/usr/bin/python3" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/session_report.py" "--selftest"
+    OUTPUT_FILE "${CMAKE_BINARY_DIR}/test_raport_sesiune.log"
+    RESULT_FILE "${CMAKE_BINARY_DIR}/test_raport_sesiune.xunit.xml"
+    TIMEOUT 120)
 
   ament_add_test(test_recorder
     GENERATE_RESULT_FOR_RETURN_CODE_ZERO

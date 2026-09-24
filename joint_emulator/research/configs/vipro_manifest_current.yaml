@@ -1,0 +1,820 @@
+schema_version: "1.0.0"
+
+session:
+  session_id: "vipro-current-sim-structure"
+  study_id: "vipro-schema-reconciliation"
+  kind:
+    value: "SIMULATION"
+    provenance: "CODE_CONFIG"
+    evidence:
+      - source: "joint_emulator/nodes/emulator_node.py"
+        locator: "lines 47-67"
+        sha256: null
+    unit: null
+    method: null
+    uncertainty: null
+  status: "PLANNED"
+  start:
+    clock_id: "clock-pairsim"
+    monotonic_ns: 0
+    sequence_index: 0
+    utc_iso8601: null
+    device_ticks: null
+  hardware_manifest_id: "vipro-current-hardware"
+  clock_ids:
+    - "clock-pairsim"
+    - "clock-log-utc"
+    - "clock-ros-translation"
+  software_revision:
+    value: "0d7d864ba85805090d97edcf639586ff27f457c8"
+    provenance: "CODE_CONFIG"
+    evidence:
+      - source: "/home/ubuntu/ros2_ws/src/.git/HEAD"
+        locator: "revision inspected by TASK-001"
+        sha256: null
+    unit: null
+    method: null
+    uncertainty: null
+  configuration_hash:
+    value: null
+    provenance: "UNKNOWN"
+    evidence: []
+    unit: null
+    method: null
+    uncertainty: null
+  end: null
+  artifact_ids: []
+  notes: >-
+    Structural reconciliation manifest, not a record of a physical experiment.
+    The current runtime accepts only SimBackend. Physical ABB acquisition and
+    actuation are absent, and no physical-fidelity claim may be derived from
+    this manifest.
+
+hardware:
+  manifest_id: "vipro-current-hardware"
+  components:
+    - hardware_id: "motor-a0"
+      role: &role_a
+        value: "TEST_ACTUATOR_A"
+        provenance: "MANUAL"
+        evidence:
+          - source: "/home/ubuntu/Downloads/RESEARCH_CONTEXT.md"
+            locator: "lines 55-62"
+            sha256: null
+        unit: null
+        method: null
+        uncertainty: null
+      manufacturer: &abb_motor_claim
+        value: "ABB"
+        provenance: "MANUAL"
+        evidence:
+          - source: "joint_emulator/README_JOINT.md"
+            locator: "lines 1-7"
+            sha256: null
+        unit: null
+        method: null
+        uncertainty: null
+      model: &unknown_text
+        value: null
+        provenance: "UNKNOWN"
+        evidence: []
+        unit: null
+        method: null
+        uncertainty: null
+      serial_number: *unknown_text
+      pair_index: &pair_0
+        value: 0
+        provenance: "MANUAL"
+        evidence:
+          - source: "/home/ubuntu/Downloads/RESEARCH_CONTEXT.md"
+            locator: "lines 126-136"
+            sha256: null
+        unit: "1"
+        method: null
+        uncertainty: null
+      parent_hardware_ids: []
+      notes: "Logical A0 identity; mapping to a physical serial number or cabinet terminal is UNKNOWN."
+
+    - hardware_id: "motor-b0"
+      role: &role_b
+        value: "LOAD_ACTUATOR_B"
+        provenance: "MANUAL"
+        evidence:
+          - source: "/home/ubuntu/Downloads/RESEARCH_CONTEXT.md"
+            locator: "lines 55-62 and 99-124"
+            sha256: null
+        unit: null
+        method: null
+        uncertainty: null
+      manufacturer: *abb_motor_claim
+      model: *unknown_text
+      serial_number: *unknown_text
+      pair_index: *pair_0
+      parent_hardware_ids: []
+      notes: "Logical B0 identity; physical drive realization and mapping are UNKNOWN."
+
+    - hardware_id: "coupling-0"
+      role: &role_coupling
+        value: "COUPLING"
+        provenance: "MANUAL"
+        evidence:
+          - source: "/home/ubuntu/Downloads/RESEARCH_CONTEXT.md"
+            locator: "lines 57-75"
+            sha256: null
+        unit: null
+        method: null
+        uncertainty: null
+      manufacturer: *unknown_text
+      model: *unknown_text
+      serial_number: *unknown_text
+      pair_index: *pair_0
+      parent_hardware_ids: []
+      notes: "Declared rigid common-shaft coupling; stiffness, backlash, geometry and part number are UNKNOWN."
+
+    - hardware_id: "motor-a1"
+      role: *role_a
+      manufacturer: *abb_motor_claim
+      model: *unknown_text
+      serial_number: *unknown_text
+      pair_index: &pair_1
+        value: 1
+        provenance: "MANUAL"
+        evidence:
+          - source: "/home/ubuntu/Downloads/RESEARCH_CONTEXT.md"
+            locator: "lines 126-136"
+            sha256: null
+        unit: "1"
+        method: null
+        uncertainty: null
+      parent_hardware_ids: []
+      notes: "Logical A1 identity; mapping to a physical serial number or cabinet terminal is UNKNOWN."
+
+    - hardware_id: "motor-b1"
+      role: *role_b
+      manufacturer: *abb_motor_claim
+      model: *unknown_text
+      serial_number: *unknown_text
+      pair_index: *pair_1
+      parent_hardware_ids: []
+      notes: "Logical B1 identity; physical drive realization and mapping are UNKNOWN."
+
+    - hardware_id: "coupling-1"
+      role: *role_coupling
+      manufacturer: *unknown_text
+      model: *unknown_text
+      serial_number: *unknown_text
+      pair_index: *pair_1
+      parent_hardware_ids: []
+      notes: "Declared rigid common-shaft coupling; stiffness, backlash, geometry and part number are UNKNOWN."
+
+    - hardware_id: "motor-a2"
+      role: *role_a
+      manufacturer: *abb_motor_claim
+      model: *unknown_text
+      serial_number: *unknown_text
+      pair_index: &pair_2
+        value: 2
+        provenance: "MANUAL"
+        evidence:
+          - source: "/home/ubuntu/Downloads/RESEARCH_CONTEXT.md"
+            locator: "lines 126-136"
+            sha256: null
+        unit: "1"
+        method: null
+        uncertainty: null
+      parent_hardware_ids: []
+      notes: "Logical A2 identity; mapping to a physical serial number or cabinet terminal is UNKNOWN."
+
+    - hardware_id: "motor-b2"
+      role: *role_b
+      manufacturer: *abb_motor_claim
+      model: *unknown_text
+      serial_number: *unknown_text
+      pair_index: *pair_2
+      parent_hardware_ids: []
+      notes: "Logical B2 identity; physical drive realization and mapping are UNKNOWN."
+
+    - hardware_id: "coupling-2"
+      role: *role_coupling
+      manufacturer: *unknown_text
+      model: *unknown_text
+      serial_number: *unknown_text
+      pair_index: *pair_2
+      parent_hardware_ids: []
+      notes: "Declared rigid common-shaft coupling; stiffness, backlash, geometry and part number are UNKNOWN."
+
+clocks:
+  - clock_id: "clock-pairsim"
+    domain: "SIMULATION"
+    source:
+      value: "PairSim.t accumulated from positive numerical integration steps"
+      provenance: "CODE_CONFIG"
+      evidence:
+        - source: "joint_emulator/joint_core.py"
+          locator: "lines 175-204"
+          sha256: null
+      unit: null
+      method: null
+      uncertainty: null
+    resolution_ns:
+      value: 500000
+      provenance: "CODE_CONFIG"
+      evidence:
+        - source: "joint_emulator/joint_core.py"
+          locator: "lines 195-204"
+          sha256: null
+      unit: "ns"
+      method: null
+      uncertainty: null
+    synchronized_to_clock_id: &unknown_clock
+      value: null
+      provenance: "UNKNOWN"
+      evidence: []
+      unit: null
+      method: null
+      uncertainty: null
+
+  - clock_id: "clock-log-utc"
+    domain: "UTC"
+    source:
+      value: "datetime.now(timezone.utc) at callback or log-write time"
+      provenance: "CODE_CONFIG"
+      evidence:
+        - source: "joint_emulator/session_export.py"
+          locator: "lines 33-35 and 70-110"
+          sha256: null
+      unit: null
+      method: null
+      uncertainty: null
+    resolution_ns:
+      value: null
+      provenance: "UNKNOWN"
+      evidence: []
+      unit: "ns"
+      method: null
+      uncertainty: null
+    synchronized_to_clock_id: *unknown_clock
+
+  - clock_id: "clock-ros-translation"
+    domain: "ROS"
+    source:
+      value: "ROS node clock sampled by state_to_jointstate at translation time"
+      provenance: "CODE_CONFIG"
+      evidence:
+        - source: "joint_emulator/nodes/state_to_jointstate_node.py"
+          locator: "lines 22-31"
+          sha256: null
+      unit: null
+      method: null
+      uncertainty: null
+    resolution_ns:
+      value: null
+      provenance: "UNKNOWN"
+      evidence: []
+      unit: "ns"
+      method: null
+      uncertainty: null
+    synchronized_to_clock_id: *unknown_clock
+
+signals:
+  - signal_id: "sim.tau_a.request"
+    name: "A torque request before SIM clamp"
+    physical_quantity:
+      value: "requested simulated A torque"
+      provenance: "CODE_CONFIG"
+      evidence:
+        - source: "joint_emulator/nodes/emulator_node.py"
+          locator: "lines 159-176"
+          sha256: null
+      unit: null
+      method: null
+      uncertainty: null
+    unit: &unit_torque
+      value: "N.m"
+      provenance: "CODE_CONFIG"
+      evidence:
+        - source: "joint_emulator/research/docs/signals.md"
+          locator: "Command and configuration signals"
+          sha256: null
+      unit: null
+      method: null
+      uncertainty: null
+    value_type: "FLOAT64"
+    shape: []
+    source_hardware_ids: &no_physical_source
+      value: []
+      provenance: "DERIVED"
+      evidence:
+        - source: "joint_emulator/research/docs/vipro_inventory.md"
+          locator: "Executive finding and A/B command chain"
+          sha256: null
+      unit: null
+      method: "TASK-001 code audit confirmed that the producer is software-only and no hardware backend is connected."
+      uncertainty: null
+    source_interface:
+      value: "/joint/cmd_a field tau"
+      provenance: "CODE_CONFIG"
+      evidence:
+        - source: "joint_emulator/nodes/emulator_node.py"
+          locator: "lines 107 and 159-176"
+          sha256: null
+      unit: null
+      method: null
+      uncertainty: null
+    nominal_rate_hz: &unknown_rate
+      value: null
+      provenance: "UNKNOWN"
+      evidence: []
+      unit: "Hz"
+      method: null
+      uncertainty: null
+    clock_id: *unknown_clock
+    data_tier: "DERIVED"
+    calibration_ids: []
+    parent_signal_ids: []
+    description: "Event-driven software request. It is neither measured torque nor physical ABB command feedback."
+
+  - signal_id: "sim.tau_a.clipped"
+    name: "A torque command after SIM clamp"
+    physical_quantity:
+      value: "clipped simulated A torque command"
+      provenance: "CODE_CONFIG"
+      evidence:
+        - source: "joint_emulator/nodes/emulator_node.py"
+          locator: "lines 172-176 and 313-345"
+          sha256: null
+      unit: null
+      method: null
+      uncertainty: null
+    unit: *unit_torque
+    value_type: "FLOAT64"
+    shape: []
+    source_hardware_ids: *no_physical_source
+    source_interface:
+      value: "/joint/state[*].tau_a_cmd"
+      provenance: "CODE_CONFIG"
+      evidence:
+        - source: "joint_emulator/nodes/emulator_node.py"
+          locator: "lines 313-345"
+          sha256: null
+      unit: null
+      method: null
+      uncertainty: null
+    nominal_rate_hz: &state_rate
+      value: 100.0
+      provenance: "CODE_CONFIG"
+      evidence:
+        - source: "joint_emulator/launch/full_sim.launch.py"
+          locator: "lines 112-115"
+          sha256: null
+      unit: "Hz"
+      method: null
+      uncertainty: null
+    clock_id: &pairsim_clock_ref
+      value: "clock-pairsim"
+      provenance: "CODE_CONFIG"
+      evidence:
+        - source: "joint_emulator/joint_core.py"
+          locator: "lines 175-192"
+          sha256: null
+      unit: null
+      method: null
+      uncertainty: null
+    data_tier: "DERIVED"
+    calibration_ids: []
+    parent_signal_ids: ["sim.tau_a.request"]
+    description: "Command value after the SIM-only torque clamp; not a measured motor or shaft torque."
+
+  - signal_id: "sim.q.axis"
+    name: "Common latent PairSim angle"
+    physical_quantity:
+      value: "simulated common-axis angular position"
+      provenance: "CODE_CONFIG"
+      evidence:
+        - source: "joint_emulator/drive_iface.py"
+          locator: "lines 53-60"
+          sha256: null
+      unit: null
+      method: null
+      uncertainty: null
+    unit: &unit_angle
+      value: "rad"
+      provenance: "CODE_CONFIG"
+      evidence:
+        - source: "joint_emulator/research/docs/signals.md"
+          locator: "State and kinematic signals"
+          sha256: null
+      unit: null
+      method: null
+      uncertainty: null
+    value_type: "FLOAT64"
+    shape: []
+    source_hardware_ids: *no_physical_source
+    source_interface:
+      value: "/joint/state[*].th"
+      provenance: "CODE_CONFIG"
+      evidence:
+        - source: "joint_emulator/nodes/emulator_node.py"
+          locator: "lines 313-345"
+          sha256: null
+      unit: null
+      method: null
+      uncertainty: null
+    nominal_rate_hz: *state_rate
+    clock_id: *pairsim_clock_ref
+    data_tier: "DERIVED"
+    calibration_ids: []
+    parent_signal_ids: []
+    description: "SIM truth used by the controller and logger; it is not an independent observation."
+
+  - signal_id: "sim.q.a"
+    name: "Simulated A-side angle alias"
+    physical_quantity:
+      value: "simulated A-side angular position"
+      provenance: "CODE_CONFIG"
+      evidence:
+        - source: "joint_emulator/drive_iface.py"
+          locator: "lines 53-60"
+          sha256: null
+      unit: null
+      method: null
+      uncertainty: null
+    unit: *unit_angle
+    value_type: "FLOAT64"
+    shape: []
+    source_hardware_ids: *no_physical_source
+    source_interface:
+      value: "/joint/state[*].motors.A.th"
+      provenance: "CODE_CONFIG"
+      evidence:
+        - source: "joint_emulator/nodes/emulator_node.py"
+          locator: "lines 280-323"
+          sha256: null
+      unit: null
+      method: null
+      uncertainty: null
+    nominal_rate_hz: *state_rate
+    clock_id: *pairsim_clock_ref
+    data_tier: "DERIVED"
+    calibration_ids: []
+    parent_signal_ids: ["sim.q.axis"]
+    description: "Alias of the same latent PairSim coordinate; not a physical A encoder channel."
+
+  - signal_id: "sim.q.b"
+    name: "Simulated B-side angle alias"
+    physical_quantity:
+      value: "simulated B-side angular position"
+      provenance: "CODE_CONFIG"
+      evidence:
+        - source: "joint_emulator/drive_iface.py"
+          locator: "lines 53-60"
+          sha256: null
+      unit: null
+      method: null
+      uncertainty: null
+    unit: *unit_angle
+    value_type: "FLOAT64"
+    shape: []
+    source_hardware_ids: *no_physical_source
+    source_interface:
+      value: "/joint/state[*].motors.B.th"
+      provenance: "CODE_CONFIG"
+      evidence:
+        - source: "joint_emulator/nodes/emulator_node.py"
+          locator: "lines 280-323"
+          sha256: null
+      unit: null
+      method: null
+      uncertainty: null
+    nominal_rate_hz: *state_rate
+    clock_id: *pairsim_clock_ref
+    data_tier: "DERIVED"
+    calibration_ids: []
+    parent_signal_ids: ["sim.q.axis"]
+    description: "Alias of the same latent PairSim coordinate; not a physical B encoder channel."
+
+  - signal_id: "sim.tau_b.requested"
+    name: "Requested/model-derived SIM B load torque"
+    physical_quantity:
+      value: "requested simulated B load torque"
+      provenance: "CODE_CONFIG"
+      evidence:
+        - source: "joint_emulator/nodes/emulator_node.py"
+          locator: "lines 276-330"
+          sha256: null
+      unit: null
+      method: null
+      uncertainty: null
+    unit: *unit_torque
+    value_type: "FLOAT64"
+    shape: []
+    source_hardware_ids: *no_physical_source
+    source_interface:
+      value: "/joint/state[*].tau_b and state CSV tau_b_cmd_nm"
+      provenance: "CODE_CONFIG"
+      evidence:
+        - source: "joint_emulator/session_export.py"
+          locator: "lines 18-25 and 70-100"
+          sha256: null
+      unit: null
+      method: null
+      uncertainty: null
+    nominal_rate_hz: *state_rate
+    clock_id: *pairsim_clock_ref
+    data_tier: "DERIVED"
+    calibration_ids: []
+    parent_signal_ids: ["sim.q.axis"]
+    description: "Output of the SIM impedance/contact law and SafetyGate. It is not physical B torque."
+
+  - signal_id: "sim.encoder.a.position"
+    name: "Synthetic A encoder position"
+    physical_quantity:
+      value: "processed simulated A angular position"
+      provenance: "CODE_CONFIG"
+      evidence:
+        - source: "joint_emulator/nodes/encoder_monitor_node.py"
+          locator: "lines 116-158"
+          sha256: null
+      unit: null
+      method: null
+      uncertainty: null
+    unit: *unit_angle
+    value_type: "FLOAT64"
+    shape: []
+    source_hardware_ids: *no_physical_source
+    source_interface:
+      value: "/joint/motor_kinematics[*].A.th"
+      provenance: "CODE_CONFIG"
+      evidence:
+        - source: "joint_emulator/nodes/encoder_monitor_node.py"
+          locator: "lines 135-164"
+          sha256: null
+      unit: null
+      method: null
+      uncertainty: null
+    nominal_rate_hz: &encoder_publish_rate
+      value: 50.0
+      provenance: "CODE_CONFIG"
+      evidence:
+        - source: "joint_emulator/nodes/encoder_monitor_node.py"
+          locator: "lines 45-64 and 109-114"
+          sha256: null
+      unit: "Hz"
+      method: null
+      uncertainty: null
+    clock_id: *pairsim_clock_ref
+    data_tier: "PROCESSED"
+    calibration_ids: []
+    parent_signal_ids: ["sim.q.a"]
+    description: "Synthetic 4096-count/rev quantization of SIM state; no physical encoder is connected."
+
+  - signal_id: "sim.encoder.b.position"
+    name: "Synthetic B encoder position"
+    physical_quantity:
+      value: "processed simulated B angular position"
+      provenance: "CODE_CONFIG"
+      evidence:
+        - source: "joint_emulator/nodes/encoder_monitor_node.py"
+          locator: "lines 116-158"
+          sha256: null
+      unit: null
+      method: null
+      uncertainty: null
+    unit: *unit_angle
+    value_type: "FLOAT64"
+    shape: []
+    source_hardware_ids: *no_physical_source
+    source_interface:
+      value: "/joint/motor_kinematics[*].B.th"
+      provenance: "CODE_CONFIG"
+      evidence:
+        - source: "joint_emulator/nodes/encoder_monitor_node.py"
+          locator: "lines 135-164"
+          sha256: null
+      unit: null
+      method: null
+      uncertainty: null
+    nominal_rate_hz: *encoder_publish_rate
+    clock_id: *pairsim_clock_ref
+    data_tier: "PROCESSED"
+    calibration_ids: []
+    parent_signal_ids: ["sim.q.b"]
+    description: "Synthetic channel driven from the same latent coordinate as A; not independent feedback."
+
+  - signal_id: "sim.encoder.a.velocity"
+    name: "Estimated synthetic A encoder velocity"
+    physical_quantity:
+      value: "estimated simulated A angular velocity"
+      provenance: "DERIVED"
+      evidence:
+        - source: "joint_emulator/encoder_core.py"
+          locator: "lines 98-124"
+          sha256: null
+      unit: null
+      method: "Discrete difference of synthetic quantized position followed by first-order filtering."
+      uncertainty: null
+    unit: &unit_velocity
+      value: "rad/s"
+      provenance: "CODE_CONFIG"
+      evidence:
+        - source: "joint_emulator/research/docs/signals.md"
+          locator: "State and kinematic signals"
+          sha256: null
+      unit: null
+      method: null
+      uncertainty: null
+    value_type: "FLOAT64"
+    shape: []
+    source_hardware_ids: *no_physical_source
+    source_interface:
+      value: "/joint/motor_kinematics[*].A.om"
+      provenance: "CODE_CONFIG"
+      evidence:
+        - source: "joint_emulator/nodes/encoder_monitor_node.py"
+          locator: "lines 135-164"
+          sha256: null
+      unit: null
+      method: null
+      uncertainty: null
+    nominal_rate_hz: *encoder_publish_rate
+    clock_id: *pairsim_clock_ref
+    data_tier: "PROCESSED"
+    calibration_ids: []
+    parent_signal_ids: ["sim.encoder.a.position"]
+    description: "Estimator output with no quantified uncertainty or physical sensor bandwidth."
+
+  - signal_id: "sim.encoder.b.velocity"
+    name: "Estimated synthetic B encoder velocity"
+    physical_quantity:
+      value: "estimated simulated B angular velocity"
+      provenance: "DERIVED"
+      evidence:
+        - source: "joint_emulator/encoder_core.py"
+          locator: "lines 98-124"
+          sha256: null
+      unit: null
+      method: "Discrete difference of synthetic quantized position followed by first-order filtering."
+      uncertainty: null
+    unit: *unit_velocity
+    value_type: "FLOAT64"
+    shape: []
+    source_hardware_ids: *no_physical_source
+    source_interface:
+      value: "/joint/motor_kinematics[*].B.om"
+      provenance: "CODE_CONFIG"
+      evidence:
+        - source: "joint_emulator/nodes/encoder_monitor_node.py"
+          locator: "lines 135-164"
+          sha256: null
+      unit: null
+      method: null
+      uncertainty: null
+    nominal_rate_hz: *encoder_publish_rate
+    clock_id: *pairsim_clock_ref
+    data_tier: "PROCESSED"
+    calibration_ids: []
+    parent_signal_ids: ["sim.encoder.b.position"]
+    description: "Estimator output from the same latent SIM motion; it is not independent from A."
+
+  - signal_id: "sim.jointstate.effort"
+    name: "JointState effort visualization alias"
+    physical_quantity:
+      value: "visualization alias of requested simulated B torque"
+      provenance: "DERIVED"
+      evidence:
+        - source: "joint_emulator/nodes/state_to_jointstate_node.py"
+          locator: "lines 22-31"
+          sha256: null
+      unit: null
+      method: "Direct copy of /joint/state tau_b into sensor_msgs/JointState.effort."
+      uncertainty: null
+    unit: *unit_torque
+    value_type: "FLOAT64"
+    shape: [3]
+    source_hardware_ids: *no_physical_source
+    source_interface:
+      value: "/joint_states.effort"
+      provenance: "CODE_CONFIG"
+      evidence:
+        - source: "joint_emulator/nodes/state_to_jointstate_node.py"
+          locator: "lines 22-31"
+          sha256: null
+      unit: null
+      method: null
+      uncertainty: null
+    nominal_rate_hz: *state_rate
+    clock_id:
+      value: "clock-ros-translation"
+      provenance: "CODE_CONFIG"
+      evidence:
+        - source: "joint_emulator/nodes/state_to_jointstate_node.py"
+          locator: "lines 22-31"
+          sha256: null
+      unit: null
+      method: null
+      uncertainty: null
+    data_tier: "DERIVED"
+    calibration_ids: []
+    parent_signal_ids: ["sim.tau_b.requested"]
+    description: "Not measured effort and not suitable for physical-fidelity validation."
+
+calibrations: []
+
+trials:
+  - trial_id: "trial-structure-001"
+    session_id: "vipro-current-sim-structure"
+    order_index: 0
+    mechanism_id:
+      value: null
+      provenance: "UNKNOWN"
+      evidence: []
+      unit: null
+      method: null
+      uncertainty: null
+    excitation_id:
+      value: null
+      provenance: "UNKNOWN"
+      evidence: []
+      unit: null
+      method: null
+      uncertainty: null
+    start:
+      clock_id: "clock-pairsim"
+      monotonic_ns: 0
+      sequence_index: 0
+      utc_iso8601: null
+      device_ticks: null
+    outcome: "PLANNED"
+    end: null
+    hardware_state:
+      runtime_backend:
+        value: "SimBackend"
+        provenance: "CODE_CONFIG"
+        evidence:
+          - source: "joint_emulator/nodes/emulator_node.py"
+            locator: "lines 47-67"
+            sha256: null
+        unit: null
+        method: null
+        uncertainty: null
+      simulated_pair_count:
+        value: 3
+        provenance: "CODE_CONFIG"
+        evidence:
+          - source: "joint_emulator/nodes/emulator_node.py"
+            locator: "lines 48-67"
+            sha256: null
+        unit: "1"
+        method: null
+        uncertainty: null
+      default_sim_inertia:
+        value: 0.004
+        provenance: "CODE_CONFIG"
+        evidence:
+          - source: "joint_emulator/joint_core.py"
+            locator: "lines 175-180"
+            sha256: null
+        unit: "kg.m^2"
+        method: null
+        uncertainty: null
+      default_virtual_stiffness:
+        value: 20.0
+        provenance: "CODE_CONFIG"
+        evidence:
+          - source: "joint_emulator/nodes/emulator_node.py"
+            locator: "lines 48-53"
+            sha256: null
+        unit: "N.m/rad"
+        method: null
+        uncertainty: null
+      default_virtual_damping:
+        value: 0.8
+        provenance: "CODE_CONFIG"
+        evidence:
+          - source: "joint_emulator/nodes/emulator_node.py"
+            locator: "lines 48-53"
+            sha256: null
+        unit: "N.m.s/rad"
+        method: null
+        uncertainty: null
+      default_sim_torque_clamp:
+        value: 2.0
+        provenance: "CODE_CONFIG"
+        evidence:
+          - source: "joint_emulator/nodes/emulator_node.py"
+            locator: "lines 48-53 and 172-176"
+            sha256: null
+        unit: "N.m"
+        method: null
+        uncertainty: null
+      physical_operating_envelope:
+        value: null
+        provenance: "UNKNOWN"
+        evidence: []
+        unit: null
+        method: null
+        uncertainty: null
+    artifact_ids: []
+    invalid_reasons: []
+
+artifacts: []

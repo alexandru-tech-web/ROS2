@@ -1,0 +1,322 @@
+schema_version: "vipro-01a/1.0.0"
+experiment_id: "ViPRO-01A"
+title: "Physical fidelity of a virtual damping load"
+state: "PLANNED_BLOCKED_ON_VIPRO_00"
+physical_run_authorized: false
+metric_version: "vipro-fidelity-metrics/1.1.0"
+
+evidence_policy:
+  allowed_provenance:
+    - "CODE_CONFIG"
+    - "MANUAL_REFERENCE"
+    - "DERIVED"
+    - "UNKNOWN"
+  unknown_rule: "Use value: null with provenance: UNKNOWN; never substitute zero."
+  sim_rule: "SIM values are not physical ViPRO limits or calibration evidence."
+
+research_objective:
+  question: >-
+    How accurately, with what delay and energy error, does one rigidly coupled
+    A/B pair physically render a requested virtual damping load over a
+    predeclared safe experimental domain?
+  model_equation: "tau_d(t) = D_v * q_dot(t)"
+  primary_requested_signal: "tau_B_requested_after_sign_and_limits"
+  primary_observed_signal: "tau_port_sensor"
+
+sign_convention:
+  q_positive_definition:
+    value: null
+    provenance: "UNKNOWN"
+    evidence_required: "Physical axis drawing plus low-energy authorized polarity verification."
+  D_v_signed_definition:
+    value: null
+    provenance: "UNKNOWN"
+    evidence_required: "Declared convention consistent with dissipative port power."
+  B_command_transform:
+    value: null
+    provenance: "UNKNOWN"
+    evidence_required: "Documented SI-to-drive sign and reference-point mapping."
+
+selected_hardware:
+  pair_id:
+    value: null
+    provenance: "UNKNOWN"
+  actuator_A_asset_id:
+    value: null
+    provenance: "UNKNOWN"
+  actuator_B_asset_id:
+    value: null
+    provenance: "UNKNOWN"
+  drive_A_asset_id:
+    value: null
+    provenance: "UNKNOWN"
+  drive_B_asset_id:
+    value: null
+    provenance: "UNKNOWN"
+  controller_asset_id:
+    value: null
+    provenance: "UNKNOWN"
+  coupling_asset_id:
+    value: null
+    provenance: "UNKNOWN"
+  torque_transducer_asset_id:
+    value: null
+    provenance: "UNKNOWN"
+
+control_modes:
+  actuator_A:
+    value: null
+    provenance: "UNKNOWN"
+  actuator_B:
+    value: null
+    provenance: "UNKNOWN"
+  command_acknowledgement:
+    value: null
+    provenance: "UNKNOWN"
+
+factors:
+  virtual_damping_D_v:
+    unit: "N.m.s/rad"
+    safe_domain:
+      value: null
+      symbolic: "D_v in D_safe"
+      provenance: "UNKNOWN"
+    levels: []
+  excitation_amplitude:
+    definition:
+      value: null
+      provenance: "UNKNOWN"
+      allowed_later: ["position amplitude", "velocity amplitude", "command amplitude"]
+    unit:
+      value: null
+      provenance: "UNKNOWN"
+    safe_domain:
+      value: null
+      symbolic: "A in A_safe"
+      provenance: "UNKNOWN"
+    levels: []
+  excitation_frequency:
+    unit: "Hz"
+    safe_domain:
+      value: null
+      symbolic: "f in F_safe"
+      provenance: "UNKNOWN"
+    levels: []
+  direction_or_polarity:
+    enabled:
+      value: null
+      provenance: "UNKNOWN"
+    levels: []
+
+excitation:
+  primary_family: "sinusoidal"
+  position_form_if_position_commanded: "q_ref(t) = A_q * sin(2*pi*f*t)"
+  derived_velocity_amplitude: "2*pi*f*A_q"
+  derived_virtual_torque_amplitude: "abs(D_v)*2*pi*f*A_q"
+  multisine_chirp:
+    enabled: false
+    prerequisite: >-
+      Single-tone validation, measured bandwidth/timing, safe energy envelope
+      and a preregistered spectral design.
+  steady_state_cycles:
+    value: null
+    symbolic: "N_ss"
+    provenance: "UNKNOWN"
+  ramp_in:
+    value: null
+    provenance: "UNKNOWN"
+  ramp_out:
+    value: null
+    provenance: "UNKNOWN"
+  pre_roll:
+    value: null
+    provenance: "UNKNOWN"
+  post_roll:
+    value: null
+    provenance: "UNKNOWN"
+
+safe_range_derivation:
+  required_physical_limits:
+    - "position"
+    - "velocity"
+    - "torque"
+    - "torque rate"
+    - "current"
+    - "power"
+    - "energy"
+    - "temperature"
+    - "trial duration and duty cycle"
+  all_limits_status: "UNKNOWN"
+  rule: >-
+    Intersect measured/documented limits and approved margins, then verify the
+    worst-case kinematic, torque, torque-rate, electrical, thermal and energy
+    demand. Test the interior before any boundary condition.
+
+torque_roles:
+  tau_d_model:
+    role: "virtual model output before downstream sign, clamp or rate limit"
+    ground_truth: false
+    provenance_class: "DERIVED"
+  tau_B_requested_after_sign_and_limits:
+    role: "actual B request/reference used for fidelity error"
+    ground_truth: false
+    provenance_class: "CODE_CONFIG"
+  tau_B_drive_estimate:
+    role: "drive internal estimate, if available"
+    ground_truth: false
+    provenance_class: "DERIVED_OR_IDENTIFIED"
+    availability:
+      value: null
+      provenance: "UNKNOWN"
+  tau_port_sensor:
+    role: "independent physical port torque"
+    ground_truth: "CONDITIONAL_ON_CALIBRATION_INDEPENDENCE_AND_TIMING"
+    provenance_class: "MEASURED"
+    availability:
+      value: null
+      provenance: "UNKNOWN"
+
+required_signals:
+  - "q_A"
+  - "q_B"
+  - "q_dot_used_by_virtual_model"
+  - "tau_d_model"
+  - "tau_B_requested_after_sign_and_limits"
+  - "command_id_issue_deadline_acknowledgement"
+  - "tau_port_sensor"
+  - "tau_B_drive_estimate_if_available"
+  - "drive_current_if_available"
+  - "drive_mode_enable_warning_fault_saturation"
+  - "watchdog_stale_and_measurement_invalid_masks"
+  - "acquisition_monotonic_time_and_sequence"
+  - "device_timestamps_if_available"
+  - "temperature_and_operating_context"
+  - "estop_sto_interlock_state"
+
+calibration:
+  torque_chain:
+    calibration_id:
+      value: null
+      provenance: "UNKNOWN"
+    uncertainty_budget:
+      value: null
+      provenance: "UNKNOWN"
+    bandwidth:
+      value: null
+      provenance: "UNKNOWN"
+    reference_point:
+      value: null
+      provenance: "UNKNOWN"
+  encoder_chain:
+    calibration_id:
+      value: null
+      provenance: "UNKNOWN"
+    sign_zero_scale_gear_ratio:
+      value: null
+      provenance: "UNKNOWN"
+  timing_chain:
+    characterization_id:
+      value: null
+      provenance: "UNKNOWN"
+    clock_alignment_method:
+      value: null
+      provenance: "UNKNOWN"
+  command_chain:
+    scaling_sign_limits_id:
+      value: null
+      provenance: "UNKNOWN"
+
+limits_and_safety:
+  approved_limit_set_id:
+    value: null
+    provenance: "UNKNOWN"
+  estop_verified:
+    value: null
+    provenance: "UNKNOWN"
+  sto_verified:
+    value: null
+    provenance: "UNKNOWN"
+  enable_interlock_verified:
+    value: null
+    provenance: "UNKNOWN"
+  watchdog_and_stale_policy_verified:
+    value: null
+    provenance: "UNKNOWN"
+  abort_procedure_id:
+    value: null
+    provenance: "UNKNOWN"
+  automatic_fault_reset_allowed: false
+
+trial_structure:
+  phases: ["PRE_ROLL", "RAMP_IN", "STEADY_STATE", "RAMP_OUT", "POST_ROLL"]
+  steady_state_window_rule:
+    value: null
+    provenance: "UNKNOWN"
+    requirement: "Freeze before confirmatory data are inspected."
+  retain_transients: true
+  faulted_trial_policy: "Retain data; status FAULTED; ineligible for ACCEPT."
+
+doe:
+  stage_order:
+    - "dry-run and shakedown; not confirmatory"
+    - "low-energy single-factor sinusoidal pilot"
+    - "randomized blocked crossed D_v/A/f design inside safe domain"
+    - "reserved-condition and new-session confirmation"
+    - "multisine/chirp only after prerequisites"
+  randomization_unit: "whole trial within a safety-compatible session block"
+  within_session_repeats:
+    value: null
+    symbolic: "n_within"
+    provenance: "UNKNOWN"
+  independent_sessions:
+    value: null
+    symbolic: "n_sessions"
+    provenance: "UNKNOWN"
+  replication_derivation: "pilot variance plus preregistered precision/power analysis"
+
+hypothesis_parameters:
+  fidelity_equivalence_margin_epsilon_F:
+    value: null
+    provenance: "UNKNOWN"
+    derivation: "application requirement plus metrological uncertainty; frozen before confirmation"
+  confidence_level:
+    value: null
+    provenance: "UNKNOWN"
+
+analysis:
+  primary_label: "PHYSICAL_FIDELITY"
+  primary_observed_kind: "MEASURED"
+  primary_observation_must_be_independent: true
+  preserve_fault_samples_when_measurement_valid: true
+  preserve_saturation_samples: true
+  exclude_measurement_invalid_only_with_mask_and_reason: true
+  exclude_stale_and_report_separately: true
+  interpolate_primary_gaps: false
+  time_align_primary_error: false
+  report_all_trial_statuses: true
+
+future_dataset_split:
+  unit: "complete trials grouped by session and configuration"
+  random_sample_split_forbidden: true
+  train_sessions: []
+  calibration_sessions: []
+  locked_test_sessions: []
+
+go_no_go:
+  physical_acquisition_gate: "NO_GO"
+  confirmatory_fidelity_gate: "NO_GO"
+  reason: "Critical ViPRO-00 evidence and all physical numerical ranges remain UNKNOWN."
+
+outputs:
+  raw_data_uri:
+    value: null
+    provenance: "UNKNOWN"
+  session_manifest_uri:
+    value: null
+    provenance: "UNKNOWN"
+  processed_report_uri:
+    value: null
+    provenance: "UNKNOWN"
+  immutable_raw_hash:
+    value: null
+    provenance: "UNKNOWN"

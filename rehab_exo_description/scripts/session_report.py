@@ -1,252 +1,369 @@
-#!/usr/bin/env python3
-"""
-session_report.py — Raport de sesiune din CSV-urile inregistrate de sensor_recorder.
+#!/usr/bin/python3
+"""Raport tehnic offline pentru schema curenta ``sesiune.csv`` a twin-ului LLR.
 
-Nu este nod ROS: e un instrument offline care transforma datele brute din
-~/rehab_data/ in metrici standard din literatura de recuperare + un raport PDF
-cu grafice — exact materialul pentru figurile de articol si pentru comisie.
+Raportul separa explicit trei clase de semnal:
 
-Metrici calculate per articulatie / per sesiune:
-  * ROM        amplitudinea de miscare atinsa (max - min), in grade;
-  * Simetrie   indice stanga/dreapta pe ROM:  SI = 2(L-R)/(L+R) * 100 [%];
-  * SPARC      netezimea miscarii (spectral arc length, Balasubramanian 2015);
-               valori mai apropiate de 0 = miscare mai lina;
-  * Repetari   numarul de cicluri detectate pe profilul de pozitie;
-  * Cuplu      |effort| mediu si maxim (daca CSV-ul contine coloane de effort);
-  * Urmarire   RMS(q_cmd - q) daca exista si coloane de comanda (sufix _cmd).
+* pozitia/viteza sunt feedback de simulare Gazebo;
+* ``*.effort_sim`` este efortul articulatiei din Gazebo, NU cuplu fizic masurat;
+* M2210B/TR69/BWK216/rigla sunt semnale SINTETICE cu model declarat.
 
 Utilizare:
-    python3 session_report.py ~/rehab_data/sesiune.csv
-    python3 session_report.py sesiune.csv --out ~/rehab_data/rapoarte
-    python3 session_report.py sesiune.csv --inspect      # doar listeaza coloanele
-
-Parserul este tolerant la denumiri: pentru fiecare articulatie cauta coloane de
-forma <joint>_pos / <joint>_position / <joint>, respectiv _vel/_velocity si
-_eff/_effort/_torque; coloana de timp poate fi t / time / stamp / timestamp /
-sec (altfel se foloseste prima coloana). Daca formatul vostru difera, rulati
---inspect si redenumiti antetul sau adaugati alias-urile in JOINT_SUFFIXES.
+  python3 session_report.py ~/DATE_TWIN/<sesiune>/
+  python3 session_report.py .../sesiune.csv --out .../raport
+  python3 session_report.py --selftest
 """
 
 import argparse
-import csv as csvmod
+import csv
+import json
 import math
 import os
 import sys
+import tempfile
 
 import numpy as np
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_pdf import PdfPages
 
-LEG_JOINTS = [
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import plot_sesiune as ps
+import recorder_core as rc
+
+JOINTS = (
     "left_hip_joint", "left_knee_joint", "left_ankle_joint",
     "right_hip_joint", "right_knee_joint", "right_ankle_joint",
-]
-PAIRS = [("left_hip_joint", "right_hip_joint"),
-         ("left_knee_joint", "right_knee_joint"),
-         ("left_ankle_joint", "right_ankle_joint")]
-TIME_CANDIDATES = ["t", "time", "stamp", "timestamp", "sec", "t_unix", "t_s"]
-JOINT_SUFFIXES = {
-    "pos": ["_pos", "_position", ""],
-    "vel": ["_vel", "_velocity"],
-    "eff": ["_eff", "_effort", "_torque"],
-    "cmd": ["_cmd", "_pos_cmd", "_position_cmd"],
+)
+PAIRS = (("hip", "sold"), ("knee", "genunchi"), ("ankle", "glezna"))
+SIM_LIMITS = {
+    "hip": {"velocity": 1.5786, "effort": 176.7},
+    "knee": {"velocity": 1.9732, "effort": 141.4},
+    "ankle": {"velocity": 3.0369, "effort": 52.0},
 }
 
 
-# --------------------------------------------------------------------- citire
-def read_csv(path):
-    with open(path, "r", newline="") as f:
-        reader = csvmod.reader(f)
-        header = [h.strip() for h in next(reader)]
-        rows = [r for r in reader if r and len(r) == len(header)]
-    if not rows:
-        sys.exit(f"CSV gol sau cu randuri inconsistente: {path}")
-    data = {}
-    cols = list(zip(*rows))
-    for name, col in zip(header, cols):
-        try:
-            data[name] = np.array([float(x) for x in col])
-        except ValueError:
-            pass  # coloane non-numerice (etichete) — ignorate la analiza
-    return header, data
+def _finite(a):
+    return np.asarray(a, dtype=float)[np.isfinite(a)]
 
 
-def find_col(data, joint, kind):
-    for suf in JOINT_SUFFIXES[kind]:
-        name = joint + suf
-        if name in data:
-            return name
-    return None
+def _rms(a):
+    a = _finite(a)
+    return float(np.sqrt(np.mean(a * a))) if len(a) else float("nan")
 
 
-def find_time(header, data):
-    for c in TIME_CANDIDATES:
-        if c in data:
-            return c
-    for c in header:  # prima coloana numerica drept timp
-        if c in data:
-            return c
-    sys.exit("nu gasesc nicio coloana numerica de timp")
+def _peak(a):
+    a = _finite(a)
+    return float(np.max(np.abs(a))) if len(a) else float("nan")
 
 
-# -------------------------------------------------------------------- metrici
-def sparc(speed, fs, fc=20.0, amp_th=0.05):
-    """Spectral Arc Length (Balasubramanian et al., 2015), pe profilul de viteza."""
-    speed = np.asarray(speed, dtype=float)
-    if len(speed) < 8 or fs <= 0 or not np.any(np.abs(speed) > 1e-9):
-        return float("nan")
-    n = int(2 ** math.ceil(math.log2(len(speed)) + 2))  # zero-padding x4
-    f = np.fft.rfftfreq(n, d=1.0 / fs)
-    mag = np.abs(np.fft.rfft(np.abs(speed), n))
-    mag = mag / mag.max()
-    sel = f <= fc
-    f, mag = f[sel], mag[sel]
-    above = np.where(mag >= amp_th)[0]
-    if len(above) > 1:
-        f, mag = f[: above[-1] + 1], mag[: above[-1] + 1]
-    if len(f) < 2 or f[-1] == f[0]:
-        return float("nan")
-    df = np.diff(f) / (f[-1] - f[0])
-    return float(-np.sum(np.sqrt(df ** 2 + np.diff(mag) ** 2)))
+def _fmt(v, digits=4):
+    return "N/A" if not math.isfinite(float(v)) else f"{float(v):.{digits}f}"
 
 
-def count_reps(q, min_amp_rad=0.05):
-    """Numara ciclurile: treceri sus/jos in jurul medianei, cu histerezis."""
-    q = np.asarray(q, dtype=float)
-    if q.max() - q.min() < 2 * min_amp_rad:
-        return 0
-    mid = np.median(q)
-    hi, lo = mid + min_amp_rad / 2, mid - min_amp_rad / 2
-    state, reps = 0, 0  # 0 = sub prag, 1 = peste prag
-    for v in q:
-        if state == 0 and v > hi:
-            state, reps = 1, reps + 1
-        elif state == 1 and v < lo:
-            state = 0
-    return reps
+def resolve_csv(path):
+    path = os.path.abspath(os.path.expanduser(path))
+    return os.path.join(path, "sesiune.csv") if os.path.isdir(path) else path
 
 
-def analyze(path, out_dir):
-    header, data = read_csv(path)
-    tcol = find_time(header, data)
-    t = data[tcol]
-    t = t - t[0]
-    if np.nanmax(t) > 1e7:      # timp in nanosecunde -> secunde
-        t = t / 1e9
-    dt = np.median(np.diff(t)) if len(t) > 1 else 0.01
-    fs = 1.0 / dt if dt > 0 else 100.0
-
-    rows, series = [], {}
-    for j in LEG_JOINTS:
-        cp = find_col(data, j, "pos")
-        if cp is None:
+def active_mask(t, data):
+    """Detecteaza miscarea din referinte, apoi adauga 0,5 s la capete."""
+    moving = np.zeros(len(t), dtype=bool)
+    for joint in JOINTS:
+        key = joint + ".cmd"
+        if key not in data:
             continue
-        q = data[cp]
-        cv = find_col(data, j, "vel")
-        qd = data[cv] if cv else np.gradient(q, t)
-        ce = find_col(data, j, "eff")
-        eff = data[ce] if ce else None
-        cc = find_col(data, j, "cmd")
-        rms = (float(np.sqrt(np.mean((data[cc] - q) ** 2))) if cc else float("nan"))
+        q = np.asarray(data[key], dtype=float)
+        valid = np.isfinite(q)
+        if valid.sum() > 2:
+            filled = np.interp(t, t[valid], q[valid])
+            moving |= np.abs(np.gradient(filled, t)) > 1e-4
+    idx = np.flatnonzero(moving)
+    if not len(idx):
+        return np.ones(len(t), dtype=bool)
+    dt = float(np.nanmedian(np.diff(t)))
+    pad = max(1, int(round(0.5 / dt))) if dt > 0 else 1
+    lo, hi = max(0, idx[0] - pad), min(len(t), idx[-1] + pad + 1)
+    out = np.zeros(len(t), dtype=bool)
+    out[lo:hi] = True
+    return out
 
-        rom_deg = math.degrees(float(q.max() - q.min()))
-        rows.append({
-            "joint": j,
-            "rom_deg": rom_deg,
-            "sparc": sparc(qd, fs),
-            "reps": count_reps(q),
-            "eff_mean": float(np.mean(np.abs(eff))) if eff is not None else float("nan"),
-            "eff_max": float(np.max(np.abs(eff))) if eff is not None else float("nan"),
-            "rms_track": rms,
+
+def analyze(path):
+    meta, columns, t, data = ps.incarca(path)
+    t = np.asarray(t, dtype=float)
+    if len(t) < 3:
+        raise ValueError("sesiunea are mai putin de 3 esantioane")
+    dt = np.diff(t)
+    if np.any(~np.isfinite(dt)) or np.any(dt <= 0):
+        raise ValueError("t_sim nu este strict crescator")
+    mask_active = active_mask(t, data)
+    wall = np.asarray(data.get("t_wall_unix", []), dtype=float)
+    duration_sim = float(t[-1] - t[0])
+    duration_wall = float(wall[-1] - wall[0]) if len(wall) == len(t) else float("nan")
+    summary = {
+        "source_csv": os.path.abspath(path), "metadata": meta,
+        "samples": int(len(t)), "duration_sim_s": duration_sim,
+        "duration_wall_s": duration_wall,
+        "rtf_computed": duration_sim / duration_wall if duration_wall > 0 else float("nan"),
+        "sample_rate_hz": float(1.0 / np.median(dt)),
+        "dt_jitter_std_ms": float(np.std(dt) * 1000.0),
+        "active_start_s": float(t[np.flatnonzero(mask_active)[0]]),
+        "active_end_s": float(t[np.flatnonzero(mask_active)[-1]]),
+        "joint_metrics": [], "sensor_ranges": [], "warnings": [],
+    }
+
+    for joint in JOINTS:
+        required = [joint + s for s in (".pos", ".vel", ".effort_sim", ".cmd")]
+        if any(k not in data for k in required):
+            summary["warnings"].append(f"lipsesc canale pentru {joint}")
+            continue
+        q, dq, effort, cmd = (np.asarray(data[k], dtype=float) for k in required)
+        valid = np.isfinite(q) & np.isfinite(cmd)
+        active = valid & mask_active
+        use = active if active.sum() else valid
+        err = q[use] - cmd[use]
+        axis = joint.split("_")[1]
+        vmax, emax = _peak(dq[mask_active]), _peak(effort[mask_active])
+        velocity_hit = vmax >= SIM_LIMITS[axis]["velocity"] * .999
+        effort_hit = emax >= SIM_LIMITS[axis]["effort"] * .999
+        if velocity_hit or effort_hit:
+            summary["warnings"].append(
+                f"{joint}: limita simulata atinsa/depasita "
+                f"(v={vmax:.4f}/{SIM_LIMITS[axis]['velocity']:.4f} rad/s, "
+                f"efort={emax:.3f}/{SIM_LIMITS[axis]['effort']:.3f} Nm)")
+        summary["joint_metrics"].append({
+            "joint": joint,
+            "rom_deg": math.degrees(float(np.nanmax(q) - np.nanmin(q))),
+            "tracking_rmse_rad_active": _rms(err),
+            "tracking_peak_rad_active": _peak(err),
+            "velocity_peak_rad_s": vmax,
+            "velocity_limit_hit": velocity_hit,
+            "effort_sim_peak_Nm": emax,
+            "effort_limit_hit": effort_hit,
+            "effort_sim_rms_Nm": _rms(effort[mask_active]),
+            "position_provenance": "SIMULATED_GAZEBO_JOINT_STATES",
+            "effort_provenance": "SIMULATED_GAZEBO_JOINT_STATES_NOT_PHYSICAL_TORQUE",
         })
-        series[j] = (q, qd, eff)
 
-    if not rows:
-        sys.exit("nu am gasit nicio coloana de pozitie pentru articulatiile "
-                 f"{LEG_JOINTS}; ruleaza cu --inspect ca sa vezi antetul")
+    for prefix in ("cuplu.", "f6d.", "unghi_glezna.", "rigla."):
+        for key in sorted(c for c in columns if c.startswith(prefix)):
+            values = _finite(data[key])
+            summary["sensor_ranges"].append({
+                "signal": key,
+                "min": float(np.min(values)) if len(values) else float("nan"),
+                "max": float(np.max(values)) if len(values) else float("nan"),
+                "mean": float(np.mean(values)) if len(values) else float("nan"),
+                "valid_samples": int(len(values)),
+                "provenance": "SYNTHETIC_DECLARED_MODEL",
+            })
 
-    sym = []
-    rom = {r["joint"]: r["rom_deg"] for r in rows}
-    for l, r in PAIRS:
-        if l in rom and r in rom and (rom[l] + rom[r]) > 1e-6:
-            si = 200.0 * (rom[l] - rom[r]) / (rom[l] + rom[r])
-            sym.append((l.replace("left_", "").replace("_joint", ""), si))
-
-    write_report(path, out_dir, t, series, rows, sym, fs)
-    return rows, sym
+    for axis, _ in PAIRS:
+        left = np.asarray(data.get(f"left_{axis}_joint.pos", []), dtype=float)
+        right = np.asarray(data.get(f"right_{axis}_joint.pos", []), dtype=float)
+        if len(left) == len(t) and len(right) == len(t):
+            summary[f"symmetry_{axis}_rms_rad"] = _rms(left - right)
+    return meta, columns, t, data, mask_active, summary
 
 
-# --------------------------------------------------------------------- raport
-def write_report(path, out_dir, t, series, rows, sym, fs):
-    os.makedirs(out_dir, exist_ok=True)
-    base = os.path.splitext(os.path.basename(path))[0]
-    pdf_path = os.path.join(out_dir, f"raport_{base}.pdf")
+def write_metrics_csv(out_dir, summary):
+    path = os.path.join(out_dir, "metrici_sesiune.csv")
+    fields = list(summary["joint_metrics"][0]) if summary["joint_metrics"] else ["joint"]
+    with open(path, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fields)
+        writer.writeheader(); writer.writerows(summary["joint_metrics"])
+    return path
 
-    with PdfPages(pdf_path) as pdf:
-        # Pagina 1: pozitii (grade), stanga vs dreapta pe acelasi grafic per pereche
+
+def write_markdown(out_dir, summary):
+    path = os.path.join(out_dir, "raport_sesiune.md")
+    m = summary["metadata"]
+    lines = [
+        "# Raport tehnic al sesiunii LLR", "",
+        f"- Sursa: `{summary['source_csv']}`",
+        f"- Exercitiu: `{m.get('exercitiu', 'NECUNOSCUT')}`; postura: `{m.get('postura', 'NECUNOSCUT')}`",
+        f"- Cod/conventie: `{m.get('commit', 'NECUNOSCUT')}` / `{m.get('conventie', 'NECUNOSCUT')}`",
+        f"- Esantioane: {summary['samples']}; durata simulata: {_fmt(summary['duration_sim_s'], 3)} s; rata: {_fmt(summary['sample_rate_hz'], 2)} Hz",
+        f"- Interval activ detectat din referinte: {_fmt(summary['active_start_s'], 3)}–{_fmt(summary['active_end_s'], 3)} s",
+        "", "## Provenienta si limita interpretarii", "",
+        "Pozitia, viteza si `effort_sim` provin din Gazebo. `effort_sim` nu este un cuplu fizic masurat. Canalele M2210B, TR69-1500, BWK216 si rigla 406 sunt sintetice, cu model declarat; ele verifica achizitia si prelucrarea, nu fidelitatea hardware.",
+        "", "## Indicatori pe articulatie", "",
+        "| Articulatie | ROM [deg] | RMSE urmarire activ [rad] | Eroare maxima [rad] | Viteza maxima [rad/s] | Efort Gazebo maxim [Nm] | Limita atinsa |",
+        "|---|---:|---:|---:|---:|---:|---|",
+    ]
+    for row in summary["joint_metrics"]:
+        limit = "DA" if row["velocity_limit_hit"] or row["effort_limit_hit"] else "nu"
+        lines.append(("| {joint} | {rom_deg:.3f} | {tracking_rmse_rad_active:.6f} | "
+                      "{tracking_peak_rad_active:.6f} | {velocity_peak_rad_s:.6f} | "
+                      "{effort_sim_peak_Nm:.6f} | " + limit + " |").format(**row))
+    lines += ["", "## Indicatori de simetrie", ""]
+    for axis, label in PAIRS:
+        lines.append(f"- {label}: RMS(stanga-dreapta) = {_fmt(summary.get('symmetry_'+axis+'_rms_rad', float('nan')), 6)} rad")
+    if summary["warnings"]:
+        lines += ["", "## Avertismente automate", ""]
+        lines += [f"- {warning}" for warning in summary["warnings"]]
+    lines += ["", "## Verdict", "",
+              "Datele sunt relevante pentru verificarea cinematica, urmarirea referintei, limitele de viteza si functionarea lantului de achizitie. Nu valideaza inca forta/cuplul dispozitivului fizic si nu reprezinta un rezultat clinic."]
+    with open(path, "w") as f:
+        f.write("\n".join(lines) + "\n")
+    return path
+
+
+def write_pdf(out_dir, meta, t, data, summary):
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from matplotlib.backends.backend_pdf import PdfPages
+
+    path = os.path.join(out_dir, "raport_sesiune.pdf")
+    title = f"{meta.get('exercitiu', 'NECUNOSCUT')} | {meta.get('data_ora', '')} | commit {meta.get('commit', 'NECUNOSCUT')}"
+    with PdfPages(path) as pdf:
+        fig = plt.figure(figsize=(8.27, 11.69))
+        text = ["RAPORT TEHNIC — TWIN LLR", title, "",
+                f"Esantioane: {summary['samples']}",
+                f"Durata simulata: {_fmt(summary['duration_sim_s'], 3)} s",
+                f"Rata mediana: {_fmt(summary['sample_rate_hz'], 2)} Hz",
+                f"Jitter dt (std): {_fmt(summary['dt_jitter_std_ms'], 3)} ms", "",
+                "CLASIFICAREA SEMNALELOR", "Pozitie/viteza: feedback Gazebo",
+                "effort_sim: efort Gazebo — NU cuplu fizic masurat",
+                "M2210B/TR69/BWK216/rigla: SINTETIC, model declarat", "",
+                "Raportul valideaza pipeline-ul de simulare si achizitie.",
+                "Nu valideaza dispozitivul fizic si nu constituie rezultat clinic."]
+        fig.text(.08, .94, "\n".join(text), va="top", fontsize=11)
+        pdf.savefig(fig); plt.close(fig)
+
         fig, axes = plt.subplots(3, 1, figsize=(8.27, 11.0), sharex=True)
-        for ax, (l, r) in zip(axes, PAIRS):
-            for j, style in ((l, "-"), (r, "--")):
-                if j in series:
-                    ax.plot(t, np.degrees(series[j][0]), style, label=j)
-            ax.set_ylabel("unghi [°]")
-            ax.legend(loc="upper right", fontsize=8)
-            ax.grid(alpha=0.3)
-        axes[-1].set_xlabel("timp [s]")
-        fig.suptitle(f"Sesiune {base} — pozitii articulare ({fs:.0f} Hz)")
-        pdf.savefig(fig); plt.close(fig)
+        for ax, (axis, label) in zip(axes, PAIRS):
+            for side, color in (("left", "#2166ac"), ("right", "#b2182b")):
+                key = f"{side}_{axis}_joint"
+                ax.plot(t, data[key + ".cmd"], "--", color=color, alpha=.65, label=f"{side} referinta")
+                ax.plot(t, data[key + ".pos"], "-", color=color, lw=1, label=f"{side} feedback")
+            ax.set_ylabel(f"{label} [rad]"); ax.grid(alpha=.3); ax.legend(fontsize=7, ncol=2)
+        axes[-1].set_xlabel("timp simulat [s]"); fig.suptitle("Referinta vs feedback\n" + title)
+        fig.tight_layout(); pdf.savefig(fig); plt.close(fig)
 
-        # Pagina 2: cupluri (daca exista)
-        if any(series[j][2] is not None for j in series):
-            fig, ax = plt.subplots(figsize=(8.27, 5.5))
-            for j in series:
-                if series[j][2] is not None:
-                    ax.plot(t, series[j][2], label=j, linewidth=0.9)
-            ax.set_xlabel("timp [s]"); ax.set_ylabel("cuplu [Nm]")
-            ax.legend(fontsize=8); ax.grid(alpha=0.3)
-            ax.set_title("Cupluri masurate (effort)")
-            pdf.savefig(fig); plt.close(fig)
+        fig, axes = plt.subplots(3, 1, figsize=(8.27, 11.0), sharex=True)
+        for ax, (axis, label) in zip(axes, PAIRS):
+            for side, color in (("left", "#2166ac"), ("right", "#b2182b")):
+                key = f"{side}_{axis}_joint"
+                err = np.asarray(data[key + ".pos"]) - np.asarray(data[key + ".cmd"])
+                ax.plot(t, err, color=color, label=side)
+            ax.axhline(0, color="black", lw=.6); ax.set_ylabel(f"eroare {label} [rad]")
+            ax.grid(alpha=.3); ax.legend(fontsize=8)
+        axes[-1].set_xlabel("timp simulat [s]"); fig.suptitle("Eroarea de urmarire\n" + title)
+        fig.tight_layout(); pdf.savefig(fig); plt.close(fig)
 
-        # Pagina 3: tabelul de metrici
-        fig, ax = plt.subplots(figsize=(8.27, 5.5)); ax.axis("off")
-        cols = ["Articulatie", "ROM [°]", "SPARC", "Repetari",
-                "|τ| mediu [Nm]", "|τ| max [Nm]", "RMS urmarire [rad]"]
-        cells = [[r["joint"], f"{r['rom_deg']:.1f}", f"{r['sparc']:.2f}",
-                  str(r["reps"]), f"{r['eff_mean']:.1f}", f"{r['eff_max']:.1f}",
-                  f"{r['rms_track']:.3f}"] for r in rows]
-        tab = ax.table(cellText=cells, colLabels=cols, loc="center")
-        tab.auto_set_font_size(False); tab.set_fontsize(8); tab.scale(1.0, 1.5)
-        sym_txt = "  ".join(f"{n}: {v:+.1f}%" for n, v in sym) or "n/a"
-        ax.set_title(f"Metrici de sesiune — indice de simetrie (L vs R): {sym_txt}",
-                     fontsize=10, pad=20)
-        pdf.savefig(fig); plt.close(fig)
+        fig, axes = plt.subplots(3, 1, figsize=(8.27, 11.0), sharex=True)
+        for ax, (axis, label) in zip(axes, PAIRS):
+            for side, color in (("left", "#2166ac"), ("right", "#b2182b")):
+                ax.plot(t, data[f"{side}_{axis}_joint.vel"], color=color, label=side)
+            lim = SIM_LIMITS[axis]["velocity"]
+            ax.axhline(lim, color="#555", ls=":", lw=.8)
+            ax.axhline(-lim, color="#555", ls=":", lw=.8)
+            ax.set_ylabel(f"{label} [rad/s]"); ax.grid(alpha=.3); ax.legend(fontsize=8)
+        axes[-1].set_xlabel("timp simulat [s]")
+        fig.suptitle("Viteze si limitele simulate\n" + title)
+        fig.tight_layout(); pdf.savefig(fig); plt.close(fig)
 
-    print(f"raport scris: {pdf_path}")
-    for r in rows:
-        print(f"  {r['joint']:<18} ROM {r['rom_deg']:6.1f}°  SPARC {r['sparc']:6.2f}  "
-              f"rep {r['reps']:2d}  |τ|max {r['eff_max']:5.1f} Nm")
-    for n, v in sym:
-        print(f"  simetrie {n:<8} {v:+.1f}%")
+        fig, axes = plt.subplots(3, 1, figsize=(8.27, 11.0), sharex=True)
+        for ax, (axis, label) in zip(axes, PAIRS):
+            for side, color in (("left", "#2166ac"), ("right", "#b2182b")):
+                ax.plot(t, data[f"{side}_{axis}_joint.effort_sim"], color=color, label=side)
+            ax.set_ylabel(f"{label} [Nm]"); ax.grid(alpha=.3); ax.legend(fontsize=8)
+        axes[-1].set_xlabel("timp simulat [s]")
+        fig.suptitle("Efort articulatie Gazebo — NU cuplu fizic masurat\n" + title)
+        fig.tight_layout(); pdf.savefig(fig); plt.close(fig)
+
+        fig, axes = plt.subplots(3, 1, figsize=(8.27, 11.0), sharex=True)
+        groups = ((("f6d.left.force.x", "f6d.right.force.x", "f6d.left.force.z", "f6d.right.force.z"), "Ff/FN sintetic [N]"),
+                  (("f6d.left.torque.y", "f6d.right.torque.y"), "MC sintetic [Nm]"),
+                  (tuple(c for c in data if c.startswith("cuplu.")), "M2210B sintetic [Nm]"))
+        for ax, (keys, ylabel) in zip(axes, groups):
+            for key in keys:
+                if key in data:
+                    ax.plot(t, data[key], label=key)
+            ax.set_ylabel(ylabel); ax.grid(alpha=.3)
+            if ax.lines:
+                ax.legend(fontsize=7, ncol=2)
+        axes[-1].set_xlabel("timp simulat [s]")
+        fig.suptitle("Canale de senzori SINTETICI — modele declarate\n" + title)
+        fig.tight_layout(); pdf.savefig(fig); plt.close(fig)
+
+        fig, axes = plt.subplots(2, 1, figsize=(8.27, 8.0), sharex=True)
+        for side, color in (("left", "#2166ac"), ("right", "#b2182b")):
+            axes[0].plot(t, data[f"{side}_ankle_joint.pos"], color=color,
+                         ls="--", label=f"{side} articulatie")
+            if f"unghi_glezna.{side}" in data:
+                axes[0].plot(t, data[f"unghi_glezna.{side}"], color=color,
+                             label=f"{side} BWK216 sintetic")
+            if f"rigla.{side}" in data:
+                axes[1].plot(t, data[f"rigla.{side}"], color=color, label=side)
+        axes[0].set_ylabel("unghi [rad]"); axes[1].set_ylabel("rigla [m]")
+        axes[1].set_xlabel("timp simulat [s]")
+        for ax in axes:
+            ax.grid(alpha=.3)
+            if ax.lines:
+                ax.legend(fontsize=8)
+        fig.suptitle("BWK216 si rigla 406 — semnale SINTETICE\n" + title)
+        fig.tight_layout(); pdf.savefig(fig); plt.close(fig)
+    return path
 
 
-def main():
-    ap = argparse.ArgumentParser(description="Raport de sesiune rehab_exo din CSV")
-    ap.add_argument("csv", help="fisierul CSV inregistrat de sensor_recorder")
-    ap.add_argument("--out", default=os.path.expanduser("~/rehab_data/rapoarte"),
-                    help="directorul pentru raportul PDF")
-    ap.add_argument("--inspect", action="store_true",
-                    help="doar listeaza coloanele detectate si iese")
-    args = ap.parse_args()
+def generate(path, out_dir=None):
+    csv_path = resolve_csv(path)
+    out_dir = os.path.abspath(os.path.expanduser(out_dir or os.path.dirname(csv_path)))
+    os.makedirs(out_dir, exist_ok=True)
+    meta, _, t, data, _, summary = analyze(csv_path)
+    json_path = os.path.join(out_dir, "metrici_sesiune.json")
+    with open(json_path, "w") as f:
+        json.dump(summary, f, indent=2, allow_nan=True)
+    outputs = [json_path, write_metrics_csv(out_dir, summary),
+               write_markdown(out_dir, summary), write_pdf(out_dir, meta, t, data, summary)]
+    return summary, outputs
 
+
+def selftest():
+    with tempfile.TemporaryDirectory() as d:
+        path = os.path.join(d, "sesiune.csv")
+        with open(path, "w") as f:
+            for line in rc.antet({"exercitiu": "test", "commit": "abc", "conventie": "B1"}):
+                f.write(line + "\n")
+            columns = ["t_sim", "t_wall_unix"]
+            for joint in JOINTS:
+                columns += [joint + s for s in (".pos", ".vel", ".effort_sim", ".cmd")]
+            columns += ["cuplu.left_hip", "f6d.left.force.x"]
+            f.write(",".join(columns) + "\n")
+            for i in range(101):
+                t = i * .02; cmd = .2 * math.sin(t); row = [t, 1000 + t]
+                for _ in JOINTS:
+                    row += [cmd + .01, .2 * math.cos(t), 2.0, cmd]
+                row += [3.0, float("nan")]
+                f.write(",".join(str(x) for x in row) + "\n")
+        summary, outputs = generate(path, d)
+        assert summary["samples"] == 101
+        assert abs(summary["sample_rate_hz"] - 50.0) < 1e-8
+        assert abs(summary["joint_metrics"][0]["tracking_rmse_rad_active"] - .01) < 1e-8
+        assert all(os.path.isfile(p) for p in outputs)
+    print("SELFTEST session_report OK")
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("path", nargs="?", help="directorul sesiunii sau sesiune.csv")
+    ap.add_argument("--out", help="directorul de iesire; implicit langa CSV")
+    ap.add_argument("--inspect", action="store_true")
+    ap.add_argument("--selftest", action="store_true")
+    args = ap.parse_args(argv)
+    if args.selftest:
+        selftest(); return 0
+    if not args.path:
+        ap.error("este necesar path sau --selftest")
+    csv_path = resolve_csv(args.path)
     if args.inspect:
-        header, data = read_csv(args.csv)
-        print("coloane in antet:", header)
-        print("coloane numerice:", sorted(data.keys()))
-        return
-    analyze(args.csv, args.out)
+        meta, cols, _, _ = ps.incarca(csv_path)
+        print(json.dumps(meta, indent=2)); print("\n".join(cols)); return 0
+    summary, outputs = generate(args.path, args.out)
+    print(f"Esantioane: {summary['samples']}; rata: {summary['sample_rate_hz']:.2f} Hz")
+    for path in outputs:
+        print("Scris:", path)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

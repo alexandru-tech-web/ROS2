@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 """
 plot_recording.py — Transforma o inregistrare CSV (din sensor_recorder)
 intr-o figura cu trei panouri: POZITIE, VITEZA, TORQUE pentru cele 6

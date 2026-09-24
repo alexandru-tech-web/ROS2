@@ -1,0 +1,473 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vipo.local/schemas/experimental-manifest-1.0.0.json",
+  "title": "ViPRO experimental manifest",
+  "description": "Contract TASK-002. Validarea referintelor dintre colectii este realizata suplimentar de experimental_data.py.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "session",
+    "hardware",
+    "clocks",
+    "signals",
+    "calibrations",
+    "trials",
+    "artifacts"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "session": {"$ref": "#/$defs/session"},
+    "hardware": {"$ref": "#/$defs/hardwareManifest"},
+    "clocks": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/clock"}
+    },
+    "signals": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/signal"}
+    },
+    "calibrations": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/calibration"}
+    },
+    "trials": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/trial"}
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/artifact"}
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]*$"
+    },
+    "nullableString": {
+      "type": ["string", "null"]
+    },
+    "provenance": {
+      "enum": [
+        "MEASURED",
+        "MANUAL",
+        "CODE_CONFIG",
+        "IDENTIFIED",
+        "DERIVED",
+        "SIMULATED",
+        "UNKNOWN"
+      ]
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "locator", "sha256"],
+      "properties": {
+        "source": {"type": "string", "minLength": 1},
+        "locator": {"$ref": "#/$defs/nullableString"},
+        "sha256": {
+          "oneOf": [
+            {"type": "null"},
+            {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+          ]
+        }
+      }
+    },
+    "uncertainty": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lower",
+        "upper",
+        "unit",
+        "coverage_probability",
+        "method"
+      ],
+      "properties": {
+        "lower": {"type": "number"},
+        "upper": {"type": "number"},
+        "unit": {"type": "string", "minLength": 1},
+        "coverage_probability": {
+          "type": ["number", "null"],
+          "exclusiveMinimum": 0,
+          "maximum": 1
+        },
+        "method": {"$ref": "#/$defs/nullableString"}
+      }
+    },
+    "provenancedValue": {
+      "description": "Tipul concret al campului value este stabilit de structura Python si de definitia campului. UNKNOWN inseamna obligatoriu null; o valoare cunoscuta necesita evidence.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "value",
+        "provenance",
+        "evidence",
+        "unit",
+        "method",
+        "uncertainty"
+      ],
+      "properties": {
+        "value": {},
+        "provenance": {"$ref": "#/$defs/provenance"},
+        "evidence": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/evidence"}
+        },
+        "unit": {"$ref": "#/$defs/nullableString"},
+        "method": {"$ref": "#/$defs/nullableString"},
+        "uncertainty": {
+          "oneOf": [
+            {"type": "null"},
+            {"$ref": "#/$defs/uncertainty"}
+          ]
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "value": {"type": "null"},
+            "provenance": {"const": "UNKNOWN"},
+            "uncertainty": {"type": "null"}
+          }
+        },
+        {
+          "properties": {
+            "value": {"not": {"type": "null"}},
+            "provenance": {
+              "enum": [
+                "MEASURED",
+                "MANUAL",
+                "CODE_CONFIG",
+                "IDENTIFIED",
+                "DERIVED",
+                "SIMULATED"
+              ]
+            },
+            "evidence": {"minItems": 1}
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "provenance": {"enum": ["IDENTIFIED", "DERIVED"]}
+                }
+              },
+              "then": {
+                "properties": {
+                  "method": {"type": "string", "minLength": 1}
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "timePoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "clock_id",
+        "monotonic_ns",
+        "sequence_index",
+        "utc_iso8601",
+        "device_ticks"
+      ],
+      "properties": {
+        "clock_id": {"$ref": "#/$defs/identifier"},
+        "monotonic_ns": {"type": "integer", "minimum": 0},
+        "sequence_index": {"type": ["integer", "null"], "minimum": 0},
+        "utc_iso8601": {
+          "oneOf": [
+            {"type": "null"},
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "(Z|[+-]00:00)$"
+            }
+          ]
+        },
+        "device_ticks": {"type": ["integer", "null"], "minimum": 0}
+      }
+    },
+    "clock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "clock_id",
+        "domain",
+        "source",
+        "resolution_ns",
+        "synchronized_to_clock_id"
+      ],
+      "properties": {
+        "clock_id": {"$ref": "#/$defs/identifier"},
+        "domain": {
+          "enum": [
+            "MONOTONIC",
+            "UTC",
+            "ROS",
+            "DEVICE",
+            "SIMULATION",
+            "UNKNOWN"
+          ]
+        },
+        "source": {"$ref": "#/$defs/provenancedValue"},
+        "resolution_ns": {"$ref": "#/$defs/provenancedValue"},
+        "synchronized_to_clock_id": {"$ref": "#/$defs/provenancedValue"}
+      }
+    },
+    "hardwareComponent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hardware_id",
+        "role",
+        "manufacturer",
+        "model",
+        "serial_number",
+        "pair_index",
+        "parent_hardware_ids",
+        "notes"
+      ],
+      "properties": {
+        "hardware_id": {"$ref": "#/$defs/identifier"},
+        "role": {"$ref": "#/$defs/provenancedValue"},
+        "manufacturer": {"$ref": "#/$defs/provenancedValue"},
+        "model": {"$ref": "#/$defs/provenancedValue"},
+        "serial_number": {"$ref": "#/$defs/provenancedValue"},
+        "pair_index": {"$ref": "#/$defs/provenancedValue"},
+        "parent_hardware_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/identifier"}
+        },
+        "notes": {"$ref": "#/$defs/nullableString"}
+      }
+    },
+    "hardwareManifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["manifest_id", "components"],
+      "properties": {
+        "manifest_id": {"$ref": "#/$defs/identifier"},
+        "components": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/hardwareComponent"}
+        }
+      }
+    },
+    "calibration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "calibration_id",
+        "status",
+        "target_hardware_ids",
+        "target_signal_ids",
+        "method",
+        "coefficients",
+        "valid_from_utc",
+        "valid_until_utc",
+        "artifact_ids"
+      ],
+      "properties": {
+        "calibration_id": {"$ref": "#/$defs/identifier"},
+        "status": {"enum": ["VALID", "EXPIRED", "INVALID", "UNKNOWN"]},
+        "target_hardware_ids": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/identifier"}
+        },
+        "target_signal_ids": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/identifier"}
+        },
+        "method": {"$ref": "#/$defs/provenancedValue"},
+        "coefficients": {
+          "type": "object",
+          "additionalProperties": {"$ref": "#/$defs/provenancedValue"}
+        },
+        "valid_from_utc": {"$ref": "#/$defs/nullableString"},
+        "valid_until_utc": {"$ref": "#/$defs/nullableString"},
+        "artifact_ids": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/identifier"}
+        }
+      },
+      "anyOf": [
+        {"properties": {"target_hardware_ids": {"minItems": 1}}},
+        {"properties": {"target_signal_ids": {"minItems": 1}}}
+      ]
+    },
+    "signal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "signal_id",
+        "name",
+        "physical_quantity",
+        "unit",
+        "value_type",
+        "shape",
+        "source_hardware_ids",
+        "source_interface",
+        "nominal_rate_hz",
+        "clock_id",
+        "data_tier",
+        "calibration_ids",
+        "parent_signal_ids",
+        "description"
+      ],
+      "properties": {
+        "signal_id": {"$ref": "#/$defs/identifier"},
+        "name": {"type": "string", "minLength": 1},
+        "physical_quantity": {"$ref": "#/$defs/provenancedValue"},
+        "unit": {"$ref": "#/$defs/provenancedValue"},
+        "value_type": {
+          "enum": ["FLOAT64", "INT64", "BOOLEAN", "STRING", "JSON", "UNKNOWN"]
+        },
+        "shape": {
+          "type": "array",
+          "items": {"type": "integer", "minimum": 1}
+        },
+        "source_hardware_ids": {"$ref": "#/$defs/provenancedValue"},
+        "source_interface": {"$ref": "#/$defs/provenancedValue"},
+        "nominal_rate_hz": {"$ref": "#/$defs/provenancedValue"},
+        "clock_id": {"$ref": "#/$defs/provenancedValue"},
+        "data_tier": {"enum": ["RAW", "PROCESSED", "DERIVED"]},
+        "calibration_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/identifier"}
+        },
+        "parent_signal_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/identifier"}
+        },
+        "description": {"$ref": "#/$defs/nullableString"}
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_id",
+        "tier",
+        "uri",
+        "media_type",
+        "immutable",
+        "sha256",
+        "parent_artifact_ids"
+      ],
+      "properties": {
+        "artifact_id": {"$ref": "#/$defs/identifier"},
+        "tier": {"enum": ["RAW", "PROCESSED", "DERIVED"]},
+        "uri": {"type": "string", "minLength": 1},
+        "media_type": {"type": "string", "minLength": 1},
+        "immutable": {"type": "boolean"},
+        "sha256": {"$ref": "#/$defs/provenancedValue"},
+        "parent_artifact_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/identifier"}
+        }
+      },
+      "if": {"properties": {"tier": {"const": "RAW"}}},
+      "then": {"properties": {"immutable": {"const": true}}}
+    },
+    "session": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "session_id",
+        "study_id",
+        "kind",
+        "status",
+        "start",
+        "hardware_manifest_id",
+        "clock_ids",
+        "software_revision",
+        "configuration_hash",
+        "end",
+        "artifact_ids",
+        "notes"
+      ],
+      "properties": {
+        "session_id": {"$ref": "#/$defs/identifier"},
+        "study_id": {"$ref": "#/$defs/identifier"},
+        "kind": {"$ref": "#/$defs/provenancedValue"},
+        "status": {"enum": ["PLANNED", "RUNNING", "COMPLETE", "ABORTED", "INVALID"]},
+        "start": {"$ref": "#/$defs/timePoint"},
+        "hardware_manifest_id": {"$ref": "#/$defs/identifier"},
+        "clock_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/identifier"}
+        },
+        "software_revision": {"$ref": "#/$defs/provenancedValue"},
+        "configuration_hash": {"$ref": "#/$defs/provenancedValue"},
+        "end": {
+          "oneOf": [
+            {"type": "null"},
+            {"$ref": "#/$defs/timePoint"}
+          ]
+        },
+        "artifact_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/identifier"}
+        },
+        "notes": {"$ref": "#/$defs/nullableString"}
+      }
+    },
+    "trial": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "trial_id",
+        "session_id",
+        "order_index",
+        "mechanism_id",
+        "excitation_id",
+        "start",
+        "outcome",
+        "end",
+        "hardware_state",
+        "artifact_ids",
+        "invalid_reasons"
+      ],
+      "properties": {
+        "trial_id": {"$ref": "#/$defs/identifier"},
+        "session_id": {"$ref": "#/$defs/identifier"},
+        "order_index": {"type": "integer", "minimum": 0},
+        "mechanism_id": {"$ref": "#/$defs/provenancedValue"},
+        "excitation_id": {"$ref": "#/$defs/provenancedValue"},
+        "start": {"$ref": "#/$defs/timePoint"},
+        "outcome": {"enum": ["PLANNED", "VALID", "INVALID", "ABORTED", "UNKNOWN"]},
+        "end": {
+          "oneOf": [
+            {"type": "null"},
+            {"$ref": "#/$defs/timePoint"}
+          ]
+        },
+        "hardware_state": {
+          "type": "object",
+          "additionalProperties": {"$ref": "#/$defs/provenancedValue"}
+        },
+        "artifact_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/identifier"}
+        },
+        "invalid_reasons": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1}
+        }
+      },
+      "if": {"properties": {"outcome": {"const": "INVALID"}}},
+      "then": {"properties": {"invalid_reasons": {"minItems": 1}}}
+    }
+  }
+}

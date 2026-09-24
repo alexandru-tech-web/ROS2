@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 """
 patient_model.py — Simularea pacientului ca sarcina dinamica pe articulatii (rehab_exo).
 

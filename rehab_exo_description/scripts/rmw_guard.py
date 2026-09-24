@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 """rmw_guard.py -- verifica la RUNTIME ca procesul chiar ruleaza pe RMW-ul cerut.
 
 DE CE EXISTA

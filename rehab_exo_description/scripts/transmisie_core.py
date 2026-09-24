@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 """transmisie_core.py -- NUCLEU PUR: lantul de transmisie si citirea encoderelor.
 
 Ce modeleaza, si de unde:

@@ -1,7 +1,8 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 """session_recorder.py -- fiecare sesiune de simulare lasa in urma date analizabile.
 
-UN CSV per sesiune, in ~/DATE_TWIN/<AAAALLZZ_HHMMSS>_<exercitiu>/sesiune.csv.
+UN CSV per sesiune, implicit in
+~/DATE_TWIN/<AAAALLZZ_HHMMSS>_<exercitiu>/sesiune.csv.
 
 DE CE UN DIRECTOR PROPRIU, si nu ~/DATE_CAMPANIE: acolo stau datele CANONICE de
 campanie ale tezei, care sunt read-only si nu se amesteca niciodata cu date de
@@ -33,11 +34,12 @@ RADACINA = os.path.expanduser("~/DATE_TWIN")
 def coloane():
     """Ordinea coloanelor, definita O SINGURA DATA si folosita si la scriere si la
     citire. Daca se schimba, se schimba pentru toata lumea deodata."""
-    c = []
+    c = ["t_wall_unix"]
     for p in PARTI:
         for a in ARTIC:
             j = "%s_%s_joint" % (p, a)
-            c += ["%s.pos" % j, "%s.vel" % j, "%s.cmd" % j]
+            c += ["%s.pos" % j, "%s.vel" % j,
+                  "%s.effort_sim" % j, "%s.cmd" % j]
     for p in PARTI:
         for a in CU_CUPLU:
             c.append("cuplu.%s_%s" % (p, a))
@@ -83,6 +85,8 @@ def main(argv=None):
     from sensor_msgs.msg import JointState
     from std_msgs.msg import Float64, String
     from control_msgs.msg import JointTrajectoryControllerState as CS
+    from rclpy.qos import (QoSDurabilityPolicy, QoSHistoryPolicy, QoSProfile,
+                           QoSReliabilityPolicy)
 
     COL = coloane()
 
@@ -92,6 +96,7 @@ def main(argv=None):
             for nume, imp in (("exercitiu", "necunoscut"), ("postura", "culcat"),
                               ("sezut_max_deg", 25.0), ("viteza", 1.0),
                               ("castig", 1.0), ("rata_hz", 50.0),
+                              ("director_date", RADACINA),
                               ("conventie", "B1")):
                 self.declare_parameter(nume, imp)
             g = lambda k: self.get_parameter(k).value
@@ -105,21 +110,33 @@ def main(argv=None):
             self.evenimente = 0
 
             stampila = time.strftime("%Y%m%d_%H%M%S")
-            self.dir = os.path.join(RADACINA, "%s_%s" % (stampila, g("exercitiu")))
+            radacina = os.path.abspath(os.path.expanduser(str(g("director_date"))))
+            self.dir = os.path.join(radacina, "%s_%s" % (stampila, g("exercitiu")))
             os.makedirs(self.dir, exist_ok=True)
             self.cale = os.path.join(self.dir, "sesiune.csv")
             self.f = open(self.cale, "w")
+            # Calea este latched (TRANSIENT_LOCAL): HMI-ul poate porni dupa
+            # recorder si primeste totusi directorul sesiunii curente.
+            qos_cale = QoSProfile(
+                depth=1, history=QoSHistoryPolicy.KEEP_LAST,
+                reliability=QoSReliabilityPolicy.RELIABLE,
+                durability=QoSDurabilityPolicy.TRANSIENT_LOCAL)
+            self.pub_cale = self.create_publisher(
+                String, "/rehab/inregistrare/cale", qos_cale)
+            self.pub_cale.publish(String(data=self.cale))
             self.meta = {"data_ora": time.strftime("%Y-%m-%d %H:%M:%S"),
                          "commit": commit_scurt(), "conventie": g("conventie"),
                          "exercitiu": g("exercitiu"), "postura": g("postura"),
                          "sezut_max_deg": g("sezut_max_deg"), "viteza": g("viteza"),
                          "castig": g("castig"), "rtf_mediu": "in curs",
-                         "rata_hz": self.rata}
+                         "rata_hz": self.rata,
+                         "provenienta_efort": "SIMULATED_GAZEBO_JOINT_STATES"}
             for l in rc.antet(self.meta, ipoteze=(
                     "geometria NU e masurata pe dispozitiv (IPOTEZE.md)",
                     "inaltimea talpii 0.230 m: clasa INVARIANT, cea mai slaba",
                     "banda de sezut 0..25 grade: IPOTEZA-ANTROPO",
-                    "senzorii sunt SINTETICI, model declarat in senzori_core")):
+                    "senzorii sunt SINTETICI, model declarat in senzori_core",
+                    "*.effort_sim vine din Gazebo /joint_states; NU este masurare fizica")):
                 self.f.write(l + "\n")
             self.f.write("t_sim," + ",".join(COL) + "\n")
             self.f.flush()
@@ -164,9 +181,13 @@ def main(argv=None):
             return cb
 
         def _js(self, m):
-            for n, pos, vel in zip(m.name, m.position, m.velocity):
-                self.val["%s.pos" % n] = pos
-                self.val["%s.vel" % n] = vel
+            for i, n in enumerate(m.name):
+                self.val["%s.pos" % n] = (
+                    m.position[i] if i < len(m.position) else float("nan"))
+                self.val["%s.vel" % n] = (
+                    m.velocity[i] if i < len(m.velocity) else float("nan"))
+                self.val["%s.effort_sim" % n] = (
+                    m.effort[i] if i < len(m.effort) else float("nan"))
             self._numara("joint_states")
 
         def _cs(self, m):
@@ -194,6 +215,7 @@ def main(argv=None):
         def _tic(self):
             if "joint_states" not in self.contor:
                 return          # nu se scriu randuri inainte sa existe date
+            self.val["t_wall_unix"] = time.time()
             for c in COL:
                 v = self.val.get(c)
                 if v is None or (isinstance(v, float) and math.isnan(v)):
@@ -202,6 +224,9 @@ def main(argv=None):
             self.randuri += 1
 
         def inchide(self):
+            if getattr(self, "_inchis", False):
+                return
+            self._inchis = True
             durata = self._t() if self.t0_sim is not None else 0.0
             perete = time.time() - self.t0_perete
             rtf = (durata / perete) if perete > 0.5 else None
@@ -212,13 +237,23 @@ def main(argv=None):
                 self.f.write(l + "\n")
             self.f.flush()
             self.f.close()
-            self.get_logger().info(
+            mesaje = [
                 "inchis: %d randuri, %.1f s, RTF %s, %d evenimente de supervizor"
-                % (self.randuri, durata, "%.2f" % rtf if rtf else "?", self.evenimente))
+                % (self.randuri, durata, "%.2f" % rtf if rtf else "?", self.evenimente)
+            ]
             if not ok:
                 for canal, n, motiv in rele:
-                    self.get_logger().error("CANAL PROBLEMATIC %s: %s" % (canal, motiv))
-            self.get_logger().info("fisier: %s" % self.cale)
+                    mesaje.append("CANAL PROBLEMATIC %s: %s" % (canal, motiv))
+            mesaje.append("fisier: %s" % self.cale)
+
+            # Pe SIGINT, Jazzy poate invalida contextul inainte ca blocul finally
+            # sa inchida CSV-ul. Nu mai incercam publicarea pe /rosout in acel caz.
+            if rclpy.ok():
+                for mesaj in mesaje:
+                    self.get_logger().info(mesaj)
+            else:
+                for mesaj in mesaje:
+                    print("[session_recorder] %s" % mesaj, flush=True)
 
     rclpy.init(args=argv)
     n = Recorder()
@@ -228,9 +263,15 @@ def main(argv=None):
         pass
     finally:
         n.inchide()
-        n.destroy_node()
-        if rclpy.ok():
-            rclpy.shutdown()
+        try:
+            n.destroy_node()
+        except KeyboardInterrupt:
+            pass
+        try:
+            if rclpy.ok():
+                rclpy.shutdown()
+        except KeyboardInterrupt:
+            pass
 
 
 if __name__ == "__main__":

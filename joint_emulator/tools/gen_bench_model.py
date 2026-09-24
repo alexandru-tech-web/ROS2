@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-"""gen_bench_model.py -- geometrie SCHEMATICA a bancului, necalibrata.
+"""gen_bench_model.py -- geometrie vizuala a bancului, necalibrata.
 
-Trei motoare A albastre stau in stanga, trei motoare B negre in dreapta.
+Carcasa motorului provine din modelul STL arhivat anterior in servo_control;
+ea este folosita numai vizual. Trei motoare albastre stau in stanga si trei
+motoare rosii in dreapta.
 Fiecare A/B impart un ax rigid cu doua flanse si sase suruburi ilustrative.
 Dimensiunile nu sunt extrase din CAD sau masuratori ale standului real.
 
@@ -19,9 +21,12 @@ from math import cos, pi, sin
 
 H = pi / 2
 CUL = {"albastru": "0.13 0.32 0.65 1", "motor_a": "0.03 0.55 0.83 1",
-       "negru": "0.10 0.10 0.10 1",
+       "motor_b": "0.82 0.20 0.12 1", "eticheta": "0.08 0.08 0.08 1",
+       "alb": "0.96 0.96 0.96 1",
        "portocaliu": "0.91 0.35 0.05 1", "gri": "0.55 0.55 0.55 1",
-       "gri_inchis": "0.30 0.30 0.30 1", "rosu": "0.95 0.01 0.01 1"}
+       "gri_inchis": "0.30 0.30 0.30 1", "rosu": "0.95 0.01 0.01 1",
+       "cabinet": "0.24 0.27 0.30 1", "usa": "0.38 0.41 0.44 1",
+       "cablu_date": "0.08 0.72 0.42 1", "galben": "0.95 0.75 0.05 1"}
 
 BASE_H = 0.78
 SHAFT_H = 0.90
@@ -30,6 +35,26 @@ ROW_Y = (-0.28, 0.0, 0.28)
 JRPY = (0, H, 0)
 PAIRS = [(0, y, SHAFT_H) for y in ROW_Y]
 
+# Centrul gaurii de iesire, masurat direct in STL (metri, coordonate locale).
+# Fata arborelui este planul local y=max. Dupa rotatia Rz(yaw)*Ry(90 deg),
+# acest punct trebuie sa coincida exact cu capatul axului ViPRO.
+MOTOR_HOLE_LOCAL_M = (-0.01692325, 0.15230010, 0.00299565)
+MOTOR_INTERFACE_X = 0.18
+
+
+def motor_pose(side, row_y):
+    """Pozitia mesh-ului care suprapune centrul gaurii peste axul comun."""
+    if side not in (-1, 1):
+        raise ValueError("side trebuie sa fie -1 (stanga) sau 1 (dreapta)")
+    lx, ly, lz = MOTOR_HOLE_LOCAL_M
+    yaw = -H if side < 0 else H
+    # Rz(yaw) * Ry(90 deg) aplicat centrului local al gaurii.
+    rotated_hole = ((ly, -lz, -lx) if side < 0
+                    else (-ly, lz, -lx))
+    target = (side * MOTOR_INTERFACE_X, row_y, SHAFT_H)
+    xyz = tuple(target[i] - rotated_hole[i] for i in range(3))
+    return xyz, yaw
+
 
 def box(link, sz, xyz, rpy=(0, 0, 0), c="albastru"):
     return dict(link=link, kind="box", sz=sz, xyz=xyz, rpy=rpy, c=c)
@@ -37,6 +62,46 @@ def box(link, sz, xyz, rpy=(0, 0, 0), c="albastru"):
 
 def cyl(link, r, l, xyz, rpy=(0, 0, 0), c="albastru"):
     return dict(link=link, kind="cyl", r=r, l=l, xyz=xyz, rpy=rpy, c=c)
+
+
+def mesh(link, uri, scale, xyz, rpy=(0, 0, 0), c="albastru"):
+    return dict(link=link, kind="mesh", uri=uri, scale=scale,
+                xyz=xyz, rpy=rpy, c=c)
+
+
+FONT = {
+    "A": ("010", "101", "111", "101", "101"),
+    "B": ("110", "101", "110", "101", "110"),
+    "C": ("011", "100", "100", "100", "011"),
+    "1": ("010", "110", "010", "010", "111"),
+    "2": ("110", "001", "010", "100", "111"),
+    "3": ("110", "001", "010", "001", "110"),
+}
+
+
+def label_shapes(link, text, center, tag, yaw=0.0):
+    """Return robust raised-pixel labels; no Gazebo font dependency."""
+    px, gap = 0.006, 0.0015
+    glyph_w = 3 * px + 2 * gap
+    text_w = len(text) * glyph_w + max(0, len(text) - 1) * gap
+    x0 = center[0] - text_w / 2 + px / 2
+    y0 = center[1] + (5 * px + 4 * gap) / 2 - px / 2
+    result = []
+    for n, char in enumerate(text):
+        for row, bits in enumerate(FONT[char]):
+            for col, active in enumerate(bits):
+                if active == "1":
+                    raw_x = x0 + n * (glyph_w + gap) + col * (px + gap)
+                    raw_y = y0 - row * (px + gap)
+                    dx, dy = raw_x - center[0], raw_y - center[1]
+                    xyz = (center[0] + cos(yaw) * dx - sin(yaw) * dy,
+                           center[1] + sin(yaw) * dx + cos(yaw) * dy,
+                           center[2])
+                    item = box(link, (px, px, 0.003), xyz,
+                               (0, 0, yaw), c="alb")
+                    item["label"] = tag
+                    result.append(item)
+    return result
 
 
 def geometrie():
@@ -54,17 +119,58 @@ def geometrie():
             V.append(box(B, (0.05, 0.05, BASE_H),
                          (sx, sy, BASE_H / 2), c="portocaliu"))
 
-    # Trei perechi; fiecare rand are A in stanga si B in dreapta.
-    for y in ROW_Y:
-        for side, x, color in ((-1, -0.26, "motor_a"),
-                               (1, 0.26, "negru")):
-            V.append(box(B, (0.20, 0.14, 0.13), (x, y, SHAFT_H), c=color))
-            V.append(box(B, (0.045, 0.07, 0.06),
-                         (x + side * 0.11, y, SHAFT_H + 0.055), c=color))
-            V.append(cyl(B, 0.012, 0.035,
-                         (x + side * 0.11, y, SHAFT_H + 0.10), c="gri"))
+    # Cabinet schematic alaturat in dreapta mesei. Este parte din geometria
+    # ancorata si nu reprezinta un inventar electric confirmat al bancului.
+    cabinet_x = 1.15
+    cabinet = box(B, (0.42, 0.78, 1.15),
+                  (cabinet_x, 0, 0.575), c="cabinet")
+    cabinet["cabinet"] = True
+    V.append(cabinet)
+    V.append(box(B, (0.018, 0.70, 0.98),
+                 (cabinet_x - 0.219, 0, 0.61), c="usa"))
+    V.append(box(B, (0.022, 0.22, 0.15),
+                 (cabinet_x - 0.231, 0, 0.88), c="eticheta"))
+    for y, color in ((-0.055, "rosu"), (0, "galben"), (0.055, "cablu_date")):
+        V.append(cyl(B, 0.012, 0.025, (cabinet_x - 0.245, y, 0.90),
+                     (0, H, 0), c=color))
+    V.append(box(B, (0.026, 0.08, 0.18),
+                 (cabinet_x - 0.244, 0.27, 0.58), c="gri_inchis"))
+
+    # Trei perechi. Mesh-ul este recentrat/orientat spre axul comun si nu are
+    # coliziune ori inertie proprie: matematica PairSim ramane neschimbata.
+    left_labels = ("A", "B", "C")
+    right_labels = ("A1", "B1", "C1")
+    for row, y in enumerate(ROW_Y):
+        for side, color, label in (
+                (-1, "motor_a", left_labels[row]),
+                (1, "motor_b", right_labels[row])):
+            # Pitch-ul local este rotatia de 90 deg in jurul axului motorului;
+            # yaw-ul pastreaza iesirea axului orientata spre flansa comuna.
+            motor_xyz, yaw = motor_pose(side, y)
+            item = mesh(B, "servo_body.stl", (0.001, 0.001, 0.001),
+                        motor_xyz,
+                        (0, H, yaw), c=color)
+            item["motor_side"] = "left" if side < 0 else "right"
+            item["label"] = label
+            item["shaft_interface"] = (side * MOTOR_INTERFACE_X, y, SHAFT_H)
+            V.append(item)
             V.append(box(B, (0.18, 0.16, 0.025),
-                         (x, y, SHAFT_H - 0.08), c="gri_inchis"))
+                         (-0.23 if side < 0 else 0.23, y,
+                          SHAFT_H - 0.08), c="gri_inchis"))
+            # Centrul aproximativ al carcasei rotite, pentru modul si eticheta.
+            plate_x = -0.254 if side < 0 else 0.254
+            plate_y = y + (0.0094 if side < 0 else -0.0094)
+            daisy = box(B, (0.10, 0.065, 0.025),
+                        (plate_x, plate_y, SHAFT_H + 0.055), c="eticheta")
+            daisy["daisy_chain"] = True
+            daisy["label"] = label
+            V.append(daisy)
+            V.append(box(B, (0.075, 0.055, 0.004),
+                         (plate_x, plate_y, SHAFT_H + 0.069),
+                         (0, 0, H), c="eticheta"))
+            V.extend(label_shapes(B, label,
+                                  (plate_x, plate_y, SHAFT_H + 0.073),
+                                  label, H))
         for x in (-0.12, 0.12):
             V.append(box(B, (0.04, 0.10, 0.045),
                          (x, y, SHAFT_H - 0.055), c="albastru"))
@@ -72,7 +178,13 @@ def geometrie():
     # --- axele rotitoare: construite in frame-ul articulatiei (z = axa)
     for k in range(3):
         L = f"shaft{k}"
-        V.append(cyl(L, 0.013, 0.36, (0, 0, 0), c="gri_inchis"))
+        # Arbore vizual Ø12 mm, apropiat de geometria STL (aprox. Ø10 mm).
+        # Lungimea de 390 mm depaseste cu 15 mm fiecare fata de motor, astfel
+        # incat imbinarea sa fie vizibila fara gol. PairSim nu foloseste aceste
+        # dimensiuni in ecuatiile sale.
+        shaft = cyl(L, 0.006, 0.39, (0, 0, 0), c="gri_inchis")
+        shaft["main_shaft"] = True
+        V.append(shaft)
         for face in (-1, 1):
             V.append(cyl(L, 0.048, 0.028, (0, 0, face * 0.014),
                          c="portocaliu"))
@@ -101,14 +213,20 @@ def fmt(t):
 def geo_urdf(v):
     if v["kind"] == "box":
         return f'<box size="{fmt(v["sz"])}"/>'
-    return f'<cylinder radius="{v["r"]:g}" length="{v["l"]:g}"/>'
+    if v["kind"] == "cyl":
+        return f'<cylinder radius="{v["r"]:g}" length="{v["l"]:g}"/>'
+    return (f'<mesh filename="../gz/meshes/{v["uri"]}" '
+            f'scale="{fmt(v["scale"])}"/>')
 
 
 def geo_sdf(v):
     if v["kind"] == "box":
         return f'<box><size>{fmt(v["sz"])}</size></box>'
-    return (f'<cylinder><radius>{v["r"]:g}</radius>'
-            f'<length>{v["l"]:g}</length></cylinder>')
+    if v["kind"] == "cyl":
+        return (f'<cylinder><radius>{v["r"]:g}</radius>'
+                f'<length>{v["l"]:g}</length></cylinder>')
+    return (f'<mesh><uri>meshes/{v["uri"]}</uri>'
+            f'<scale>{fmt(v["scale"])}</scale></mesh>')
 
 
 def emit_urdf(V):
@@ -116,7 +234,7 @@ def emit_urdf(V):
     for v in V:
         links.setdefault(v["link"], []).append(v)
     out = ['<?xml version="1.0"?>',
-           "<!-- GENERAT de tools/gen_bench_model.py -- nu edita de mana -->",
+           "<!-- GENERAT de tools/gen_bench_model.py; nu edita de mana -->",
            '<robot name="joint_bench">']
     for name in ["base_link", "shaft0", "shaft1", "shaft2"]:
         out.append(f'  <link name="{name}">')
@@ -172,7 +290,7 @@ def emit_sdf(V):
                                 f"{fmt(PAIRS[k])} {fmt(JRPY)}", 0.25)
                        for k in range(3))
     return f'''<?xml version="1.0"?>
-<!-- GENERAT de tools/gen_bench_model.py -- nu edita de mana -->
+<!-- GENERAT de tools/gen_bench_model.py; nu edita de mana -->
 <sdf version="1.9">
   <world name="bench_world">
     <gravity>0 0 -9.81</gravity>

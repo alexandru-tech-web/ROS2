@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 """
 sensor_recorder.py — Inregistreaza datele de la senzori in CSV.
 

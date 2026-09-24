@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 """
 operator_heartbeat.py — Statia operatorului pentru telereabilitare (rehab_exo).
 

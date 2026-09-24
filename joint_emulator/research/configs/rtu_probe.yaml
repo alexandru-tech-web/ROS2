@@ -1,0 +1,33 @@
+schema_version: "1.0"
+mode: "DRY_RUN"
+
+# Valorile din modbus_backend.py sunt exemple istorice, nu configuratie ViPRO.
+# Completati acest fisier numai din placute, manuale si inspectia aprobata a
+# magistralei. null inseamna UNKNOWN si blocheaza orice transmisie.
+serial:
+  port: null
+  baud: null
+  parity: null
+  stop_bits: null
+  data_bits: null
+  timeout_s: null
+
+safety:
+  allow_active_transmit: false
+  existing_master_confirmed_absent: null
+  isolated_rs485_adapter_confirmed: null
+  wiring_and_topology_approved: null
+
+probe:
+  active_scan_enabled: false
+  slave_ids: []
+  register_ranges: []
+  # Exemplu de forma, NU valori ViPRO:
+  # - name: "manual_confirmed_status"
+  #   function: "holding_registers"  # sau "input_registers"
+  #   start_address: 0
+  #   count: 1
+  inter_request_delay_s: null
+
+output:
+  directory: null

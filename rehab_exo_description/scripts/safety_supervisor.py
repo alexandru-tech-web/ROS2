@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 """
 safety_supervisor.py — Supervizor de siguranta pentru robotul de recuperare (rehab_exo).
 

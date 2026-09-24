@@ -1,0 +1,454 @@
+contract_version: "1.0.0"
+artifact: "TASK-006 minimum physical integration contract"
+status: "REQUIREMENTS_ONLY"
+
+evidence_baseline:
+  repository_revision: "0d7d864ba85805090d97edcf639586ff27f457c8"
+  task_001_inventory: "research/configs/vipro_inventory.yaml"
+  task_002r_manifest: "research/configs/vipro_manifest_current.yaml"
+  physical_backend_present: false
+  physical_backend_provenance: "CODE_CONFIG"
+  physical_backend_evidence:
+    source: "joint_emulator/nodes/emulator_node.py"
+    locator: "lines 47-67"
+  notes: >-
+    The repository is simulation-only. This contract specifies normalized
+    boundary semantics; it is not ABB configuration evidence.
+
+physical_architecture:
+  pair_count:
+    value: 3
+    provenance: "MANUAL"
+    source: "/home/ubuntu/Downloads/RESEARCH_CONTEXT.md:126-136"
+  pair_ids: ["pair0", "pair1", "pair2"]
+  pair_template:
+    actuator_A_role: "physical actuator under test"
+    actuator_B_role: "physical load actuator"
+    local_coupling: "declared rigid common shaft/coupling"
+    physical_mapping_status: "UNKNOWN"
+  between_pair_mechanical_coupling:
+    value: null
+    provenance: "UNKNOWN"
+  protocol:
+    value: null
+    provenance: "UNKNOWN"
+  drive_models:
+    value: null
+    provenance: "UNKNOWN"
+  physical_control_modes:
+    value: null
+    provenance: "UNKNOWN"
+  physical_sample_rates_hz:
+    value: null
+    provenance: "UNKNOWN"
+  physical_safety_limits:
+    value: null
+    provenance: "UNKNOWN"
+
+normalization_rules:
+  units: "SI at the backend boundary"
+  unknown_values: "null with provenance UNKNOWN; never zero or an empty sentinel"
+  timestamps: >-
+    Every sample and command receipt carries CLOCK_MONOTONIC acquisition/issue
+    time, a sequence index, a clock identifier, and device time when available.
+  raw_preservation: >-
+    Raw device values, frames and device timestamps remain immutable alongside
+    normalized values; conversion metadata identifies calibration and method.
+  no_physical_aliases: >-
+    Requested torque, drive torque estimate, JointState.effort and independent
+    shaft torque remain distinct signal identifiers.
+  unavailable_capability: >-
+    An unavailable or unverified signal is null/unavailable and is never
+    synthesized as a physical measurement.
+
+backend_boundary:
+  interface_name: "PhysicalBackend"
+  purpose: >-
+    Hide protocol, register, fieldbus and device constants from virtual-load,
+    fidelity, experiment and certification logic.
+  implementation_status:
+    SimBackend: "EXISTS_AS_LEGACY_SIM_INTERFACE; requires a non-runtime adapter for this conceptual contract"
+    ABBPhysicalBackend: "ABSENT"
+  operating_profiles:
+    - "READ_ONLY_ACQUISITION"
+    - "COMMAND_CAPABLE"
+  required_types:
+    BackendCapabilities:
+      fields:
+        - "backend_identity"
+        - "profile"
+        - "pair_mapping"
+        - "available_signal_ids"
+        - "available_command_ids"
+        - "clock_domains"
+        - "calibration_ids"
+        - "documented_limits"
+        - "fault_and_status_semantics"
+    BackendSample:
+      fields:
+        - "pair_id"
+        - "side"
+        - "sequence_index"
+        - "acquisition_monotonic_ns"
+        - "device_timestamp_raw"
+        - "device_clock_id"
+        - "normalized_signals"
+        - "raw_signals"
+        - "quality_flags"
+        - "fault_status"
+        - "provenance"
+        - "calibration_ids"
+    BackendCommand:
+      fields:
+        - "command_id"
+        - "pair_id"
+        - "side"
+        - "mode"
+        - "value_si"
+        - "issue_monotonic_ns"
+        - "deadline_monotonic_ns"
+        - "sequence_index"
+        - "permit_id"
+    CommandReceipt:
+      fields:
+        - "command_id"
+        - "accepted"
+        - "backend_receive_monotonic_ns"
+        - "device_ack_timestamp_raw"
+        - "applied_status"
+        - "reason"
+        - "fault_status"
+  conceptual_operations:
+    read_only:
+      - name: "open_read_only"
+        semantics: "Open acquisition without enabling or commanding a drive."
+      - name: "get_capabilities"
+        semantics: "Return evidence-backed capabilities; unsupported fields stay unavailable."
+      - name: "read_snapshot"
+        semantics: "Return one coherent timestamped sample without side effects."
+      - name: "close"
+        semantics: "Release communication resources without changing drive state."
+    command_capable:
+      - name: "prepare_command_session"
+        semantics: >-
+          Validate an external permit, mode, mapping, calibration, limits,
+          watchdog and initial safe state; it does not itself enable motion.
+      - name: "request_enable_state"
+        semantics: "Request documented enable/disable behavior and return a receipt."
+      - name: "apply_command"
+        semantics: "Apply one typed SI command only in a verified supported mode."
+      - name: "request_fault_reset"
+        semantics: "Optional documented capability; unavailable by default."
+      - name: "request_safe_state"
+        semantics: >-
+          Request zero/disable according to verified hardware procedure; this
+          software request is not the independent physical E-stop.
+  mandatory_invariants:
+    - "READ_ONLY_ACQUISITION exposes no command, enable, reset or write path."
+    - "Protocol-specific addresses/scales never enter research logic."
+    - "All returned quantities identify raw source, SI conversion and provenance."
+    - "All samples use monotonically ordered acquisition timestamps and sequence indices."
+    - "No command is accepted when mode, mapping, calibration, limits or permit are UNKNOWN."
+    - "No stale command is restored after reconnect, reset or fault."
+    - "Independent validation signals remain distinguishable from control estimators."
+    - "Backend exceptions and stale/missing data fail closed for command use."
+
+signals:
+  inputs_from_hardware:
+    - signal_id: "encoder_position"
+      instances: ["A_i", "B_i"]
+      semantic_meaning: "Physical angular position reported for the identified motor/axis side."
+      unit: "rad"
+      source: null
+      source_requirement: "identified encoder or documented drive position-feedback channel"
+      direction: "HARDWARE_TO_SOFTWARE"
+      expected_datatype: "float64"
+      timestamp_requirement: "acquisition_monotonic_ns REQUIRED; device timestamp REQUIRED if exposed"
+      calibration_requirement: "sign, zero, counts-to-rad scale, gear ratio and mounting mapping"
+      provenance_requirement: "samples MEASURED; conversion CODE_CONFIG or MANUAL; calibration MEASURED/IDENTIFIED"
+      usable_for_control: "CONDITIONAL_AFTER_CALIBRATION_AND_TIMING_VALIDATION"
+      usable_for_independent_validation: "CONDITIONAL_FOR_KINEMATICS_ONLY; NO for torque fidelity alone"
+      current_status: "UNKNOWN"
+      minimum_stage: "FIRST_READ_ONLY_ACQUISITION"
+
+    - signal_id: "device_timestamp"
+      instances: ["A_i", "B_i"]
+      semantic_meaning: "Device-native acquisition time associated with the physical feedback sample."
+      unit: "s after characterized conversion; preserve raw ticks"
+      source: null
+      source_requirement: "drive, encoder or acquisition-device clock"
+      direction: "HARDWARE_TO_SOFTWARE"
+      expected_datatype: "uint64 raw ticks plus int64 normalized nanoseconds when conversion is known"
+      timestamp_requirement: "clock ID, wrap behavior, tick period and synchronization relation REQUIRED"
+      calibration_requirement: "clock rate, offset/drift model and wrap handling"
+      provenance_requirement: "raw ticks MEASURED; conversion IDENTIFIED or MANUAL"
+      usable_for_control: "CONDITIONAL"
+      usable_for_independent_validation: "CONDITIONAL_FOR_TEMPORAL_ALIGNMENT"
+      current_status: "UNKNOWN"
+      minimum_stage: "FIRST_READ_ONLY_ACQUISITION_IF_AVAILABLE"
+
+    - signal_id: "velocity_feedback"
+      instances: ["A_i", "B_i"]
+      semantic_meaning: "Physical angular velocity supplied by the drive/device, not differentiated by research logic."
+      unit: "rad/s"
+      source: null
+      source_requirement: "documented drive or encoder velocity-feedback channel"
+      direction: "HARDWARE_TO_SOFTWARE"
+      expected_datatype: "float64"
+      timestamp_requirement: "same acquisition/clock metadata as its source sample"
+      calibration_requirement: "scale, sign, gear ratio, update/filter behavior and latency"
+      provenance_requirement: "MEASURED if directly reported; DERIVED if device-estimated, with method"
+      usable_for_control: "CONDITIONAL_AFTER_BANDWIDTH_AND_DELAY_CHARACTERIZATION"
+      usable_for_independent_validation: "CONDITIONAL_FOR_KINEMATICS; independence from encoder processing must be stated"
+      current_status: "UNKNOWN"
+      minimum_stage: "FIDELITY_ACQUISITION"
+
+    - signal_id: "motor_current"
+      instances: ["A_i", "B_i"]
+      semantic_meaning: "Documented motor-current quantity with phase/DC/q-axis meaning explicitly identified."
+      unit: "A"
+      source: null
+      source_requirement: "documented drive current-feedback channel"
+      direction: "HARDWARE_TO_SOFTWARE"
+      expected_datatype: "float64"
+      timestamp_requirement: "acquisition_monotonic_ns and device timestamp if exposed"
+      calibration_requirement: "raw scale, offset, current definition, bandwidth, uncertainty and sensor calibration"
+      provenance_requirement: "MEASURED or drive-estimated as documented; never inferred from command"
+      usable_for_control: "CONDITIONAL_FOR_MONITORING_OR_DOCUMENTED_CURRENT_LOOP"
+      usable_for_independent_validation: "CONDITIONAL_ONLY_WITH_MOTOR_CONSTANT_AND_LOSS_MODEL; not independently sufficient"
+      current_status: "UNKNOWN"
+      minimum_stage: "FIDELITY_ACQUISITION"
+
+    - signal_id: "drive_torque_estimate"
+      instances: ["A_i", "B_i"]
+      semantic_meaning: "Torque estimate produced internally by the drive."
+      unit: "N.m at a documented reference location"
+      source: null
+      source_requirement: "documented drive torque-estimate channel and algorithm/reference point"
+      direction: "HARDWARE_TO_SOFTWARE"
+      expected_datatype: "float64"
+      timestamp_requirement: "acquisition_monotonic_ns; device timing and update/filter behavior documented"
+      calibration_requirement: "scale, sign, torque reference point, gear conversion, bias, bandwidth and uncertainty"
+      provenance_requirement: "DERIVED or IDENTIFIED, not MEASURED solely because the drive reports it"
+      usable_for_control: "CONDITIONAL"
+      usable_for_independent_validation: "NO when it shares the control estimator; CONDITIONAL only after independent calibration"
+      current_status: "UNKNOWN"
+      minimum_stage: "FIDELITY_ACQUISITION"
+
+    - signal_id: "motor_temperature"
+      instances: ["A_i", "B_i"]
+      semantic_meaning: "Temperature at the documented motor sensing location."
+      unit: "K"
+      source: null
+      source_requirement: "identified motor temperature sensor or documented drive estimate"
+      direction: "HARDWARE_TO_SOFTWARE"
+      expected_datatype: "float64"
+      timestamp_requirement: "acquisition_monotonic_ns; nominal update mechanism documented"
+      calibration_requirement: "sensor location, raw-to-K conversion, range and uncertainty"
+      provenance_requirement: "MEASURED or DERIVED according to actual source"
+      usable_for_control: "CONDITIONAL_FOR_DERATING_AND_ABORT_LOGIC"
+      usable_for_independent_validation: "NO as torque reference; YES as experimental context"
+      current_status: "UNKNOWN"
+      minimum_stage: "FIDELITY_ACQUISITION"
+
+    - signal_id: "drive_temperature"
+      instances: ["A_i", "B_i"]
+      semantic_meaning: "Temperature at the documented drive sensing location."
+      unit: "K"
+      source: null
+      source_requirement: "identified drive temperature channel"
+      direction: "HARDWARE_TO_SOFTWARE"
+      expected_datatype: "float64"
+      timestamp_requirement: "acquisition_monotonic_ns; nominal update mechanism documented"
+      calibration_requirement: "sensor location, raw-to-K conversion, range and uncertainty"
+      provenance_requirement: "MEASURED or DERIVED according to actual source"
+      usable_for_control: "CONDITIONAL_FOR_DERATING_AND_ABORT_LOGIC"
+      usable_for_independent_validation: "NO as torque reference; YES as experimental context"
+      current_status: "UNKNOWN"
+      minimum_stage: "FIDELITY_ACQUISITION"
+
+    - signal_id: "status_fault_words"
+      instances: ["A_i", "B_i"]
+      semantic_meaning: "Raw and decoded drive state, warning, saturation and fault information."
+      unit: "1"
+      source: null
+      source_requirement: "documented drive status/fault interface"
+      direction: "HARDWARE_TO_SOFTWARE"
+      expected_datatype: "raw uint16/uint32 words plus decoded boolean/enumerated fields"
+      timestamp_requirement: "acquisition_monotonic_ns and sequence index"
+      calibration_requirement: "no numeric calibration; exact bit/enum semantics and firmware applicability required"
+      provenance_requirement: "raw MEASURED; decoding MANUAL/CODE_CONFIG"
+      usable_for_control: "YES for inhibit/abort gating after semantics are verified; never replaces hardwired safety"
+      usable_for_independent_validation: "NO as mechanical measurement; REQUIRED as trial validity metadata"
+      current_status: "UNKNOWN"
+      minimum_stage: "FIRST_READ_ONLY_ACQUISITION"
+
+    - signal_id: "independent_shaft_torque"
+      instances: ["pair_i"]
+      semantic_meaning: "Mechanical torque measured at a documented location in the A/B coupling/load path."
+      unit: "N.m"
+      source: null
+      source_requirement: "independent calibrated torque transducer and signal conditioner, if present"
+      direction: "HARDWARE_TO_SOFTWARE"
+      expected_datatype: "float64"
+      timestamp_requirement: "acquisition_monotonic_ns, device timestamp if exposed, clock alignment to commands/encoders"
+      calibration_requirement: "traceable zero/span/sign, mounting location, range, bandwidth, cross-sensitivity and uncertainty"
+      provenance_requirement: "MEASURED with calibration ID"
+      usable_for_control: "CONDITIONAL; preferably reserved as an independent validation channel"
+      usable_for_independent_validation: "YES after calibration, timing and independence checks"
+      current_status: "UNKNOWN"
+      minimum_stage: "VIPRO_00B_VALIDITY"
+
+    - signal_id: "command_receipt_status"
+      instances: ["A_i", "B_i"]
+      semantic_meaning: "Evidence that a specific command was received/accepted/applied or rejected by backend/device."
+      unit: "1"
+      source: null
+      source_requirement: "backend and documented device acknowledgement/status mechanism"
+      direction: "HARDWARE_TO_SOFTWARE"
+      expected_datatype: "structured record with command ID, enum status and timestamps"
+      timestamp_requirement: "backend receive monotonic time; device acknowledge/application time if available"
+      calibration_requirement: "semantic mapping and timing characterization, not numeric calibration"
+      provenance_requirement: "MEASURED status plus CODE_CONFIG/MANUAL decoding"
+      usable_for_control: "YES for command supervision after validation"
+      usable_for_independent_validation: "CONDITIONAL_FOR_TIMING; NO as mechanical torque measurement"
+      current_status: "UNKNOWN"
+      minimum_stage: "BEFORE_ANY_MOTOR_COMMAND"
+
+  outputs_to_hardware:
+    - signal_id: "command_mode_request"
+      instances: ["A_i", "B_i"]
+      semantic_meaning: "Request for a documented drive control mode."
+      unit: "1"
+      source: "research/controller through backend"
+      source_requirement: "authorized research or commissioning layer with an active command permit"
+      direction: "SOFTWARE_TO_HARDWARE"
+      expected_datatype: "closed enum restricted to backend-advertised modes"
+      timestamp_requirement: "issue_monotonic_ns, sequence index, deadline and receipt"
+      calibration_requirement: "documented mode semantics and safe transition procedure"
+      provenance_requirement: "MANUAL/CODE_CONFIG capability and command log"
+      usable_for_control: "CONDITIONAL"
+      usable_for_independent_validation: "NO"
+      current_status: "UNKNOWN"
+      command_gate: "mode capability and transition procedure must be documented and commissioned"
+
+    - signal_id: "torque_command"
+      instances: ["A_i", "B_i"]
+      semantic_meaning: "Requested actuator torque at a documented motor/gear/shaft reference point."
+      unit: "N.m"
+      source: "research/controller through backend"
+      source_requirement: "typed SI request produced by approved control logic under an active permit"
+      direction: "SOFTWARE_TO_HARDWARE"
+      expected_datatype: "float64"
+      timestamp_requirement: "issue_monotonic_ns, deadline, sequence index and command receipt/application evidence"
+      calibration_requirement: "SI-to-device scaling, sign, reference point, saturation, rate limit and uncertainty"
+      provenance_requirement: "DERIVED request plus MANUAL/CODE_CONFIG conversion"
+      usable_for_control: "CONDITIONAL_IF_HARDWARE_MODE_SUPPORTS_IT"
+      usable_for_independent_validation: "NO; it is the request/reference, not realized torque"
+      current_status: "UNKNOWN"
+      command_gate: "verified mode, scaling, limits, watchdog, safe state and permit required"
+
+    - signal_id: "current_command"
+      instances: ["A_i", "B_i"]
+      semantic_meaning: "Requested documented motor-current quantity."
+      unit: "A"
+      source: "research/controller through backend"
+      source_requirement: "typed SI request produced by approved control logic under an active permit"
+      direction: "SOFTWARE_TO_HARDWARE"
+      expected_datatype: "float64"
+      timestamp_requirement: "issue_monotonic_ns, deadline, sequence index and receipt"
+      calibration_requirement: "current definition, scale, sign, limits and motor/drive applicability"
+      provenance_requirement: "DERIVED request plus MANUAL/CODE_CONFIG conversion"
+      usable_for_control: "CONDITIONAL_IF_HARDWARE_MODE_SUPPORTS_IT"
+      usable_for_independent_validation: "NO"
+      current_status: "UNKNOWN"
+      command_gate: "verified current mode, scaling, limits and permit required"
+
+    - signal_id: "velocity_command"
+      instances: ["A_i", "B_i"]
+      semantic_meaning: "Requested actuator angular velocity in an explicitly supported mode."
+      unit: "rad/s"
+      source: "research/controller through backend"
+      source_requirement: "typed SI request produced by approved control logic under an active permit"
+      direction: "SOFTWARE_TO_HARDWARE"
+      expected_datatype: "float64"
+      timestamp_requirement: "issue_monotonic_ns, deadline, sequence index and receipt"
+      calibration_requirement: "SI-to-device scaling, sign, gear ratio, limits and ramp behavior"
+      provenance_requirement: "DERIVED request plus MANUAL/CODE_CONFIG conversion"
+      usable_for_control: "CONDITIONAL_IF_HARDWARE_MODE_SUPPORTS_IT"
+      usable_for_independent_validation: "NO"
+      current_status: "UNKNOWN"
+      command_gate: "verified mode and safe interaction of rigidly coupled actuators required"
+
+    - signal_id: "drive_enable_request"
+      instances: ["A_i", "B_i"]
+      semantic_meaning: "Documented request to enter or leave the drive-enabled state."
+      unit: "1"
+      source: "authorized commissioning/safety layer through backend"
+      source_requirement: "authorized state-machine transition with physical safety chain available"
+      direction: "SOFTWARE_TO_HARDWARE"
+      expected_datatype: "boolean or documented state-transition enum"
+      timestamp_requirement: "issue_monotonic_ns, sequence index and verified state receipt"
+      calibration_requirement: "no numeric calibration; exact state machine and interlocks required"
+      provenance_requirement: "MANUAL/CODE_CONFIG capability and immutable command/event log"
+      usable_for_control: "CONDITIONAL"
+      usable_for_independent_validation: "NO"
+      current_status: "UNKNOWN"
+      command_gate: "independent E-stop, approved safety chain, state-machine evidence and permit required"
+
+    - signal_id: "fault_reset_request"
+      instances: ["A_i", "B_i"]
+      semantic_meaning: "Request to reset a documented resettable drive fault."
+      unit: "1"
+      source: "authorized commissioning/safety layer through backend"
+      source_requirement: "operator-authorized action for an identified resettable fault"
+      direction: "SOFTWARE_TO_HARDWARE"
+      expected_datatype: "event with explicit fault identity and operator authorization"
+      timestamp_requirement: "issue_monotonic_ns, sequence index and resulting status receipt"
+      calibration_requirement: "no numeric calibration; reset semantics and prohibited states required"
+      provenance_requirement: "MANUAL capability, CODE_CONFIG implementation and immutable event log"
+      usable_for_control: "CONDITIONAL; unavailable by default"
+      usable_for_independent_validation: "NO"
+      current_status: "UNKNOWN"
+      command_gate: "must not exist in implementation until documented and safety-approved"
+
+research_side_companion_signals:
+  - signal_id: "requested_virtual_load_torque_B"
+    source: "virtual-load computation"
+    current_sim_field: "/joint/state[*].tau_b"
+    unit: "N.m"
+    role: "request/reference only"
+    independent_validation: false
+    current_status: "KNOWN_IN_SIM_ONLY"
+  - signal_id: "jointstate_effort_alias"
+    source: "/joint_states.effort"
+    unit: "N.m by intended convention"
+    role: "visualization alias of requested_virtual_load_torque_B"
+    independent_validation: false
+    current_status: "KNOWN_IN_SIM_ONLY"
+
+readiness_gates:
+  first_read_only_physical_acquisition:
+    - "verified hardware identity and A/B mapping"
+    - "verified physical protocol/interface and read-only access path"
+    - "encoder_position A/B or explicitly documented available feedback"
+    - "CLOCK_MONOTONIC acquisition timestamps and sequence indices"
+    - "raw status/fault words with preserved raw values"
+    - "immutable raw logging, configuration hash and software revision"
+    - "no command/enable/reset API reachable in read-only profile"
+  fidelity_research:
+    - "requested virtual load torque with command issue timestamp"
+    - "calibrated physical torque route with quantified uncertainty"
+    - "aligned physical position/velocity and torque timestamps"
+    - "status, saturation, fault and temperature context"
+    - "independence assessment between control estimator and validation signal"
+    - "measured sample/update rates, delay, jitter and dropped samples"
+  before_any_motor_command:
+    - "exact manuals, firmware, mappings, protocol and command modes"
+    - "validated command scaling, sign and reference point"
+    - "certified continuous/peak/rate/speed/position/power/thermal limits"
+    - "independent physical E-stop and approved risk assessment"
+    - "verified enable/disable state machine and fault behavior"
+    - "local watchdog, stale-command policy and no-command-on-reconnect behavior"
+    - "low-energy staged commissioning plan and authorized permit"
+    - "command receipt/application observability"

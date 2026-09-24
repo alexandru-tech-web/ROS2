@@ -442,28 +442,53 @@ with tempfile.TemporaryDirectory(prefix="joint_session_test_") as tmp:
     ck(invalid_id_rejected and checked_session_id(sid) == sid,
        "Excel: ID sesiune validat, fara traversare de directoare")
 
-# ---- geometria: trei A in stanga, trei B in dreapta, axuri cu suruburi ----
-from tools.gen_bench_model import geometrie, PAIRS
+# ---- geometria: sase carcase STL colorate/etichetate, axuri cu suruburi ----
+from tools.gen_bench_model import (geometrie, MOTOR_HOLE_LOCAL_M,
+                                   MOTOR_INTERFACE_X, PAIRS)
 
 shapes = geometrie()
-motor_a = [v for v in shapes if v["link"] == "base_link" and
-           v["kind"] == "box" and v["sz"] == (0.20, 0.14, 0.13) and
-           v["c"] == "motor_a"]
-motor_b = [v for v in shapes if v["link"] == "base_link" and
-           v["kind"] == "box" and v["sz"] == (0.20, 0.14, 0.13) and
-           v["c"] == "negru"]
+motor_a = [v for v in shapes if v.get("motor_side") == "left"]
+motor_b = [v for v in shapes if v.get("motor_side") == "right"]
 ck(len(motor_a) == len(motor_b) == 3 and
+   all(v["kind"] == "mesh" and v["uri"] == "servo_body.stl"
+       for v in motor_a + motor_b) and
+   all(abs(v["rpy"][1] - 1.5707963267948966) < 1e-9
+       for v in motor_a + motor_b) and
    all(v["xyz"][0] < 0 for v in motor_a) and
    all(v["xyz"][0] > 0 for v in motor_b),
-   "geometrie: 3 motoare A albastre stanga, 3 motoare B negre dreapta")
+   "geometrie: 6 motoare STL rotite 90 grade in jurul axului")
+def transformed_hole(motor, side):
+    """Centrul real al gaurii STL dupa transformarea folosita in scena."""
+    lx, ly, lz = MOTOR_HOLE_LOCAL_M
+    rotated = ((ly, -lz, -lx) if side < 0 else (-ly, lz, -lx))
+    return tuple(motor["xyz"][i] + rotated[i] for i in range(3))
+
+
 ck(len(PAIRS) == 3 and
-   all(a["xyz"][1] == b["xyz"][1] == PAIRS[k][1]
-       for k, (a, b) in enumerate(zip(motor_a, motor_b))),
-   "geometrie: A si B din fiecare pereche sunt aliniate pe acelasi ax")
+   all(all(abs(transformed_hole(motor, side)[axis] -
+                   (side * MOTOR_INTERFACE_X, PAIRS[k][1], PAIRS[k][2])[axis])
+               < 1e-9 for axis in range(3))
+       for k, pair in enumerate(zip(motor_a, motor_b))
+       for motor, side in zip(pair, (-1, 1))),
+   "geometrie: centrul real al fiecarei gauri STL coincide cu axul ViPRO")
+ck([v["label"] for v in motor_a] == ["A", "B", "C"] and
+   [v["label"] for v in motor_b] == ["A1", "B1", "C1"] and
+   all(any(s.get("label") == v["label"] and s["kind"] == "box"
+           for s in shapes) for v in motor_a + motor_b),
+   "geometrie: etichete 3D A/B/C si A1/B1/C1")
+cabinet = [v for v in shapes if v.get("cabinet")]
+ck(sum(bool(v.get("daisy_chain")) for v in shapes) == 6 and
+   not any(v.get("cable_type") for v in shapes) and
+   len(cabinet) == 1 and cabinet[0]["xyz"][0] > 1.0,
+   "geometrie: 6 module daisy, fara fire, cabinet distant")
 ck(all(sum(v["kind"] == "cyl" and v.get("r") == 0.0035
            for v in shapes if v["link"] == f"shaft{k}") == 6
        for k in range(3)),
    "geometrie: fiecare flansa are 6 suruburi prinse de axul rotitor")
+main_shafts = [v for v in shapes if v.get("main_shaft")]
+ck(len(main_shafts) == 3 and
+   all(v["r"] == 0.006 and v["l"] == 0.39 for v in main_shafts),
+   "geometrie: ax Ø12 mm intra 15 mm in fiecare motor")
 
 # ---- protocol SIL repetabil si analiza pe o singura pereche ----
 from vipro_experiment import (analyze_session, run_reference, run_suite,

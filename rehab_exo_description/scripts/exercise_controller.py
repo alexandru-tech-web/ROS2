@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 """
 exercise_controller.py  -- v3. Comanda cele 6 servomotoare de exercitiu si
 cele 5 axe de ajustare (scaun + segmente telescopice).
@@ -80,6 +80,7 @@ class ExerciseController(Node):
         # starea curenta a tuturor articulatiilor
         self.q_cur = {j: 0.0 for j in core.JOINT_NAMES}
         self.q_prev = dict(self.q_cur)
+        self.feedback_seen = set()
         self.adj_cur = {j: 0.0 for j in core.ADJUST_JOINT_NAMES}
         self.adj_target = dict(self.adj_cur)
 
@@ -99,7 +100,10 @@ class ExerciseController(Node):
                 Float64MultiArray, "/adjust_position_controller/commands", 10)
             self.adj_timer = self.create_timer(0.05, self.tick_adjust_trajectory)
             self._pending = (name, reps)
-            self.once = self.create_timer(1.5, self.start_pending)
+            self._asteptare_feedback_logata = False
+            # Nu folosim un delay fix: cu use_sim_time primul /clock poate sari
+            # direct la cateva secunde si timerul ar porni inainte de feedback.
+            self.once = self.create_timer(0.10, self.start_pending)
         else:
             self.js_pub = self.create_publisher(JointState, "joint_states", 10)
             self._build(name, reps)
@@ -150,8 +154,15 @@ class ExerciseController(Node):
                 d = json.loads(text)
                 name = d.get("exercise", name)
                 reps = int(d.get("reps", reps))
-            except json.JSONDecodeError as e:
-                self.get_logger().error(f"JSON invalid pe /exercise_cmd: {e}")
+                # Viteza este un factor temporal, nu modifica amplitudinea.
+                # HMI-ul o poate schimba intre programe, dar nu in timpul unei
+                # traiectorii deja trimise controlerului.
+                viteza = float(d.get("viteza", self.viteza))
+                if not 0.1 <= viteza <= 3.0:
+                    raise ValueError("viteza trebuie sa fie in intervalul 0.1..3.0")
+                self.viteza = viteza
+            except (json.JSONDecodeError, TypeError, ValueError) as e:
+                self.get_logger().error(f"comanda invalida pe /exercise_cmd: {e}")
                 return
         self._build(name, reps)
         if self.backend == "trajectory":
@@ -210,10 +221,19 @@ class ExerciseController(Node):
         for n, p in zip(msg.name, msg.position):
             if n in self.q_cur:
                 self.q_cur[n] = p
+                self.feedback_seen.add(n)
             elif n in self.adj_cur:
                 self.adj_cur[n] = p
 
     def start_pending(self):
+        lipsa = [j for j in core.JOINT_NAMES if j not in self.feedback_seen]
+        if lipsa or self._conventie_ok is None:
+            if not self._asteptare_feedback_logata:
+                self.get_logger().info(
+                    "astept feedback pentru toate cele 6 axe si confirmarea "
+                    "conventiei inainte de prima traiectorie")
+                self._asteptare_feedback_logata = True
+            return
         self.once.cancel()
         name, reps = self._pending
         self._build(name, reps)
@@ -260,10 +280,21 @@ def main():
         rclpy.spin(node)
     except KeyboardInterrupt:
         pass
+    except RuntimeError as exc:
+        # Jazzy poate invalida subscription-ul exact cand SIGINT intrerupe
+        # executorul. O acceptam numai pentru semnatura cunoscuta de shutdown.
+        if rclpy.ok() and "Unable to convert call argument" not in str(exc):
+            raise
     finally:
-        node.destroy_node()
-        if rclpy.ok():
-            rclpy.shutdown()
+        try:
+            node.destroy_node()
+        except KeyboardInterrupt:
+            pass
+        try:
+            if rclpy.ok():
+                rclpy.shutdown()
+        except KeyboardInterrupt:
+            pass
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 """recorder_core.py -- CSV-ul de sesiune: antet, randuri, subsol. NUCLEU PUR.
 
 DE CE ARE ANTET DE PROVENIENTA
@@ -30,7 +30,8 @@ NAN = "NaN"
 PRAG_ACOPERIRE = 0.10
 
 CAMPURI_ANTET = ("data_ora", "commit", "conventie", "exercitiu", "postura",
-                 "sezut_max_deg", "viteza", "castig", "rtf_mediu", "rata_hz")
+                 "sezut_max_deg", "viteza", "castig", "rtf_mediu", "rata_hz",
+                 "provenienta_efort")
 
 
 def fmt(v):

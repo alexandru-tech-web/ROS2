@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 """geometrie_core.py -- DE UNDE VINE FIECARE COTA A MODELULUI. NUCLEU PUR.
 
 DE CE EXISTA FISIERUL ASTA

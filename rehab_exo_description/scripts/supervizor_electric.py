@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 """supervizor_electric.py -- stratul ELECTRIC de siguranta, pe bucla reala.
 
 Emuleaza proximitatile [PDF p.7]: praguri de POZITIE strict inauntrul limitelor
@@ -190,16 +190,43 @@ def main(argv=None):
                 "declansat": self.sup.declansat(),
                 "stari": dict(self.sup.stare)})))
 
+    from rclpy.executors import SingleThreadedExecutor
+
     rclpy.init(args=argv)
     n = SupervizorElectric()
+    executor = SingleThreadedExecutor()
+    executor.add_node(n)
     try:
-        rclpy.spin(n)
+        executor.spin()
     except KeyboardInterrupt:
         pass
+    except RuntimeError as exc:
+        # rclpy Jazzy poate ridica aceasta eroare in fereastra foarte scurta in care
+        # SIGINT distruge subscription-ul in timp ce executorul face take_message.
+        # O inghitim numai la oprirea launch-ului; orice RuntimeError din functionare
+        # ramane o eroare reala si este propagata.
+        if rclpy.ok() and "Unable to convert call argument" not in str(exc):
+            raise
     finally:
-        n.destroy_node()
-        if rclpy.ok():
-            rclpy.shutdown()
+        # Golim explicit wait-set-ul inainte de distrugerea nodului. Altfel,
+        # SIGINT poate lasa handlerul intern Jazzy creat, dar neexecutat, iar
+        # Python raporteaza fals pozitiv "coroutine ... was never awaited".
+        try:
+            executor.shutdown(timeout_sec=1.0)
+        except Exception:
+            pass
+        try:
+            n.destroy_node()
+        except KeyboardInterrupt:
+            pass
+        except Exception:
+            if rclpy.ok():
+                raise
+        try:
+            if rclpy.ok():
+                rclpy.shutdown()
+        except KeyboardInterrupt:
+            pass
 
 
 if __name__ == "__main__":

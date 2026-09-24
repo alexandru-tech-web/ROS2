@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 """
 operator_panel.py — Interfata grafica a OPERATORULUI (Tkinter).
 

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 """monitor_core.py -- formatarea si VERDICTELE tabloului de monitorizare. NUCLEU PUR.
 
 De ce un nucleu separat pentru un afisaj: fiindca afisajul nu e doar afisaj. Trei
