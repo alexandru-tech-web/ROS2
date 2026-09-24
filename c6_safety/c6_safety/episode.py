@@ -127,7 +127,8 @@ def run_episode(params, model, channel, safety_filter=None, react=False, hazard=
         # pericolul raportat de GCS, la f_haz, pe ACELASI canal
         o_hat, A_haz = None, None
         if perioada_haz is not None:
-            if t - t_ultim_haz >= perioada_haz - 1e-9:
+            if (t - t_ultim_haz >= perioada_haz - 1e-9
+                    and operator_core.raportor_activ(t, params.pauza_haz_t, params.pauza_haz_durata)):
                 channel.trimite(o_true(t), t, flux="haz")
                 t_ultim_haz = t
             o_hat, A_haz = channel.primeste(t, flux="haz")

@@ -65,6 +65,15 @@ class Params:
     # (pericolul s-ar intoarce fara sa ajunga vreodata la drum) -- verificat, si de aceea nu e aleasa.
     directie_t: tuple = (8.0, 10.0)
 
+    # --- S4v2 lot B: CONTROL POZITIV pentru starea sigura (24.09.2026) ---
+    # Raportorul de pericol tace `pauza_haz_durata` secunde incepand de la `pauza_haz_t`. Scopul e sa
+    # forteze A_haz peste AoI_max, ca sa se EXERCITE calea de stare sigura a lui A2 (u = (0,0), n_ws).
+    # In lotul A ea nu s-a declansat niciodata (masina linistita, A_haz_max 0.977 s < 1.0), deci "A2 PASS
+    # 60/60" s-a obtinut fara ca plafonul sa fie atins -- exact golul pe care il inchide controlul asta.
+    # pauza_haz_t < 0 inseamna FARA pauza, si asta e implicitul: toate celulele de dinainte raman identice.
+    pauza_haz_t: float = -1.0        # s de la inceputul episodului; < 0 = fara pauza
+    pauza_haz_durata: float = 0.0    # s
+
     # --- ERATA 6 / S5: bratul A4 (marja pe intarziere, stil Periotto) ---
     A4_fereastra: int = 30    # cate RAPOARTE intra in statistica (nu pasi)
     A4_k_sigma: float = 2.0   # cate abateri standard intra in marja; acelasi K_SIGMA ca in C3

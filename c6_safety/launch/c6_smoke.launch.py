@@ -26,6 +26,7 @@ def generate_launch_description():
         ("brat", "A2"), ("scenariu", "traversare"), ("v_o_max", "0.5"), ("seed", "1"),
         ("react", "false"), ("f_haz", "5.0"), ("outputs", ""), ("eticheta", "s3"),
         ("rmw", "rmw_cyclonedds_cpp"), ("qos", "reliable"), ("mod_dt", "plafon"), ("dt_max_admis", "0.15"),
+        ("pauza_haz_t", "-1.0"), ("pauza_haz_durata", "0.0"),
         ("python", VENV if os.path.exists(VENV) else ""))]
     prefix = [L("python"), " "]
     F = lambda k: ParameterValue(L(k), value_type=float)                  # noqa: E731
@@ -33,7 +34,8 @@ def generate_launch_description():
     op = Node(package="c6_safety", executable="operator_node", name="c6_operator", output="screen",
               prefix=prefix,
               parameters=[{"scenariu": L("scenariu"), "v_o_max": F("v_o_max"),
-                           "react": B("react"), "f_haz": F("f_haz"), "qos": L("qos")}])
+                           "react": B("react"), "f_haz": F("f_haz"), "qos": L("qos"),
+                           "pauza_haz_t": F("pauza_haz_t"), "pauza_haz_durata": F("pauza_haz_durata")}])
     rv = Node(package="c6_safety", executable="rover_node", name="c6_rover", output="screen",
               prefix=prefix,
               parameters=[{"brat": L("brat"), "scenariu": L("scenariu"), "v_o_max": F("v_o_max"),

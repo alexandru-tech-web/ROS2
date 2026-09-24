@@ -51,8 +51,14 @@ class OperatorNode(Node):
         self.declare_parameter("react", False)
         self.declare_parameter("f_haz", 5.0)
         self.declare_parameter("qos", "reliable")       # | best_effort; factor pentru S4
+        # S4v2 lot B: controlul pozitiv al starii sigure. Raportorul tace `pauza_haz_durata` secunde de la
+        # `pauza_haz_t`, ca A_haz sa treaca de AoI_max si ramura de stare sigura a lui A2 sa se exercite.
+        # Implicit -1.0 / 0.0 = fara pauza, deci toate celulele de dinainte raman identice bit cu bit.
+        self.declare_parameter("pauza_haz_t", -1.0)
+        self.declare_parameter("pauza_haz_durata", 0.0)
         g = lambda k: self.get_parameter(k).value                        # noqa: E731
-        self.P = Params(scenariu=g("scenariu"), v_o_max=float(g("v_o_max")), f_haz=float(g("f_haz")))
+        self.P = Params(scenariu=g("scenariu"), v_o_max=float(g("v_o_max")), f_haz=float(g("f_haz")),
+                        pauza_haz_t=float(g("pauza_haz_t")), pauza_haz_durata=float(g("pauza_haz_durata")))
         if self.P.scenariu not in c6_params.SCENARII_NODURI:
             raise SystemExit("operator_node: scenariul %r NU e suportat de noduri; suportate: %s "
                              "(urmarirea cere pozitia roverului la GCS, care ajunge intarziata)"
@@ -62,6 +68,7 @@ class OperatorNode(Node):
         self.st = rover_dyn.Stare(x=self.P.start[0], y=self.P.start[1], theta=self.P.start[2])
         self.t0 = self._acum()
         self.n_cmd = self.n_haz = self.n_pose = 0
+        self.n_haz_tacut = 0          # tick-uri sarite de pauza (controlul de stare sigura)
         q = qos_din(g("qos"))
         self.pub_cmd = self.create_publisher(String, "/c6/cmd_op", q)
         self.pub_haz = self.create_publisher(String, "/c6/hazard", q)
@@ -87,6 +94,11 @@ class OperatorNode(Node):
 
     def _tick_haz(self):
         t = self._acum()
+        # Aceeasi functie ca in core (operator_core.raportor_activ), ca simularea offline si rularea ROS
+        # sa nu poata diverge pe definitia ferestrei de tacere.
+        if not operator_core.raportor_activ(t - self.t0, self.P.pauza_haz_t, self.P.pauza_haz_durata):
+            self.n_haz_tacut += 1
+            return
         ox, oy = self.haz.o_true(t - self.t0)
         self.pub_haz.publish(String(data=json.dumps({"ox": ox, "oy": oy, "t_tx": t, "t0": self.t0})))
         self.n_haz += 1

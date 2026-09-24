@@ -27,6 +27,18 @@ V_BLOCAT = 0.05      # m/s, caiet sec. 8
 V_OP_ACTIV = 0.2     # m/s, caiet sec. 8
 
 
+def raportor_activ(t, t_pauza, durata):
+    """Raporteaza GCS-ul pericolul la momentul t? Predicat PUR, folosit si de nod si de core.
+
+    Fereastra de tacere e [t_pauza, t_pauza + durata). t_pauza < 0 sau durata <= 0 inseamna FARA pauza,
+    deci comportamentul de dinainte, bit cu bit. E scris o singura data si importat de amandoua partile
+    tocmai ca simularea offline si rularea ROS sa nu poata diverge pe definitia ferestrei.
+    """
+    if t_pauza is None or t_pauza < 0.0 or durata is None or durata <= 0.0:
+        return True
+    return not (t_pauza <= t < t_pauza + durata)
+
+
 def _eroare_unghi(tinta, theta):
     return math.atan2(math.sin(tinta - theta), math.cos(tinta - theta))
 
