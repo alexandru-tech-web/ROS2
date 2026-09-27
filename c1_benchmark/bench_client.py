@@ -23,6 +23,9 @@ class Client(Node):
         self.seq = 0
         self.warm = 10                      # primele 10: incalzire, ignorate
         self.t_end = time.time() + a.duration + 1.0
+        # --jurnal (DIAG-Z, 27.09.2026): ora de trimitere si de primire pentru FIECARE seq, inclusiv
+        # incalzirea (seq <= 10), care altfel se arunca fara urma (A002). Fara --jurnal: None, nimic schimbat.
+        self.jurnal = {} if a.jurnal else None
         q = qos_arg(a.qos_history, a.qos_depth)      # implicit: 50, adica exact ce era
         self.pub = self.create_publisher(String, "/bench/ping", q)
         self.create_subscription(String, "/bench/pong", self.on_pong, q)
@@ -33,12 +36,16 @@ class Client(Node):
             return
         self.seq += 1
         self.sent[self.seq] = time.time()
+        if self.jurnal is not None:
+            self.jurnal[self.seq] = [self.sent[self.seq], None]
         self.pub.publish(String(data=json.dumps(
             {"seq": self.seq, "t": self.sent[self.seq], "d": self.data})))
 
     def on_pong(self, msg):
         d = json.loads(msg.data)
         t0 = self.sent.pop(d["seq"], None)
+        if self.jurnal is not None and t0 is not None:
+            self.jurnal[d["seq"]][1] = time.time()
         if t0 is None or d["seq"] <= self.warm:
             return
         self.rtts.append((d["seq"], (time.time() - t0) * 1000.0))
@@ -54,6 +61,8 @@ def main():
     # deosebi dupa fapt fara sa te uiti in cod.
     ap.add_argument("--qos-history", choices=("keep_last", "keep_all"), default="keep_last")
     ap.add_argument("--qos-depth", type=int, default=50)
+    ap.add_argument("--jurnal", default=None,
+                    help="CSV cu seq,t_send,t_recv,rtt_ms,incalzire pentru FIECARE mesaj (implicit: nimic)")
     a = ap.parse_args()
     rclpy.init(); n = Client(a)
     t_stop = time.time() + a.duration + 1.5   # +1.5 s: ecourile in zbor
@@ -64,6 +73,20 @@ def main():
     st.update(payload=a.payload, rate_hz=a.rate, duration_s=a.duration,
               rmw=os.environ.get("RMW_IMPLEMENTATION", "default"),
               qos_history=a.qos_history, qos_depth=a.qos_depth)
+    if n.jurnal is not None:
+        ts = [v[0] for v in n.jurnal.values()]
+        st.update(jurnal=os.path.abspath(a.jurnal),
+                  t_prima_trimitere=min(ts) if ts else None, t_ultima_trimitere=max(ts) if ts else None,
+                  incalzire_trimise=min(n.warm, n.seq),
+                  incalzire_primite=sum(1 for s, v in n.jurnal.items() if s <= n.warm and v[1] is not None))
+        os.makedirs(os.path.dirname(os.path.abspath(a.jurnal)), exist_ok=True)
+        with open(a.jurnal, "w") as f:
+            f.write("seq,t_send,t_recv,rtt_ms,incalzire\n")
+            for s in sorted(n.jurnal):
+                t_s, t_r = n.jurnal[s]
+                f.write("%d,%.6f,%s,%s,%d\n" % (s, t_s, "" if t_r is None else "%.6f" % t_r,
+                                                "" if t_r is None else "%.3f" % ((t_r - t_s) * 1000.0),
+                                                1 if s <= n.warm else 0))
     os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
     with open(a.out, "w") as f:
         f.write("seq,rtt_ms\n")
