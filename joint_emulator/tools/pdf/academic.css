@@ -1,0 +1,57 @@
+@page { size: A4; margin: 19mm 18mm 20mm 20mm; }
+:root { color: #17212b; font-family: "DejaVu Serif", serif; font-size: 10.5pt; line-height: 1.48; }
+body { max-width: none; margin: 0; background: #fff; color: #17212b; hyphens: auto; }
+h1, h2, h3, h4 { color: #123c63; font-family: "DejaVu Sans", sans-serif; line-height: 1.22; page-break-after: avoid; }
+h1 { margin-top: 0; font-size: 22pt; border-bottom: 2px solid #2d6f9f; padding-bottom: 5mm; }
+h2 { margin-top: 8mm; font-size: 16pt; border-bottom: 1px solid #b9c9d6; padding-bottom: 2mm; }
+h3 { font-size: 12.5pt; } h4 { font-size: 11pt; }
+p, li { orphans: 3; widows: 3; } a { color: #075a9c; text-decoration: none; }
+nav#TOC { page-break-after: always; border: 1px solid #b9c9d6; background: #f4f8fb; padding: 5mm 7mm; }
+nav#TOC::before { content: "Cuprins"; display: block; margin-bottom: 3mm; color: #123c63; font: bold 16pt "DejaVu Sans", sans-serif; }
+nav#TOC ul { padding-left: 6mm; }
+table { width: 100%; max-width: 100%; table-layout: fixed; border-collapse: collapse; margin: 4mm 0 6mm; font-size: 7.8pt; line-height: 1.32; page-break-inside: auto; }
+thead { display: table-header-group; } tr { page-break-inside: avoid; }
+th, td { border: 1px solid #9aabb8; padding: 1.6mm 1.8mm; vertical-align: top; overflow-wrap: anywhere; word-break: normal; hyphens: auto; }
+th { background: #e8f0f6; color: #123c63; font-family: "DejaVu Sans", sans-serif; }
+figure, img { max-width: 100%; height: auto; page-break-inside: avoid; }
+figure { margin: 5mm auto; text-align: center; } figcaption { margin-top: 2mm; font-size: 9pt; color: #44515d; }
+blockquote { margin: 4mm 0; padding: 2mm 5mm; border-left: 4px solid #2d6f9f; background: #f4f8fb; }
+code, pre { font-family: "DejaVu Sans Mono", monospace; font-size: 8.2pt; } code { white-space: normal; overflow-wrap: anywhere; word-break: break-word; } th code, td code { font-size: 7.2pt; word-break: break-all; }
+pre { white-space: pre-wrap; overflow-wrap: anywhere; border: 1px solid #ccd6de; border-radius: 3px; background: #f6f8fa; padding: 3mm; page-break-inside: avoid; }
+.math { font-family: "DejaVu Serif", serif; max-width: 100%; } math[display="block"] { display: block; max-width: 100%; margin: 3mm auto; font-size: 9pt; overflow: hidden; } hr { border: 0; border-top: 1px solid #9aabb8; }
+
+/* Coperta si separarea capitolelor pentru rapoarte cu front matter Pandoc. */
+header#title-block-header {
+  min-height: 245mm;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: left;
+  page-break-after: always;
+  border-left: 8mm solid #123c63;
+  padding: 18mm 16mm;
+  background: linear-gradient(135deg, #f7fafc 0%, #e8f0f6 100%);
+}
+header#title-block-header h1.title {
+  break-before: auto;
+  border: 0;
+  color: #123c63;
+  font-size: 28pt;
+  line-height: 1.12;
+  margin: 0 0 8mm;
+  padding: 0;
+}
+header#title-block-header .subtitle {
+  color: #2d5d80;
+  font: 16pt/1.35 "DejaVu Sans", sans-serif;
+  margin: 0 0 20mm;
+}
+header#title-block-header .author,
+header#title-block-header .date {
+  color: #3f4d59;
+  font: 10.5pt/1.45 "DejaVu Sans", sans-serif;
+  margin: 2mm 0;
+}
+body > h1 { break-before: page; }
+nav#TOC + h1 { break-before: auto; }

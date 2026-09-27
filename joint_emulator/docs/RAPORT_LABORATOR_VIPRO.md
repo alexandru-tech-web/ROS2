@@ -811,21 +811,12 @@ fizic.
 Ordinea recomandată este:
 
 \[
-\boxed{
-\text{inventar hardware}
-\rightarrow
-\text{achiziție read-only}
-\rightarrow
-\text{metrologie cuplu + timing}
-\rightarrow
-\text{identificare}
-\rightarrow
-\text{ViPRO-01A}
-\rightarrow
-\text{predicție}
-\rightarrow
-\text{multiport}
-}
+\boxed{\begin{aligned}
+\text{inventar hardware} &\rightarrow \text{achiziție read-only}\\
+&\rightarrow \text{metrologie cuplu + timing}\\
+&\rightarrow \text{identificare} \rightarrow \text{ViPRO-01A}\\
+&\rightarrow \text{predicție} \rightarrow \text{multiport}
+\end{aligned}}
 \]
 
 Următorul rezultat concret nu trebuie să fie un controler mai complex, ci un
