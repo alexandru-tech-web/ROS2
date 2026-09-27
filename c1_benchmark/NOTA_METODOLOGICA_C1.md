@@ -179,3 +179,12 @@ Discovery Zenoh cross-masina pe aceasta retea: NEREZOLVAT, dar IZOLAT la deploym
 OK). Regula de aur: NU se ruleaza masuratori Zenoh HIL pana cand un SUBSCRIBER REAL pe o masina nu
 primeste datele peer-ului de pe cealalta (nu doar `ros2 topic list`, care poate minti via daemon).
 CycloneDDS HIL NEATINS. Cifrele Zenoh raman SIL/loopback pana atunci.
+
+### Nota Z1 (27.09.2026) -- adaugata, nimic de mai sus nu e rescris
+- Starea 'NEREZOLVAT' de mai sus e din 27.06. Pe 30.06, cu AMBELE masini pe Wi-Fi si cu routere configurate explicit
+  (`router_pi.json5` / `router_m1.json5`), zenoh HIL a livrat la `ideal` 5/5 repetitii 989/989 (64 B si 4 KB), iar pe
+  24.09 (PF0) propagarea cross-masina s-a reprodus (29/29). Cauza esecului din 27.06 ramane nedemonstrata: s-au schimbat
+  doua lucruri deodata (segmentul fizic si configuratia routerelor).
+- Campania C1 HIL (29-30.06) a fost SECVENTIALA: RMW pe zile diferite (cyclonedds 29.06, zenoh 30.06), in ordinea
+  severitatii, fara repornire intre repetitii (un singur proces ecou pe Pi pe toata campania zenoh). Repetitiile nu sunt
+  independente; comparatia RMW pe HIL nu se citeaza pana la DIAG-Z (registrul de anomalii din DOC: A002, A003).
