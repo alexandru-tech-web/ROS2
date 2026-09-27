@@ -65,7 +65,8 @@ Nu e un defect al pachetului, e conventia ROS 2: descoperirea multicast e oprita
 (`enabled: false` in `DEFAULT_RMW_ZENOH_SESSION_CONFIG.json5`), deci fara router doua
 sesiuni zenoh nu se gasesc. Aceeasi conventie e folosita de campania C1
 (`c1_benchmark/run_campaign.py:138`) si de `test/test_integrare_offline.py:113`.
-Masurat: fara router sonda de viabilitate pe zenoh primeste 0 din 213 raspunsuri; cu
+Masurat: fara router sonda de viabilitate pe zenoh primeste 0 din 213 raspunsuri
+(neverificat -- smoke fara router, 01.09; de reprodus controlat in Etapa A); cu
 router, 220 din 220. Detalii in `docs/SMOKE_TRAFIC_2026-09-02.md`.
 
     python3 test/test_dwell_mediana.py                  # mediana e valida pentru dwell
