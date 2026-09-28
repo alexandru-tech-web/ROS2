@@ -69,6 +69,18 @@ CONDITIONS = [
     #    (KEEP_ALL in loc de KEEP_LAST 50), deci se cere din bench_client, nu de aici.
     dict(name="lat200_jit50_pfifo", base_ms=200, jitter_ms=50, loss=0.00, child="pfifo limit 1000"),
     dict(name="lat200_fix",         base_ms=200, jitter_ms=0,  loss=0.00),
+    # --- DIAG-Z2 (28.09.2026), DE RATIFICAT.
+    # K1 CORECTAT (DECIZII 28.09): pe kernelurile de azi netem trece ORICE pachet prin coada interna tfifo, ordonata
+    #    dupa ora de trimitere (net/sched/sch_netem.c, tfifo_enqueue), iar copilul primeste pachetele din tfifo abia cand
+    #    le vine ora, in aceeasi ordine (netem_dequeue) -> copilul pfifo din lat200_jit50_pfifo NU opreste reordonarea.
+    #    Cu 'rate', ora fiecarui pachet e cel putin ora ultimului pachet din coada (netem_enqueue, blocul
+    #    'if (q->rate)') -> acelasi jitter, FARA depasiri. 1000mbit: ~33 us pe 4 KB, neglijabil la 50 Hz x 4 KB.
+    #    Pretul: intarzierea REALIZATA creste (un pachet asteapta dupa cel dinainte) -- se masoara (sonda ping), nu se
+    #    presupune.
+    dict(name="lat200_jit50_rate",  base_ms=200, jitter_ms=50, loss=0.00, rate="1000mbit", doar_explicit=True),
+    # H1 (DIAG-Z2 partea 2b): taierea legaturii dintre masini -- pierdere 100 %, pe ambele, 12 s (> lease 10 s).
+    # doar_explicit: NU intra in grila implicita a lui run_campaign.py (fara --conditions); se cer doar pe nume.
+    dict(name="taiere",             base_ms=0,   jitter_ms=0,  loss=1.00, doar_explicit=True),
 ]
 
 
@@ -130,9 +142,11 @@ def netem_cmd(iface: str, c: dict) -> str:
         loss_tok = f"loss {100 * c.get('loss', 0.0):.1f}%"
         if c.get("corr", 0.0):
             loss_tok += f" {100 * c['corr']:.1f}%"
+    # 'rate' (DIAG-Z2, 28.09.2026): doar conditiile care il cer; restul raman bit cu bit ce erau.
+    rate_tok = f" rate {c['rate']}" if c.get("rate") else ""
     return (f"tc qdisc replace dev {iface} root netem "
             f"delay {c.get('base_ms', 0)}ms {c.get('jitter_ms', 0)}ms "
-            f"{loss_tok}")
+            f"{loss_tok}{rate_tok}")
 
 def netem_cmds(iface: str, c: dict) -> list:
     """TOATE comenzile tc ale unei conditii, in ordinea in care se emit.

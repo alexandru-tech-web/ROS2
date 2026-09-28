@@ -81,7 +81,8 @@ def main():
             sys.exit(f"conditii necunoscute: {bad} (stiute: {sorted(known)})")
         conditions = [c for c in CONDITIONS if c["name"] in want]
     else:
-        conditions = CONDITIONS
+        # doar_explicit (DIAG-Z2, 28.09): celulele de control noi (K1 prin 'rate', taierea H1) nu intra in grila implicita
+        conditions = [c for c in CONDITIONS if not c.get("doar_explicit")]
     # HIL: exclude conditiile de interferenta INGHETATE -- pe legatura fizica vrem comparatia
     # AUTORITARA memoryless + latenta. *_burst (corr) nu pastreaza media; gilbert_* fac parte din
     # suprafata RF inghetata (in afara drumului critic A1). Vezi NOTA_METODOLOGICA_C1.md / HIL_RUNBOOK.md.
