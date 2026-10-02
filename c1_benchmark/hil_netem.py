@@ -206,9 +206,11 @@ def _executa_tc(cmd):
 
 
 def ruleaza_program(iface, label, cmds, ferestre, journal, eticheta,
-                    ceas=time.time, dormi=time.sleep, executa=_executa_tc, arata=None, ms=now_iso_ms, clear=None):
+                    ceas=time.time, dormi=time.sleep, executa=_executa_tc, arata=None, ms=now_iso_ms, clear=None,
+                    arata_pre_off=None):
     """Aplica 'cmds' la fiecare ON si sterge la fiecare OFF (implicit netem; Z17: 'clear' dat = alta curatenie, ex.
-    iptables), cu jurnal. Injectabil (ceas, somn, executie) pentru test."""
+    iptables), cu jurnal. Injectabil (ceas, somn, executie) pentru test. Z17 (revizia B, B1): 'arata_pre_off' dat ->
+    o linie SHOW_PRE_OFF INAINTE de curatenie (la ipt: contoarele DROP, care la ON sunt 0 si dupa OFF dispar)."""
     arata = arata or (lambda: tc_show_text(iface))
     verifica_program(ferestre, ceas())
     clear = clear or netem_clear_cmd(iface)
@@ -218,6 +220,8 @@ def ruleaza_program(iface, label, cmds, ferestre, journal, eticheta,
         append_journal(journal, journal_line(ms(), iface, eticheta_linie, text))
 
     def sterge(motiv):
+        if arata_pre_off is not None:
+            jurnal("SHOW_PRE_OFF", "%s %s" % (eticheta, arata_pre_off()))
         executa(clear)
         jurnal("CLEAR", "%s  # %s %s" % (clear, eticheta, motiv))
         jurnal("SHOW", "%s %s" % (eticheta, arata()))
@@ -338,12 +342,15 @@ def _selftest():
         j = os.path.join(d, "j.log")
         ruleaza_program("wlan0", "ipt", c_ipt, [(2003.0, 2050.0)], j, "r011", ceas=lambda: t["acum"], dormi=dormi,
                         executa=executate.append, arata=lambda: "Chain C3IPT 2 references pkts 512 DROP",
-                        ms=lambda: "T%.1f" % t["acum"], clear=cl)
+                        ms=lambda: "T%.1f" % t["acum"], clear=cl, arata_pre_off=lambda: "C3IPT 41 2460 DROP 9 540 DROP")
         linii = open(j).read().splitlines()
     etich = [ln.split(None, 3)[2] for ln in linii]
-    verifica(executate == c_ipt + [cl] and etich == ["PROGRAM"] + ["ipt"] * 6 + ["SHOW", "CLEAR", "SHOW", "PROGRAM_GATA"]
-             and linii[1].startswith("T2003.0 ") and linii[8].startswith("T2050.0 ") and "pkts 512" in linii[7],
-             "program ipt: la ON cele 6 comenzi, SHOW cu contoarele; la OFF curatenia ipt (NU stergerea netem)")
+    verifica(executate == c_ipt + [cl] and etich == ["PROGRAM"] + ["ipt"] * 6 + ["SHOW", "SHOW_PRE_OFF", "CLEAR", "SHOW",
+                                                                               "PROGRAM_GATA"]
+             and linii[1].startswith("T2003.0 ") and linii[9].startswith("T2050.0 ") and "pkts 512" in linii[7]
+             and "41 2460 DROP" in linii[8],
+             "program ipt: la ON cele 6 comenzi, SHOW; la OFF intai SHOW_PRE_OFF cu contoarele DROP (revizia B, B1), apoi "
+             "curatenia ipt (NU stergerea netem)")
     ok = all(rez)
     print("selftest hil_netem: %s (%d/%d)" % ("OK" if ok else "PICA", sum(rez), len(rez)))
     return 0 if ok else 1
@@ -399,7 +406,7 @@ def main():
                 return
             ferestre = parse_program(a.program)
             ruleaza_program(a.iface, "ipt", cmds, ferestre, journal, a.eticheta, arata=ipt_show_text,
-                            clear=ipt_clear_cmd())
+                            clear=ipt_clear_cmd(), arata_pre_off=ipt_show_text)
         except ValueError as e:
             append_journal(journal, journal_line(now_iso_ms(), a.iface, "PROGRAM_REFUZAT", "%s %s" % (a.eticheta, e)))
             sys.exit("program ipt refuzat: %s" % e)
