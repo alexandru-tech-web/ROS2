@@ -21,6 +21,16 @@ proces lansat INAINTE de degradare, ca driverul sa nu mai dea nicio comanda ssh 
       opreste (SIGTERM) orice alt program temporizat inca viu (care isi sterge singur netem-ul, daca e activ).
   python3 hil_netem.py --selftest                    # verificari pure (ceas si tc falsificate), fara sudo
 
+IPTABLES TEMPORIZAT (Etapa A C3, Z17, 01.10.2026; DECIZII 01.10 Z16b (3): iptables prin acest script, fara regula
+sudoers noua -- regula NOPASSWD existenta acopera 'python3 hil_netem.py *'):
+  sudo python3 hil_netem.py <iface> ipt --peer <IP_M1> [--port 7447] --program ON:OFF --eticheta <id> [--journal ...]
+      DROP pe fluxul router-router: in lantul propriu C3IPT, intrarea pe <iface> de la <IP_M1> spre portul local
+      <port> si iesirea pe <iface> spre <IP_M1> din portul local <port> (TCP). Sesiunile locale (localhost:7447) si
+      ssh-ul nu se ating. La ON: curatenie + lantul + cele doua reguli; la OFF si la SIGTERM / SIGINT: curatenia.
+      Linia SHOW poarta contoarele lantului (iptables -L C3IPT -v -n -x, pe un rand).
+  sudo python3 hil_netem.py <iface> --curata-ipt [--journal ...]
+      sterge lantul C3IPT si salturile spre el (idempotent; folosit si de paznic).
+
 JURNAL DE PROVENIENTA (~/DATE_CAMPANIE/netem_journal_M2.log, --journal pentru alta cale):
 la FIECARE aplicare REALA si la fiecare --clear se adauga o linie
   <ISO-timestamp> <iface> <conditie|CLEAR> <comanda tc emisa>
@@ -37,6 +47,7 @@ legatura fizica) se cere explicit cu --allow-corr, acelasi flag ca in run_campai
   sudo python3 hil_netem.py eth0 ge_15_8 --allow-corr"""
 import argparse
 import datetime
+import ipaddress
 import os
 import shutil
 import signal
@@ -51,6 +62,7 @@ from bench_core import CONDITIONS, netem_cmd, netem_cmds, netem_clear_cmd
 JOURNAL_DEFAULT = os.path.join(os.path.expanduser("~"), "DATE_CAMPANIE",
                                "netem_journal_M2.log")
 MAX_PROGRAM_S = 4 * 3600          # un program temporizat nu poate tine mai mult de 4 h
+LANT_IPT = "C3IPT"                # lantul propriu (Z17): curatenia nu atinge nimic altceva din iptables
 TOLERANTA_TRECUT_S = 1.0          # prima fereastra poate incepe cel mult 1 s in trecut (lansare tarzie)
 
 
@@ -147,6 +159,39 @@ def verifica_program(ferestre, acum):
         raise ValueError("programul s-ar termina peste %.0f s (> %d s) -- refuzat" % (ferestre[-1][1] - acum, MAX_PROGRAM_S))
 
 
+def ipt_cmds(iface, peer, port=7447):
+    """Comenzile de aplicare (PURE): curatenie, lantul C3IPT, salturile, cele doua reguli DROP pe fluxul router-router.
+    Refuza un IP invalid, un port in afara 1-65535 sau o interfata cu spatii (ValueError)."""
+    ip = str(ipaddress.ip_address(peer))
+    port = int(port)
+    if not 0 < port < 65536:
+        raise ValueError("port invalid: %s" % port)
+    if not iface or any(c.isspace() for c in iface):
+        raise ValueError("interfata invalida: %r" % iface)
+    return [ipt_clear_cmd(),
+            "iptables -N %s" % LANT_IPT,
+            "iptables -I INPUT 1 -j %s" % LANT_IPT,
+            "iptables -I OUTPUT 1 -j %s" % LANT_IPT,
+            "iptables -A %s -i %s -s %s -p tcp --dport %d -j DROP" % (LANT_IPT, iface, ip, port),
+            "iptables -A %s -o %s -d %s -p tcp --sport %d -j DROP" % (LANT_IPT, iface, ip, port)]
+
+
+def ipt_clear_cmd():
+    """Curatenia, IDEMPOTENTA (PURA): scoate toate salturile spre lant, il goleste si il sterge; nu esueaza niciodata."""
+    return ("while iptables -D INPUT -j {l} 2>/dev/null; do :; done; "
+            "while iptables -D OUTPUT -j {l} 2>/dev/null; do :; done; "
+            "iptables -F {l} 2>/dev/null; iptables -X {l} 2>/dev/null; true").format(l=LANT_IPT)
+
+
+def ipt_show_text():
+    """Contoarele lantului, pe un rand (merge doar ca root; altfel textul erorii)."""
+    try:
+        p = subprocess.run(["iptables", "-L", LANT_IPT, "-v", "-n", "-x"], capture_output=True, text=True, check=False)
+        return " ".join((p.stdout or p.stderr).split()) or "(gol)"
+    except OSError as e:
+        return "(iptables indisponibil: %s)" % e
+
+
 def tc_show_text(iface):
     tc = shutil.which("tc") or "/usr/sbin/tc"
     try:
@@ -161,11 +206,12 @@ def _executa_tc(cmd):
 
 
 def ruleaza_program(iface, label, cmds, ferestre, journal, eticheta,
-                    ceas=time.time, dormi=time.sleep, executa=_executa_tc, arata=None, ms=now_iso_ms):
-    """Aplica 'cmds' la fiecare ON si sterge netem la fiecare OFF, cu jurnal. Injectabil (ceas, somn, tc) pentru test."""
+                    ceas=time.time, dormi=time.sleep, executa=_executa_tc, arata=None, ms=now_iso_ms, clear=None):
+    """Aplica 'cmds' la fiecare ON si sterge la fiecare OFF (implicit netem; Z17: 'clear' dat = alta curatenie, ex.
+    iptables), cu jurnal. Injectabil (ceas, somn, executie) pentru test."""
     arata = arata or (lambda: tc_show_text(iface))
     verifica_program(ferestre, ceas())
-    clear = netem_clear_cmd(iface)
+    clear = clear or netem_clear_cmd(iface)
     stare = {"activ": False}
 
     def jurnal(eticheta_linie, text):
@@ -267,6 +313,37 @@ def _selftest():
     verifica(executate == [netem_cmds("wlan0", c)[0], netem_clear_cmd("wlan0")] * 2 and "rate 1000mbit" in executate[0],
              "tc executat: conditia (cu rate) si stergerea, de doua ori")
     verifica(all("# r007" in ln or " r007" in ln for ln in linii), "eticheta r007 pe fiecare linie")
+    # Z17: iptables temporizat
+    c_ipt = ipt_cmds("wlan0", "192.168.100.14", 7447)
+    verifica(c_ipt[0] == ipt_clear_cmd() and c_ipt[1:] == [
+        "iptables -N C3IPT", "iptables -I INPUT 1 -j C3IPT", "iptables -I OUTPUT 1 -j C3IPT",
+        "iptables -A C3IPT -i wlan0 -s 192.168.100.14 -p tcp --dport 7447 -j DROP",
+        "iptables -A C3IPT -o wlan0 -d 192.168.100.14 -p tcp --sport 7447 -j DROP"],
+        "ipt: curatenie, lant C3IPT, salturi, DROP doar pe fluxul router-router (wlan0, IP-ul M1, TCP 7447, ambele sensuri)")
+    for args, motiv in ((("wlan0", "192.168.100", 7447), "IP incomplet"), (("wlan0", "192.168.100.14", 0), "port 0"),
+                        (("wlan0", "192.168.100.14", 70000), "port > 65535"), (("wlan 0", "192.168.100.14", 7447),
+                                                                              "interfata cu spatiu")):
+        try:
+            ipt_cmds(*args)
+            verifica(False, "CONTROL NEGATIV (%s) acceptat" % motiv)
+        except ValueError:
+            verifica(True, "CONTROL NEGATIV: ipt cu %s -> refuzat" % motiv)
+    cl = ipt_clear_cmd()
+    verifica(cl.endswith("; true") and cl.count("while iptables -D") == 2 and "-X C3IPT" in cl and "INPUT -F" not in cl
+             and "-F INPUT" not in cl and "-F OUTPUT" not in cl,
+             "curatenia ipt e idempotenta (bucle + 'true') si atinge DOAR lantul C3IPT (nu goleste INPUT / OUTPUT)")
+    t["acum"] = 2000.0
+    executate[:] = []
+    with tempfile.TemporaryDirectory() as d:
+        j = os.path.join(d, "j.log")
+        ruleaza_program("wlan0", "ipt", c_ipt, [(2003.0, 2050.0)], j, "r011", ceas=lambda: t["acum"], dormi=dormi,
+                        executa=executate.append, arata=lambda: "Chain C3IPT 2 references pkts 512 DROP",
+                        ms=lambda: "T%.1f" % t["acum"], clear=cl)
+        linii = open(j).read().splitlines()
+    etich = [ln.split(None, 3)[2] for ln in linii]
+    verifica(executate == c_ipt + [cl] and etich == ["PROGRAM"] + ["ipt"] * 6 + ["SHOW", "CLEAR", "SHOW", "PROGRAM_GATA"]
+             and linii[1].startswith("T2003.0 ") and linii[8].startswith("T2050.0 ") and "pkts 512" in linii[7],
+             "program ipt: la ON cele 6 comenzi, SHOW cu contoarele; la OFF curatenia ipt (NU stergerea netem)")
     ok = all(rez)
     print("selftest hil_netem: %s (%d/%d)" % ("OK" if ok else "PICA", sum(rez), len(rez)))
     return 0 if ok else 1
@@ -291,6 +368,9 @@ def main():
     ap.add_argument("--program", default=None, help="ON:OFF[,ON:OFF...] -- netem temporizat (epoci Unix)")
     ap.add_argument("--eticheta", default="-", help="eticheta programului in jurnal (ex. run_id)")
     ap.add_argument("--anuleaza", action="store_true", help="opreste programele temporizate inca vii")
+    ap.add_argument("--peer", default=None, help="ipt: IP-ul lui M1 (capatul router-router)")
+    ap.add_argument("--port", type=int, default=7447, help="ipt: portul routerului de pe Pi (implicit 7447)")
+    ap.add_argument("--curata-ipt", action="store_true", help="sterge lantul C3IPT si salturile (idempotent)")
     a = ap.parse_args()
     journal = os.path.expanduser(a.journal)
 
@@ -301,6 +381,28 @@ def main():
         return
     if a.anuleaza:
         print("anulate: %s" % (anuleaza_programe(journal) or "niciunul"))
+        return
+    if a.curata_ipt:
+        cl = ipt_clear_cmd()
+        if not a.dry:
+            subprocess.run(["sudo", "bash", "-c", cl], check=False)
+            append_journal(journal, journal_line(now_iso_ms(), a.iface, "CLEAR_IPT", cl))
+        print(cl)
+        return
+    if a.condition == "ipt":
+        if not a.peer or not a.program:
+            sys.exit("ipt cere --peer <IP_M1> si --program ON:OFF")
+        try:
+            cmds = ipt_cmds(a.iface, a.peer, a.port)
+            if a.dry:
+                print("\n".join(cmds + [ipt_clear_cmd()]))
+                return
+            ferestre = parse_program(a.program)
+            ruleaza_program(a.iface, "ipt", cmds, ferestre, journal, a.eticheta, arata=ipt_show_text,
+                            clear=ipt_clear_cmd())
+        except ValueError as e:
+            append_journal(journal, journal_line(now_iso_ms(), a.iface, "PROGRAM_REFUZAT", "%s %s" % (a.eticheta, e)))
+            sys.exit("program ipt refuzat: %s" % e)
         return
 
     if a.clear or a.condition is None:
