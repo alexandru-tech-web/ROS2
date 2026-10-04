@@ -51,15 +51,15 @@ misiunea pierduta la partitii.
 
 ```bash
 # L0 -- nucleul pur
-python3 ~/ros2_ws/src/mesh_plugin/mesh_plugin/mesh_core.py        # astept: 21/21
+python3 ~/TEZA/src/mesh_plugin/mesh_plugin/mesh_core.py        # astept: 21/21
 
 # L1 -- SIL (figuri in directorul curent)
-cd ~/ros2_ws/src/mesh_plugin/mesh_plugin
+cd ~/TEZA/src/mesh_plugin/mesh_plugin
 python3 sil_mesh.py            # reachability stea vs mesh in timp
 python3 sil_mesh_mission.py    # acoperire + victime, stea vs mesh, cu cost
 
 # L2 -- ROS
-cd ~/ros2_ws && colcon build --packages-select mesh_plugin --symlink-install
+cd ~/TEZA && colcon build --packages-select mesh_plugin --symlink-install
 source install/setup.bash
 ros2 launch mesh_plugin mesh_plugins.launch.py        # tesatura mesh (per drona + GCS)
 ros2 topic echo /mesh/route/d3                        # ruta live a dronei d3
@@ -76,16 +76,16 @@ adaptorul aplica decizia pe telemetrie (rata, prospetime, payload, QoS).
 
 ```bash
 # L0 -- cele doua nuclee
-python3 ~/ros2_ws/src/link_adaptive/link_adaptive/link_adaptive_core.py   # 22/22
-python3 ~/ros2_ws/src/link_adaptive/link_adaptive/policy_applier.py        # 13/13
+python3 ~/TEZA/src/link_adaptive/link_adaptive/link_adaptive_core.py   # 22/22
+python3 ~/TEZA/src/link_adaptive/link_adaptive/policy_applier.py        # 13/13
 
 # L1 -- SIL-uri
-cd ~/ros2_ws/src/link_adaptive/link_adaptive
+cd ~/TEZA/src/link_adaptive/link_adaptive
 python3 sil_link_adaptive.py    # adaptiv vs static (control ~14x mai proaspat)
 python3 sil_policy_loop.py      # bucla completa decide+aplica (debit 20->10->2 Hz)
 
 # L2 -- ROS: decizia singura
-cd ~/ros2_ws && colcon build --packages-select link_adaptive --symlink-install
+cd ~/TEZA && colcon build --packages-select link_adaptive --symlink-install
 source install/setup.bash
 ros2 launch link_adaptive link_adaptive.launch.py
 ros2 topic echo /link_adaptive/policy                 # politica publicata
@@ -112,14 +112,14 @@ CDF cu benzi de incredere.
 
 ```bash
 # L0
-python3 ~/ros2_ws/src/c1_benchmark/campaign_stats.py --selftest          # 17/17
+python3 ~/TEZA/src/c1_benchmark/campaign_stats.py --selftest          # 17/17
 
 # L1 -- pe date sintetice (vezi formatul + figurile)
-python3 ~/ros2_ws/src/c1_benchmark/campaign_stats.py --demo --out /tmp/stats_demo
+python3 ~/TEZA/src/c1_benchmark/campaign_stats.py --demo --out /tmp/stats_demo
 ls /tmp/stats_demo     # stats_summary.csv, stats_compare.csv, fig_cdf_band_*, fig_p95_ci
 
 # pe DATELE REALE (dupa o campanie)
-python3 ~/ros2_ws/src/c1_benchmark/campaign_stats.py ~/c1_results_full --out ~/c1_results_full/stats
+python3 ~/TEZA/src/c1_benchmark/campaign_stats.py ~/c1_results_full --out ~/c1_results_full/stats
 #  daca nu gaseste coloana RTT: adauga --rtt-col NUME sau --glob 'transport_*.csv'
 ```
 **Ce ar trebui sa vezi:** `stats_summary.csv` (p95 cu CI), `stats_compare.csv`
@@ -157,25 +157,25 @@ Inainte de orice campanie: `preflight.sh` (verdict GO/NO-GO).
 ### 5.1 Toate verificarile offline (fara ROS, fara date) -- copy-paste
 ```bash
 # nucleele NOI
-python3 ~/ros2_ws/src/mesh_plugin/mesh_plugin/mesh_core.py                 # 21/21
-python3 ~/ros2_ws/src/link_adaptive/link_adaptive/link_adaptive_core.py    # 22/22
-python3 ~/ros2_ws/src/link_adaptive/link_adaptive/policy_applier.py        # 13/13
-python3 ~/ros2_ws/src/c1_benchmark/campaign_stats.py --selftest            # 17/17
+python3 ~/TEZA/src/mesh_plugin/mesh_plugin/mesh_core.py                 # 21/21
+python3 ~/TEZA/src/link_adaptive/link_adaptive/link_adaptive_core.py    # 22/22
+python3 ~/TEZA/src/link_adaptive/link_adaptive/policy_applier.py        # 13/13
+python3 ~/TEZA/src/c1_benchmark/campaign_stats.py --selftest            # 17/17
 # tot depozitul (suitele existente: sar_swarm, sar_plugins, c1, joint_emulator)
-cd ~/ros2_ws/src && ./smoke_all.sh
+cd ~/TEZA/src && ./smoke_all.sh
 ```
 
 ### 5.2 Toate SIL-urile (figuri, fara ROS)
 ```bash
-cd ~/ros2_ws/src/mesh_plugin/mesh_plugin && python3 sil_mesh.py && python3 sil_mesh_mission.py
-cd ~/ros2_ws/src/link_adaptive/link_adaptive && python3 sil_link_adaptive.py && python3 sil_policy_loop.py
-python3 ~/ros2_ws/src/c1_benchmark/campaign_stats.py --demo --out /tmp/stats_demo
+cd ~/TEZA/src/mesh_plugin/mesh_plugin && python3 sil_mesh.py && python3 sil_mesh_mission.py
+cd ~/TEZA/src/link_adaptive/link_adaptive && python3 sil_link_adaptive.py && python3 sil_policy_loop.py
+python3 ~/TEZA/src/c1_benchmark/campaign_stats.py --demo --out /tmp/stats_demo
 # figurile SIL apar in directorul curent; cele de statistica in /tmp/stats_demo
 ```
 
 ### 5.3 Build + rulare ROS
 ```bash
-cd ~/ros2_ws && source /opt/ros/jazzy/setup.bash
+cd ~/TEZA && source /opt/ros/jazzy/setup.bash
 colcon build --symlink-install && source install/setup.bash
 ros2 pkg executables mesh_plugin
 ros2 pkg executables link_adaptive
@@ -184,7 +184,7 @@ ros2 pkg executables link_adaptive
 
 ### 5.4 Gotchas rapide
 - `RTPS_TRANSPORT_SHM` la pornire -> `rm -f /dev/shm/fastrtps_*` (inofensiv).
-- `Package not found` -> ai uitat `source ~/ros2_ws/install/setup.bash`.
+- `Package not found` -> ai uitat `source ~/TEZA/install/setup.bash`.
 - `ros2 run` zice "failure 1" desi a mers -> entry-point intoarce bool; folosim
   `main()` care intoarce None (deja rezolvat in pachetele noastre).
 - ai schimbat `setup.py`/entry-points -> rebuild obligatoriu (wrapper-ele se

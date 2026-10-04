@@ -127,13 +127,13 @@ Comenzile de mai jos sunt EXTRASE din docstring-uri si din cod.
 
 Selftest offline al nucleului cu _selftest() (rf_status_core.py):
 
-    cd ~/ros2_ws/src/sar_swarm
+    cd ~/TEZA/src/sar_swarm
     python3 rf_status_core.py
 
 SIL pe un scenariu (din docstring sil_run.py; pozitionale: scenariu, apoi
 optional '--out <dir>'):
 
-    cd ~/ros2_ws/src/sar_swarm
+    cd ~/TEZA/src/sar_swarm
     python3 sil_run.py scenarios/baseline.yaml
     python3 sil_run.py scenarios/loss_70.yaml --out results/
 
@@ -159,7 +159,7 @@ Meniul grafic (necesita python3-tk):
 
 Generarea lumii Gazebo (scrie worlds/apocalypse.sdf, ruleaza din pachet):
 
-    cd ~/ros2_ws/src/sar_swarm
+    cd ~/TEZA/src/sar_swarm
     python3 gen_world.py
 
 Lansare ROS (zero-build -> 'ros2 launch <cale>', NU 'ros2 launch sar_swarm ...';

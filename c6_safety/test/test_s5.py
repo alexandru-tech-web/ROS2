@@ -31,9 +31,9 @@ if _PKG not in sys.path:
     sys.path.insert(0, _PKG)
 
 RADACINA = os.path.abspath(os.path.join(_AICI, "..", "..", ".."))
-TOOLS = os.path.join(RADACINA, "ORGANIZARE", "DOC", "BORD", "tools")
-PLAN = os.path.join(RADACINA, "ORGANIZARE", "DOC", "CAIETE", "run_plan_c6.csv")
-CAMPANIE = os.path.join(RADACINA, "DATE", "C6", "S4_2026-09-23_CANONIC", "runs")
+TOOLS = os.path.join(RADACINA, "DOC", "BORD", "tools")                      # E-ORDINE-3 FINAL: ~/TEZA/DOC
+PLAN = os.path.join(RADACINA, "DOC", "CAIETE", "run_plan_c6.csv")
+CAMPANIE = os.path.join(RADACINA, "DATE", "C6", "2026-09-23_s4_OPRITA", "runs")
 VENV = os.path.join(RADACINA, ".venv_c6", "bin", "python")
 
 EPS = 1e-9

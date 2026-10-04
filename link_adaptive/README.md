@@ -52,7 +52,7 @@ pe doua bucle:
 
 Build:
 
-    cd ~/ros2_ws && colcon build --packages-select link_adaptive --symlink-install
+    cd ~/TEZA && colcon build --packages-select link_adaptive --symlink-install
 
 Selftest offline (fara ROS) pe nucleele pure:
 

@@ -11,11 +11,11 @@
 #
 # Ruleaza fara ROS (doar Python pur). Verdict GO / NO-GO la final.
 #
-#   bash check_repo.sh            # din ~/ros2_ws/src
+#   bash check_repo.sh            # din ~/TEZA/src
 #   SRC=~/alt/cale bash check_repo.sh
 set -u
 
-SRC="${SRC:-$HOME/ros2_ws/src}"
+SRC="${SRC:-${PHD_ROOT:-$HOME/TEZA}/src}"
 OK=1
 PASS=0
 FAIL=0

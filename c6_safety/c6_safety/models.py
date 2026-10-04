@@ -45,7 +45,7 @@ class SkidSteerAdapter(object):
     nume = "skidsteer4w"
 
     def __init__(self):
-        cale = os.path.expanduser("~/ros2_ws/src/teleop_rover")
+        cale = os.path.join(os.path.expanduser(os.environ.get("PHD_ROOT", "~/TEZA")), "src", "teleop_rover")   # E-ORDINE-3 FINAL
         # COLIZIUNE DE NUME: teleop_rover are PROPRIUL rover_dyn.py (cu V_MAX,
         # W_MAX), iar al nostru se cheama la fel. Fara izolare, nav_core il
         # importa pe al nostru si cade cu ImportError: W_MAX. Deci: punem calea

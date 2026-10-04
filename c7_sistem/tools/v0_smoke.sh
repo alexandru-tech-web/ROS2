@@ -20,7 +20,7 @@ timeout 15 ros2 topic echo --once /sar/telemetry_mesh > "$OUT/egress_once.txt" 2
 while [ "$SECONDS" -lt "$DUR" ]; do sleep 2; done          # graficul ramane pornit cel putin DUR secunde
 kill -INT $LP 2>/dev/null; for i in $(seq 1 25); do kill -0 $LP 2>/dev/null || break; sleep 1; done   # ros2 launch propaga SIGINT ordonat
 kill -TERM -- -$LP 2>/dev/null; sleep 2; kill -KILL -- -$LP 2>/dev/null; wait $LP 2>/dev/null
-echo "procese ramase din grafic: $(pgrep -f "ros2_ws/(src|install)/(sar_swarm|mesh_plugin|teleop_rover|c3_gateway|c7_sistem|c6_safety)/" | wc -l)" >> "$OUT/launch.log"
+echo "procese ramase din grafic: $(pgrep -f "TEZA/(src|install)/(sar_swarm|mesh_plugin|teleop_rover|c3_gateway|c7_sistem|c6_safety)/" | wc -l)" >> "$OUT/launch.log"
 # ultimele 20 de linii per proces (prefixul [nume-N] din launch.log)
 for p in $(/usr/bin/grep -oE "^\[[a-zA-Z0-9_.-]+-[0-9]+\]" "$OUT/launch.log" | sort -u); do
   n=$(echo "$p" | tr -d '[]'); /usr/bin/grep -F "$p" "$OUT/launch.log" | tail -20 > "$OUT/log_$n.txt"

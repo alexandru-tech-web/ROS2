@@ -10,7 +10,7 @@
 # Cere INAINTE, in ACELASI terminal pe ambele masini:
 #   export ROS_DOMAIN_ID=7
 #   export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp   # sau rmw_zenoh_cpp (P2P, FARA router)
-#   source ~/ros2_ws/install/setup.bash
+#   source <workspace>/install/setup.bash   (M1: ~/TEZA, Pi: ~/ros2_ws)
 set -u
 
 PEER=""; IFACE=""; TALKER=0; KEEP_ROUTER=0
@@ -35,7 +35,7 @@ fail(){ printf '  [FAIL] %s\n' "$1"; FAIL=$((FAIL + 1)); }
 echo "== HIL preflight (peer=$PEER) =="
 
 echo "-- mediu ROS --"
-if command -v ros2 >/dev/null 2>&1; then pass "ros2 in PATH"; else fail "ros2 NU e in PATH (source ~/ros2_ws/install/setup.bash)"; fi
+if command -v ros2 >/dev/null 2>&1; then pass "ros2 in PATH"; else fail "ros2 NU e in PATH (source <workspace>/install/setup.bash; M1: ~/TEZA, Pi: ~/ros2_ws)"; fi
 if [ -n "${ROS_DOMAIN_ID:-}" ]; then pass "ROS_DOMAIN_ID=$ROS_DOMAIN_ID (TREBUIE identic pe ambele masini)"; else fail "ROS_DOMAIN_ID nesetat (export ROS_DOMAIN_ID=7)"; fi
 if [ -n "${RMW_IMPLEMENTATION:-}" ]; then pass "RMW_IMPLEMENTATION=$RMW_IMPLEMENTATION"; else warn "RMW_IMPLEMENTATION nesetat (export rmw_cyclonedds_cpp sau rmw_zenoh_cpp)"; fi
 case "${RMW_IMPLEMENTATION:-}" in

@@ -43,6 +43,6 @@ Inainte de campanie ruleaza pre-flight-ul (`./preflight.sh`, respectiv pre-fligh
 ## Igiena datelor
 
 Datele experimentale NU se versioneaza (vezi `.gitignore` si `README.md`). Rezultatele
-campaniilor se scriu in afara depozitului (`~/ros2_ws/new_data_sar/...`) si se regenereaza
+campaniilor se scriu in afara depozitului (`~/TEZA/new_data_sar/...`) si se regenereaza
 cu scripturile. In git intra doar codul, scripturile de analiza si figurile
 reprezentative din `*/docs/`.

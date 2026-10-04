@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # run_all_sar.sh -- re-ruleaza experimentele SAR + C1 pe date curate, automat.
-# Iesire: ~/ros2_ws/new_data_sar/run_<timestamp>/{sil,c1_transport,logs,SUMMARY.txt}
+# Iesire: ~/TEZA/new_data_sar/run_<timestamp>/{sil,c1_transport,logs,SUMMARY.txt}
 #
 # DOUA MODURI:
 #   bash run_all_sar.sh --smoke   # test ~5 min: valideaza ca tot porneste
@@ -21,10 +21,10 @@ set -o pipefail        # NU set -u: ar rupe `source` la setup.bash ROS2 (lectie 
 SMOKE=0
 [ "${1:-}" = "--smoke" ] && SMOKE=1
 
-SAR_DIR="$HOME/ros2_ws/src/sar_swarm"
-C1_DIR="$HOME/ros2_ws/src/c1_benchmark"
+SAR_DIR="${PHD_ROOT:-$HOME/TEZA}/src/sar_swarm"
+C1_DIR="${PHD_ROOT:-$HOME/TEZA}/src/c1_benchmark"
 STAMP="$(date +%Y%m%d_%H%M%S)"
-OUT="$HOME/ros2_ws/new_data_sar/run_${STAMP}"
+OUT="${PHD_ROOT:-$HOME/TEZA}/new_data_sar/run_${STAMP}"
 LOGS="$OUT/logs"
 SUMMARY="$OUT/SUMMARY.txt"
 mkdir -p "$OUT/sil" "$OUT/c1_transport" "$LOGS"

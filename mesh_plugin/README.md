@@ -115,14 +115,14 @@ exemplarele interne sunt entry_points; cele din radacina ruleaza cu `python3`.
 Build (ament_python; `build_type` din `package.xml`):
 
 ```bash
-cd ~/ros2_ws && colcon build --packages-select mesh_plugin --symlink-install
+cd ~/TEZA && colcon build --packages-select mesh_plugin --symlink-install
 source install/setup.bash               # in FIECARE terminal nou
 ```
 
 Selftest offline (nucleele pure, fara ROS; din directorul pachetului):
 
 ```bash
-cd ~/ros2_ws/src/mesh_plugin
+cd ~/TEZA/src/mesh_plugin
 python3 mesh_core.py                     # nucleul din radacina (MeshGraph) -- _selftest
 python3 mesh_plugin/mesh_core.py         # nucleul intern (MeshTopology) -- _selftest
 python3 test_mesh_core.py                # suita externa pentru nucleul din radacina
@@ -159,7 +159,7 @@ Argumente de lansare declarate in `mesh_plugins.launch.py`: `ingest`,
 Scripturile din radacina (NU prin `ros2 run`; argumente argparse reale):
 
 ```bash
-cd ~/ros2_ws/src/mesh_plugin
+cd ~/TEZA/src/mesh_plugin
 python3 sil_mesh.py [--profile P] [--t_max F] [--seed N] [--out PATH]
 python3 sil_mesh_mission.py [--scenario S] [--profile P] [--seed N] [--out PATH]
 python3 mesh_demo.py [--ros]
@@ -169,7 +169,7 @@ python3 mesh_node.py --ros-args -p profile:=urban_rubble -p pdr_min:=0.10
 Verificare automata:
 
 ```bash
-cd ~/ros2_ws/src/mesh_plugin
+cd ~/TEZA/src/mesh_plugin
 ./verifica_tot.sh --offline     # structura + selftest + SIL-uri (fara colcon)
 ./verifica_tot.sh               # + colcon build + ros2 pkg executables
 ./verifica_tot.sh --clean       # build curat (sterge build/install pachet)

@@ -9,7 +9,7 @@
 #
 # Nivelurile urmatoare (cu ROS / cu Gazebo) sunt in GHID_INVATARE.md.
 set -u
-SRC="${SRC:-$HOME/ros2_ws/src}"
+SRC="${SRC:-${PHD_ROOT:-$HOME/TEZA}/src}"
 FULL="${FULL:-0}"
 declare -A REZ
 TOT_OK=0; TOT_FAIL=0

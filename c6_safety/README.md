@@ -44,13 +44,13 @@ iesirea selftestelor de mai sus -- acelea raman martorul de regresie, bit cu bit
                         scrie `<outputs>/<eticheta>_{trace.csv,metrics.json,certificate.json}`
                         si iese; timpul de simulare e nominal (k*dt), perioada reala a
                         tick-ului intra in metrics (`tick_ms_mediu/max`)
-- `launch/c6_smoke.launch.py` -- ambele noduri sub `~/ros2_ws/.venv_c6/bin/python` (osqp e
+- `launch/c6_smoke.launch.py` -- ambele noduri sub `~/TEZA/.venv_c6/bin/python` (osqp e
                         acolo, nu in /usr/bin/python3), RMW global `rmw_cyclonedds_cpp`,
                         se opreste cand iese rover_node. Argumente: brat, scenariu (S3: doar
                         traversare), v_o_max, seed, react, f_haz, qos (reliable|best_effort),
                         outputs, eticheta, rmw, python
 
-Build: `cd ~/ros2_ws && colcon build --packages-select c6_safety --cmake-args
+Build: `cd ~/TEZA && colcon build --packages-select c6_safety --cmake-args
 -DPython3_EXECUTABLE=/usr/bin/python3`. Netem pe lo: `../DOC/BORD/tools/netem_lo.py`;
 smoke complet: `../DOC/BORD/tools/s3_smoke.py` (prin `ruleaza.py`, urmele in `../DATE/campanii/<run_id>/`).
 

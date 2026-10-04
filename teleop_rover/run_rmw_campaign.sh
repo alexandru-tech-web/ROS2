@@ -24,7 +24,7 @@ DURATION=${DURATION:-70}
 GOAL_X=${GOAL_X:-8.0}
 GOAL_Y=${GOAL_Y:-3.0}
 
-WS="$HOME/ros2_ws"
+WS="${PHD_ROOT:-$HOME/TEZA}"
 PKG="$WS/src/teleop_rover"
 LOG="$HOME/teleop_data/robot_log.csv"
 OUT=${OUT:-"$PKG/results/campaign_$(date +%Y%m%d_%H%M%S)"}

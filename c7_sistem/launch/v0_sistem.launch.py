@@ -27,8 +27,9 @@ from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 
 PY = "/usr/bin/python3"
-SRC = os.path.expanduser("~/ros2_ws/src")
-VENV = os.path.expanduser("~/ros2_ws/.venv_c6/bin/python")
+WS = os.path.expanduser(os.environ.get("PHD_ROOT", "~/TEZA"))   # E-ORDINE-3 FINAL
+SRC = os.path.join(WS, "src")
+VENV = os.path.join(WS, ".venv_c6", "bin", "python")
 C3 = os.path.join(SRC, "c3_gateway")
 SAR = os.path.join(SRC, "sar_swarm")
 TEL = os.path.join(SRC, "teleop_rover")

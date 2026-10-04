@@ -128,7 +128,7 @@ Ruleaza ROS intr-un fir separat (spin in thread) si Tk in firul principal.
 
 ### Pregatire (o data)
 ```bash
-cd ~/ros2_ws/src/teleop_rover
+cd ~/TEZA/src/teleop_rover
 python3 gen_rough_world.py        # lumea + terenul texturat + statia GCS
 ```
 
@@ -140,7 +140,7 @@ ss -ltnp 2>/dev/null | grep -q 7447 && echo "7447 inca ocupat" || echo "7447 lib
 
 ### Terminal A - lumea + roverul (porneste OPRIT), sub Zenoh
 ```bash
-cd ~/ros2_ws/src/teleop_rover
+cd ~/TEZA/src/teleop_rover
 ros2 launch ./launch/teleop_perception.launch.py rmw:=zenoh goal_source:=gcs lat:=200 jit:=40
 # asteapta linia "Started Zenoh router"
 ```
@@ -148,8 +148,8 @@ ros2 launch ./launch/teleop_perception.launch.py rmw:=zenoh goal_source:=gcs lat
 ### Terminal B - pupitrul GCS, CU ACELASI RMW
 ```bash
 export RMW_IMPLEMENTATION=rmw_zenoh_cpp      # cheia: la fel ca launch-ul
-source ~/ros2_ws/install/setup.bash
-cd ~/ros2_ws/src/teleop_rover
+source ~/TEZA/install/setup.bash
+cd ~/TEZA/src/teleop_rover
 python3 gcs_console.py
 # click pe harta = roverul porneste spre acel punct
 ```

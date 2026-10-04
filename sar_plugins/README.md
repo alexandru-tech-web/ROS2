@@ -115,7 +115,7 @@ direct cu Python / `ros2 launch`.
 
 ```bash
 source /opt/ros/jazzy/setup.bash
-cd ~/ros2_ws/src/sar_plugins
+cd ~/TEZA/src/sar_plugins
 
 # verificare offline a nucleelor pure
 python3 test_plugins.py             # nucleele clasice

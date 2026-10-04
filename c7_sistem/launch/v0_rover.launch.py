@@ -10,7 +10,7 @@ from launch.actions import DeclareLaunchArgument, LogInfo, SetEnvironmentVariabl
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
-VENV = os.path.expanduser("~/ros2_ws/.venv_c6/bin/python")
+VENV = os.path.join(os.path.expanduser(os.environ.get("PHD_ROOT", "~/TEZA")), ".venv_c6", "bin", "python")   # E-ORDINE-3 FINAL
 
 
 def generate_launch_description():

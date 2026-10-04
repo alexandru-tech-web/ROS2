@@ -17,9 +17,9 @@
 
 set -o pipefail
 
-C1_DIR="$HOME/ros2_ws/src/c1_benchmark"
+C1_DIR="${PHD_ROOT:-$HOME/TEZA}/src/c1_benchmark"
 STAMP="$(date +%Y%m%d_%H%M%S)"
-OUT="$HOME/ros2_ws/new_data_sar/fair_${STAMP}"
+OUT="${PHD_ROOT:-$HOME/TEZA}/new_data_sar/fair_${STAMP}"
 mkdir -p "$OUT"
 LOG="$OUT/run.log"
 log(){ echo "[$(date +%H:%M:%S)] $*" | tee -a "$LOG"; }
@@ -92,4 +92,4 @@ log "== analiza =="
 python3 analyze_campaign.py "$OUT/c1_transport" >>"$OUT/campaign.log" 2>&1
 log "TERMINAT. Date in: $OUT/c1_transport"
 echo; echo "GATA: $OUT"
-echo "Verifica N: python3 ~/ros2_ws/src/c1_benchmark/spread_c1.py $OUT/c1_transport"
+echo "Verifica N: python3 $C1_DIR/spread_c1.py $OUT/c1_transport"

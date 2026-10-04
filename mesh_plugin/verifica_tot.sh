@@ -10,15 +10,15 @@
 # Fiecare pas: VERDE [OK] sau ROSU [ESEC], cu rezumat la final.
 #
 # Utilizare:
-#   ./verifica_tot.sh                 # ruleaza tot (din ~/ros2_ws sau oriunde)
+#   ./verifica_tot.sh                 # ruleaza tot (din ~/TEZA sau oriunde)
 #   ./verifica_tot.sh --offline       # doar pasii 1-2 (fara ROS/colcon)
 #   ./verifica_tot.sh --clean         # build curat (sterge build/install pachet)
-#   WS=~/alt_ws ./verifica_tot.sh     # alt workspace decat ~/ros2_ws
+#   WS=~/alt_ws ./verifica_tot.sh     # alt workspace decat ~/TEZA
 # =====================================================================
 set -u
 
 # ---- configurare ----
-WS="${WS:-$HOME/ros2_ws}"
+WS="${WS:-${PHD_ROOT:-$HOME/TEZA}}"
 PKG="mesh_plugin"
 SRC="$WS/src/$PKG"
 CORE_DIR="$SRC/$PKG"
@@ -57,7 +57,7 @@ need_files=(
   "launch/mesh_plugins.launch.py"
 )
 if [ ! -d "$SRC" ]; then
-  bad "pachetul nu exista la $SRC  (copiaza-l in ~/ros2_ws/src/)"
+  bad "pachetul nu exista la $SRC  (copiaza-l in ~/TEZA/src/)"
 else
   miss=0
   for f in "${need_files[@]}"; do

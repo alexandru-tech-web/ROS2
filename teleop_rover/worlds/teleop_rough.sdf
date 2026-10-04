@@ -17,8 +17,8 @@
 
     <model name="terrain"><static>true</static>
       <link name="l">
-        <collision name="c"><geometry><mesh><uri>file:///home/ubuntu/ros2_ws/src/teleop_rover/worlds/teleop_rough_terrain.obj</uri></mesh></geometry></collision>
-        <visual name="v"><geometry><mesh><uri>file:///home/ubuntu/ros2_ws/src/teleop_rover/worlds/teleop_rough_terrain.obj</uri></mesh></geometry></visual>
+        <collision name="c"><geometry><mesh><uri>file:///home/ubuntu/TEZA/src/teleop_rover/worlds/teleop_rough_terrain.obj</uri></mesh></geometry></collision>
+        <visual name="v"><geometry><mesh><uri>file:///home/ubuntu/TEZA/src/teleop_rover/worlds/teleop_rough_terrain.obj</uri></mesh></geometry></visual>
       </link>
     </model>
     

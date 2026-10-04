@@ -3,7 +3,7 @@
 READ-ONLY pe cod si date (zero modificari). Fiecare fapt are citat verbatim +
 fisier:linie. Ce nu se poate verifica din cod/date canonice -> [NEVERIFICABIL] + motiv.
 Date canonice: ~/DATE_CAMPANIE/{SIL,HIL_WIFI}/date/<rmw>/<cond>/rep<N>/transport_p<P>_summary.json.
-Cod FROZEN: ~/ros2_ws/src/c1_benchmark/*.py.
+Cod FROZEN: ~/TEZA/src/c1_benchmark/*.py.
 
 ================================================================================
 R3 -- Profilul QoS exact (reliability/history/depth/durability)

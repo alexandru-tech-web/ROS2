@@ -105,7 +105,7 @@ niciodata ambele simultan.
 
 ### 5.1 SIL (fara ROS, orice masina) - recomandat pentru validare
 ```bash
-cd ~/ros2_ws/src/sar_swarm
+cd ~/TEZA/src/sar_swarm
 
 # o singura misiune:
 python3 sil_run.py scenarios/baseline.yaml

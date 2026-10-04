@@ -21,7 +21,7 @@ BATT_WH="${BATT_WH:-8}"
 OUT="${OUT:-$HOME/mission_results}"
 DRY="${DRY:-0}"
 
-SRC="$HOME/ros2_ws/src"
+SRC="${PHD_ROOT:-$HOME/TEZA}/src"
 SWARM="$SRC/sar_swarm"
 PLUG="$SRC/sar_plugins"
 SARD="$HOME/sar_data"

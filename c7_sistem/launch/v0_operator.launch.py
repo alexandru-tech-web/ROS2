@@ -13,8 +13,9 @@ from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 
 PY = "/usr/bin/python3"
-VENV = os.path.expanduser("~/ros2_ws/.venv_c6/bin/python")
-C3 = os.path.expanduser("~/ros2_ws/src/c3_gateway")
+WS = os.path.expanduser(os.environ.get("PHD_ROOT", "~/TEZA"))   # E-ORDINE-3 FINAL
+VENV = os.path.join(WS, ".venv_c6", "bin", "python")
+C3 = os.path.join(WS, "src", "c3_gateway")
 
 
 def generate_launch_description():

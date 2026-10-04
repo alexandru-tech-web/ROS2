@@ -45,7 +45,7 @@ Cod, .tex si .md = 100% ASCII. Fara diacritice romanesti, fara ghilimele de tip
 - ROS 2 Jazzy. Comutarea RMW:
   RMW_IMPLEMENTATION=rmw_cyclonedds_cpp | rmw_zenoh_cpp
   (lant: cod -> rclpy -> RMW -> DDS/Zenoh -> retea).
-- Build: `cd ~/ros2_ws && colcon build`; apoi `source install/setup.bash` in
+- Build: `cd ~/TEZA && colcon build`; apoi `source install/setup.bash` in
   FIECARE terminal nou.
 - LaTeX local: \documentclass{article} + \bibliographystyle{plain}. IEEEtran
   (.cls/.bst) lipseste local -> comuta pe Overleaf / TeX Live complet.
@@ -149,7 +149,7 @@ rezultate. Daca un push esueaza, prima suspiciune: date brute / fisiere >100 MB.
 - **E-ORDINE-2 (04.10.2026, decizia lui Alexandru):** fiecare pachet pastreaza doar README.md si FAPTE_*.md; documentele
   vechi (PROGRESS_*, HARTA_*, VERDICT_*, RUNBOOK, CHEATSHEET, ghidurile din iunie, notele articolului v4), selectorul ML
   (selector_*, reproduce_*, build_selector_dataset.py, ml_dataset.csv) si scratchpad/ au fost scoase din src (git rm;
-  istoricul ramane in git log) si copiate identic in ~/ros2_ws/ORGANIZARE/DOC/ARHIVA/src_docs_<pachet>/
+  istoricul ramane in git log) si copiate identic in ~/TEZA/ARHIVA/2026-10/src_docs_<pachet>/
   (manifest: DOC/BORD/manifeste/E_ORDINE_2_lista3.sha256).
 - C5 (arbitrajul autoritatii) NU are director in src/ (COLOANA: PLANIFICAT, A2).
 - PHSC (compensare de latenta, LQR + predictor Smith) -- NU e pe main. Sta pe
@@ -160,7 +160,7 @@ rezultate. Daca un push esueaza, prima suspiciune: date brute / fisiere >100 MB.
 - check_repo.sh, smoke_all.sh -- verificare repo / smoke tests.
 
 ## 8. Focus curent (actualizeaza pe masura ce avanseaza)
-(ISTORIC: selectorul ML de mai jos e parcat si arhivat la E-ORDINE-2 in ~/ros2_ws/ORGANIZARE/DOC/ARHIVA/src_docs_c1_benchmark/ml_selector/.)
+(ISTORIC: selectorul ML de mai jos e parcat si arhivat la E-ORDINE-2 in ~/TEZA/ARHIVA/2026-10/src_docs_c1_benchmark/ml_selector/.)
 ISI-ul selectorului -- IMPLEMENTAT ca fisiere-frate (NU atinge reproduce_pdia.py / figurile
 PDIA): selector_core.py (nucleu pur + _selftest, 30/30 via test_selector_core.py),
 reproduce_selector.py (driver, --objective control|lossaware --penalty D),
@@ -192,22 +192,19 @@ D -- selector_core.sweep_deadline + reproduce_selector.py --objective lossaware:
 invatat-vs-always-CycloneDDS) in (3000, 5000] ms pe selector_dataset.csv (SIL N=10), figura
 selector_dstar.png. De RECALCULAT pe HIL.
 
-## 9. Ecosistem PhD: UN SINGUR dosar, ~/ros2_ws (R2, 17.09.2026; structura R3 din README_STRUCTURA.md; adus la zi la E7, 22.09.2026)
-Radacina e PHD_ROOT=$HOME/ros2_ws (export in ~/.bashrc, pus la R2 cu acordul lui Alexandru).
-Structura (README_STRUCTURA.md in radacina; harta in DOC/HARTA.md):
-- src/      -- monorepo git (acest depozit). Aici lucrezi prin git, ca de obicei. Nu date, nu documente, nu figuri de campanie.
-- DATE/     -- <C>/<nume>_<data>_<STARE>/ (CANONIC / VALIDARE / ARHIVAT; + runs/<run_id>/ scrise de ruleaza.py), index/ (legaturi),
-              teste.sqlite (regenerat). STARE.md in fiecare set. READ-ONLY manual.
-- GRAFICE/  -- <C>/out/ (VALIDA: script + rulare, <nume>.STARE.txt) si <C>/arhiva/. Scripturile figurilor sunt in
-              DOC/BORD/tools/figuri/ (GRAFICE/src NU mai exista). NU e sub git.
-- DOC/      -- panoul si documentele; pe disc calea e ORGANIZARE/DOC (README_STRUCTURA.md il listeaza inca la nivelul 1).
-              Depozit git PROPRIU, cu remote: origin = alexandru-tech-web/DOC.git, branch master (nu mai e 'git local, fara remote';
-              corectat la E7, 22.09.2026). Contine: BORD/ (STARE, JURNAL, DECIZII, REGISTRU_RULARI,
-              DOVEZI, manifeste/, tools/, bin/phd), CAIETE/, RAPOARTE/ (+ AUDIT/), ARTICOLE/, MANUSCRISE/, TEZA/,
-              PREZENTARI/, LECTURI/, ADMIN/, HARTA.md. Se editeaza DOAR ce cere unitatea; commit per unitate, push cu
-              confirmarea lui Alexandru (ca la src/, care e pe branch main).
-- ARHIVA/   -- <C sau categorie>/<nume>_<data>_ARHIVAT/ cu STARE.md; manifest in DOC/BORD/manifeste/. Nu se citeaza, nu se modifica.
-- COS/      -- NU mai exista (golit 17.09; DOC/CAIETE/STERS_2026-09-17.md). Ce e de aruncat merge in cosul sistemului, cu decizie.
+## 9. Ecosistem PhD: o singura radacina, ~/TEZA (E-ORDINE-3 FINAL, 04.10.2026; inainte ~/ros2_ws, R2 17.09.2026)
+Radacina e PHD_ROOT=$HOME/TEZA (export in ~/.bashrc) = workspace-ul ROS intreg; harta: ~/TEZA/DOC/BORD/HARTA_C1-C3.md.
+Fiecare lucru are o singura adresa: nicio legatura, nicio usa. Pe Pi workspace-ul ramane ~/ros2_ws (driverele il cheama asa).
+- src/ build/ install/ log/ -- acest depozit git (main) + produsele colcon. Nu date, nu documente, nu figuri de campanie.
+- DATE/     -- <C>/<AAAA-MM-DD>_<ce>_<STARE>/ (ACCEPTATA / PROBA / NEACCEPTATA / OPRITA; + runs/<run_id>/ scrise de ruleaza.py),
+              STARE.md in fiecare set, REZULTATE_C1-C3.xlsx. O campanie noua a driverului sta in DATE/<C>/<nume> pana la
+              acceptare. READ-ONLY manual.
+- FIGURI/   -- ISI1/ (figurile articolului) si <C>/ (figuri de analiza); scripturile in DOC/BORD/tools/figuri/. NU e sub git.
+- ARTICOLE/ -- ISI1/, TEZA/, PREZENTARI/ (manuscrisele; textele .md intr-un git local, fara remote).
+- DOC/      -- partea pentru Claude; depozit git propriu (origin = alexandru-tech-web/DOC.git, branch master): BORD/ (DECIZII,
+              JURNAL, DOVEZI, manifeste/, tools/), CAIETE/, RAPOARTE/ (+ unitati/, AUDIT/), LECTURI/, ADMIN/. Commit per
+              unitate, push cu confirmarea lui Alexandru (ca la src/, branch main).
+- ARHIVA/   -- <AAAA-LL>/<set>/ cu DE_CE_IN_ARHIVA.md si MANIFEST.sha256. Nu se citeaza, nu se modifica.
 Reguli agent: toate uneltele din DOC/BORD/tools folosesc cai.py (nicio cale absoluta veche); orice rulare
 trece prin DOC/BORD/tools/ruleaza.py; ~/.bashrc nu se mai atinge; nu rula 'phd backup' decat cu SSD montat.
 Regula de provenienta per rulare (manifest_c3, fisiere canonice, verifica_run.py) e obligatorie DOAR pentru C3 (DECIZII 21.09);

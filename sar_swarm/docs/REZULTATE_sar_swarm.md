@@ -73,10 +73,10 @@ fallback la caderea legaturii. Partitia produce 80 drona*s fallback, baseline 0
 ## 4. Reproducerea rezultatelor
 
 ```bash
-cd ~/ros2_ws/src/sar_swarm
+cd ~/TEZA/src/sar_swarm
 python3 run_sil_campaign.py --reps 3      # tabelul principal + figuri
 python3 test_degradation.py --reps 3      # verdictul V1 (gradient)
-cd ~/ros2_ws/src/mesh_plugin
+cd ~/TEZA/src/mesh_plugin
 python3 sil_mesh_mission.py --scenario mesh_relay   # verdictul V4 (mesh)
 ```
 

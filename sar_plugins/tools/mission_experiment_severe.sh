@@ -24,7 +24,7 @@ SEED0="${SEED0:-42}"
 OUT="${OUT:-$HOME/mission_results_severe}"
 DRY="${DRY:-0}"
 
-SRC="$HOME/ros2_ws/src"
+SRC="${PHD_ROOT:-$HOME/TEZA}/src"
 SWARM="$SRC/sar_swarm"
 PLUG="$SRC/sar_plugins"
 SARD="$HOME/sar_data"

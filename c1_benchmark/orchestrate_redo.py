@@ -80,9 +80,10 @@ LOGDIR_PI = "~/DATE_CAMPANIE/C2_HIL_WIFI_20260801_pi"    # cale REMOTA (tilde ex
 # rularile manuale). Calea e cea de pe M2, unde userul e tot 'ubuntu'.
 JURNAL_M2 = os.path.join(PI_HOME, "DATE_CAMPANIE", "netem_journal_M2.log")
 
-SRC_M1 = os.path.join(HOME, "ros2_ws", "src", "c1_benchmark")
-SETUP_M1 = os.path.join(HOME, "ros2_ws", "install", "setup.bash")   # cale ABSOLUTA
-SRC_M1_C2 = os.path.join(HOME, "ros2_ws", "src", "c2_analysis")
+WS_M1 = os.path.normpath(os.path.expanduser(os.environ.get("PHD_ROOT", "~/TEZA")))   # E-ORDINE-3 FINAL: workspace-ul M1
+SRC_M1 = os.path.join(WS_M1, "src", "c1_benchmark")
+SETUP_M1 = os.path.join(WS_M1, "install", "setup.bash")   # cale ABSOLUTA
+SRC_M1_C2 = os.path.join(WS_M1, "src", "c2_analysis")
 SRC_PI = os.path.join(PI_HOME, "ros2_ws", "src", "c1_benchmark")   # cale ABSOLUTA pe Pi
 
 COND_ALL = ["ge_5_8", "ge_15_3", "ge_15_8", "bern_30", "ge_30_3", "ge_30_8"]
@@ -147,10 +148,10 @@ def set_arch(cale):
     return ARCH
 
 
-def prefix_ros():
-    """Preambulul mediului ROS pentru orice comanda remota (shell ssh non-interactiv)."""
+def prefix_ros(setup="~/ros2_ws/install/setup.bash"):
+    """Preambulul mediului ROS (shell non-interactiv); implicit pe Pi (~/ros2_ws), pe M1 cu setup=SETUP_M1."""
     return ("export ROS_DOMAIN_ID=%d && export RMW_IMPLEMENTATION=rmw_zenoh_cpp"
-            " && source ~/ros2_ws/install/setup.bash" % ROS_DOMAIN)
+            " && source %s" % (ROS_DOMAIN, setup))
 
 
 def ssh_payload(inner):
@@ -219,10 +220,10 @@ def cmd_router_pi(cond):
 
 def cmd_router_m1(cond):
     return ("%s && export RUST_LOG=info"
-            " && export ZENOH_ROUTER_CONFIG_URI=~/ros2_ws/src/c1_benchmark/router_m1.json5"
+            " && export ZENOH_ROUTER_CONFIG_URI=%s"
             " && mkdir -p %s"
             " && setsid nohup ros2 run rmw_zenoh_cpp rmw_zenohd > %s 2>&1 </dev/null &"
-            % (prefix_ros(), LOGDIR_M1, log_router_m1(cond)))
+            % (prefix_ros(SETUP_M1), os.path.join(SRC_M1, "router_m1.json5"), LOGDIR_M1, log_router_m1(cond)))
 
 
 def cmd_ecou_pi(cond):
@@ -747,8 +748,8 @@ def _selftest():
     # driverul: preambul de mediu EXPLICIT (domeniul 7 + setup.bash pe cale absoluta),
     # inaintea lui 'set -o pipefail', in acelasi bash -c
     d = cmd_driver("ge_15_8")
-    preambul_driver = ("export ROS_DOMAIN_ID=7 && source %s/ros2_ws/install/setup.bash && "
-                       "set -o pipefail; " % HOME)
+    preambul_driver = ("export ROS_DOMAIN_ID=7 && source %s && "
+                       "set -o pipefail; " % SETUP_M1)
     assert d.startswith(preambul_driver), d
     assert d.count("ROS_DOMAIN_ID=7") == 1, d          # exact o data, nu duplicat
     assert d.count("source ") == 1 and "~/ros2_ws/install" not in d, d   # cale absoluta

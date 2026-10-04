@@ -1,14 +1,15 @@
 # Contributii la dezvoltarea sistemelor robotice prin controlul de la distanta in timp real
 
+Depozitul `src` al tezei (IMSAR), in `~/TEZA/src`; harta a tot (date, figuri, articole, decizii): `~/TEZA/DOC/BORD/HARTA_C1-C3.md`.
 Depozit de cercetare doctorala (IMSAR). Cod, protocoale experimentale si sumare de
 campanie pentru teleoperarea robotilor peste retele degradate. Documentat in romana,
 fara diacritice.
 
 > **In English:** doctoral research monorepo, documented in Romanian. For the C1
 > artifact (ROS 2 middleware benchmark under network degradation) see
-> `~/ros2_ws/ORGANIZARE/DOC/ARHIVA/src_docs_c1_benchmark/README_EN.md` (archived 2026-10-04, E-ORDINE-2).
+> `~/TEZA/ARHIVA/2026-10/src_docs_c1_benchmark/README_EN.md` (archived 2026-10-04, E-ORDINE-2).
 
-Datele si documentele stau in `../DATE`, `../DOC`, `../GRAFICE` (in afara git; structura in `../README_STRUCTURA.md`).
+Datele, figurile, articolele si documentele stau langa `src`, in `~/TEZA`: `../DATE`, `../FIGURI`, `../ARTICOLE`, `../DOC`, `../ARHIVA` (in afara acestui depozit).
 
 ## Rezumat
 
@@ -78,7 +79,7 @@ ulterioara, pastrat pentru istoric.
 
 Fisiere in radacina: `CLAUDE.md` (instructiuni de lucru), `CONTRIBUTING.md`, `GHID_INVATARE.md`, `check_repo.sh`,
 `smoke_all.sh`. Ghidurile din iunie (`GHID_INTERFERENTA_RF`, `PARAMETRI_SI_TRANSFER_REAL`, `PROIECT_ECOSISTEM_EDUCATIONAL`,
-`TEHNOLOGII`): arhivate la E-ORDINE-2 in `~/ros2_ws/ORGANIZARE/DOC/ARHIVA/src_docs_radacina/`.
+`TEHNOLOGII`): arhivate la E-ORDINE-2 in `~/TEZA/ARHIVA/2026-10/src_docs_radacina/`.
 
 ## Metodologie
 
@@ -125,7 +126,7 @@ Rezultatele C6 sunt SIL, N=1 pana la campania S4; se citesc din rapoartele de un
 | ROS 2 | Jazzy Jalisco |
 | Middleware comparat | `rmw_zenoh_cpp`, `rmw_cyclonedds_cpp` |
 | Simulator | Gazebo (ros_gz), pornit headless |
-| Limbaj | Python 3.12 (`/usr/bin/python3`; C6 in `~/ros2_ws/.venv_c6` cu OSQP) |
+| Limbaj | Python 3.12 (`/usr/bin/python3`; C6 in `~/TEZA/.venv_c6` cu OSQP) |
 | Emulare retea | iproute2 / tc netem |
 
 ## Compilare si verificare
@@ -133,13 +134,13 @@ Rezultatele C6 sunt SIL, N=1 pana la campania S4; se citesc din rapoartele de un
     # garda: nu se construieste peste o campanie in mers
     pgrep -af "run_campaign|bench_|rmw_zenohd|c6_smoke" && echo "STOP" || echo "liber"
 
-    cd ~/ros2_ws
+    cd ~/TEZA
     source /opt/ros/jazzy/setup.bash
     colcon build --symlink-install --cmake-args -DPython3_EXECUTABLE=/usr/bin/python3
     source install/setup.bash
 
     # testul de fum al depozitului (fara ROS)
-    cd ~/ros2_ws/src && ./smoke_all.sh
+    cd ~/TEZA/src && ./smoke_all.sh
 
 Selftestele C6, fara ROS: `python3 c6_safety/c6_safety/<modul>.py --selftest`
 (`rover_dyn`, `cbf_core`, `episode`, `certif_core`, `brate`).

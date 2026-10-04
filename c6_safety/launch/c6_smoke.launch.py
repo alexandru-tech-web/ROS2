@@ -2,7 +2,7 @@
 
   ros2 launch c6_safety c6_smoke.launch.py brat:=A2 seed:=1 outputs:=/dir eticheta:=x
 
-Cele doua noduri ruleaza sub python-ul dat de `python:=` (implicit ~/ros2_ws/.venv_c6,
+Cele doua noduri ruleaza sub python-ul dat de `python:=` (implicit ~/TEZA/.venv_c6,
 unde e osqp; pe /usr/bin/python3 nu e). RMW se seteaza GLOBAL (nu in GroupAction:
 CLAUDE.md sec. 6). Launch-ul se OPRESTE cand rover_node iese (a scris fisierele).
 """
@@ -17,7 +17,7 @@ from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 
-VENV = os.path.expanduser("~/ros2_ws/.venv_c6/bin/python")
+VENV = os.path.join(os.path.expanduser(os.environ.get("PHD_ROOT", "~/TEZA")), ".venv_c6", "bin", "python")   # E-ORDINE-3 FINAL
 
 
 def generate_launch_description():

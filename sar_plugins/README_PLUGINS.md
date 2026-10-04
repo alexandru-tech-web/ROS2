@@ -14,11 +14,11 @@ remapari. Versiunea curenta e adaptata la generatia noua a roiului
     python3 demo_plugins_sim.py      # demo_*.png + bilant misiune
 
     # 2) ROIUL (sar_swarm pornit in alt terminal):
-    ros2 launch ~/ros2_ws/src/sar_plugins/nodes/mission_sar.launch.py \
+    ros2 launch ~/TEZA/src/sar_plugins/nodes/mission_sar.launch.py \
         profile:=urban_rubble seed:=42
 
     # 3) ROVERUL (Gazebo + teleop pornite; robotul cu remaparea cmd_safe):
-    ros2 launch ~/ros2_ws/src/sar_plugins/nodes/teleop_addons.launch.py
+    ros2 launch ~/TEZA/src/sar_plugins/nodes/teleop_addons.launch.py
 
 ---
 
@@ -134,7 +134,7 @@ Toate nodurile vorbesc JSON pe std_msgs/String. CSV-urile merg in
 ### Launch-uri (nodes/)
 - **mission_sar.launch.py** — CEL CURENT: radio_link + coverage + victims
   + battery pe /sar/*, failsafe pe rth. Un singur terminal pentru tot etajul.
-      ros2 launch ~/ros2_ws/src/sar_plugins/nodes/mission_sar.launch.py \
+      ros2 launch ~/TEZA/src/sar_plugins/nodes/mission_sar.launch.py \
           profile:=urban_rubble seed:=42 n_victims:=6 sensor_r:=6.0
 - **teleop_addons.launch.py** — garda + predictiv + video pentru rover.
 - **mission_plugins.launch.py** — varianta veche pe /swarm/* (pentru
@@ -148,7 +148,7 @@ Toate nodurile vorbesc JSON pe std_msgs/String. CSV-urile merg in
 - **bridge_rover.yaml / bridge_swarm.yaml** — pentru ros_gz_bridge
   (terminal separat, persistent):
       ros2 run ros_gz_bridge parameter_bridge --ros-args \
-          -p config_file:=$HOME/ros2_ws/src/sar_plugins/gz/bridge_rover.yaml
+          -p config_file:=$HOME/TEZA/src/sar_plugins/gz/bridge_rover.yaml
 - **battery_plugin.sdf.xml / wind_world.sdf.xml** — fragmente de lipit
   manual in SDF (baterie liniara Gazebo; vant). Instructiuni in fisiere.
 
@@ -168,7 +168,7 @@ Toate nodurile vorbesc JSON pe std_msgs/String. CSV-urile merg in
 **Workflow ROI (SAR cu etaj de misiune):**
 | T | Comanda | Rol |
 |---|---|---|
-| T1 | `cd ~/ros2_ws/src/sar_swarm && python3 sar_launcher.py` (vezi README-ul lui pentru argumente/scenarii) | roiul insusi |
+| T1 | `cd ~/TEZA/src/sar_swarm && python3 sar_launcher.py` (vezi README-ul lui pentru argumente/scenarii) | roiul insusi |
 | T2 | `ros2 launch .../mission_sar.launch.py profile:=urban_rubble seed:=42` | etajul de misiune |
 | T3 (opt) | `./tools/run_experiment.sh <scenariu> <rmw> 300` | inregistrare bag + manifest |
 In T1 NU porni fault_injector daca T2 ruleaza radio_link (un singur

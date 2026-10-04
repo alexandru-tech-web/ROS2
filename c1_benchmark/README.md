@@ -35,7 +35,7 @@ porneste serverul si clientul (plus stratul de misiune) -> colecteaza -> curata 
 | `analyze_campaign.py` | agregare + figurile articolului | `--selftest` |
 | `preflight.sh` | garda de mediu (qdisc rezidual, procese vii) | verdict explicit |
 | `campaign_stats.py`, `crossover.py` | statistici suplimentare + analiza punctului de crossover | rulare directa |
-| (arhivat) `reproduce_pdia.py`, `ml_dataset.csv`, `selector_*` | analiza ML: in `~/ros2_ws/ORGANIZARE/DOC/ARHIVA/src_docs_c1_benchmark/ml_selector/` (E-ORDINE-2) | -- |
+| (arhivat) `reproduce_pdia.py`, `ml_dataset.csv`, `selector_*` | analiza ML: in `~/TEZA/ARHIVA/2026-10/src_docs_c1_benchmark/ml_selector/` (E-ORDINE-2) | -- |
 | `analysis/*.py`, `docs/` | scripturi de figuri auxiliare (REZUMAT_CAMPANIE_EXPERIMENTALA.md: arhivat, E-ORDINE-2) | rulare directa |
 | `NOTA_METODOLOGICA_C1.md` | nota de validitate (artefact de stare reziduala, limita loopback) | -- |
 
@@ -45,7 +45,7 @@ Directorul `paper/` exista si contine 14 intrari urmarite de git (12 fisiere,
 | Intrare | Rol |
 |---------|-----|
 | `paper/MANIFEST_SHA256.txt` | manifestul setului canonic de date; antetul poarta cifrele (cate fisiere, aritmetica celule x repetitii x payload). Se verifica cu `manifest_tool.py check` sau cu `sha256sum -c` |
-| (arhivate) `paper/AUDIT_CIFRE_ARTICOL.md`, `DEPOZIT_ZENODO.md`, `VERSIUNI.md` | in `~/ros2_ws/ORGANIZARE/DOC/ARHIVA/src_docs_c1_benchmark/paper/` (E-ORDINE-2) |
+| (arhivate) `paper/AUDIT_CIFRE_ARTICOL.md`, `DEPOZIT_ZENODO.md`, `VERSIUNI.md` | in `~/TEZA/ARHIVA/2026-10/src_docs_c1_benchmark/paper/` (E-ORDINE-2) |
 | `paper/campaign_summary.csv` | agregatul din care se construiesc tabelele articolului |
 | `paper/main.tex`, `paper/references.bib` | scheletul LaTeX; `paper/main.tex` se auto-declara schelet, cu TODO in text si in bibliografie |
 | `paper/make_figures_c1_en.py` | generatorul figurilor in engleza |
@@ -73,7 +73,7 @@ ceasurilor intre publisher si subscriber.
 ## 4. Sintaxe de pornire
 
 ```bash
-cd ~/ros2_ws/src/c1_benchmark
+cd ~/TEZA/src/c1_benchmark
 
 # 0) verificarile fara ROS
 python3 test_bench_core.py                 # 13 verificari
