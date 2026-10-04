@@ -35,8 +35,8 @@ porneste serverul si clientul (plus stratul de misiune) -> colecteaza -> curata 
 | `analyze_campaign.py` | agregare + figurile articolului | `--selftest` |
 | `preflight.sh` | garda de mediu (qdisc rezidual, procese vii) | verdict explicit |
 | `campaign_stats.py`, `crossover.py` | statistici suplimentare + analiza punctului de crossover | rulare directa |
-| `reproduce_pdia.py`, `ml_dataset.csv` | analiza ML (caracterizator RTT) + setul de date agregat | rulare directa |
-| `analysis/*.py`, `docs/` | scripturi de figuri auxiliare + REZUMAT_CAMPANIE_EXPERIMENTALA.md | rulare directa |
+| (arhivat) `reproduce_pdia.py`, `ml_dataset.csv`, `selector_*` | analiza ML: in `~/ros2_ws/ORGANIZARE/DOC/ARHIVA/src_docs_c1_benchmark/ml_selector/` (E-ORDINE-2) | -- |
+| `analysis/*.py`, `docs/` | scripturi de figuri auxiliare (REZUMAT_CAMPANIE_EXPERIMENTALA.md: arhivat, E-ORDINE-2) | rulare directa |
 | `NOTA_METODOLOGICA_C1.md` | nota de validitate (artefact de stare reziduala, limita loopback) | -- |
 
 Directorul `paper/` exista si contine 14 intrari urmarite de git (12 fisiere,
@@ -45,13 +45,11 @@ Directorul `paper/` exista si contine 14 intrari urmarite de git (12 fisiere,
 | Intrare | Rol |
 |---------|-----|
 | `paper/MANIFEST_SHA256.txt` | manifestul setului canonic de date; antetul poarta cifrele (cate fisiere, aritmetica celule x repetitii x payload). Se verifica cu `manifest_tool.py check` sau cu `sha256sum -c` |
-| `paper/AUDIT_CIFRE_ARTICOL.md` | auditul cifrelor din articol fata de datele brute, celula cu celula |
-| `paper/DEPOZIT_ZENODO.md` | structura propusa a depunerii de date si comenzile de verificare; licenta datelor TODO |
-| `paper/VERSIUNI.md` | amprente de mediu, descendenta manuscris <-> cod <-> date, harta de nume C1/C2, provenienta tc/kernel |
+| (arhivate) `paper/AUDIT_CIFRE_ARTICOL.md`, `DEPOZIT_ZENODO.md`, `VERSIUNI.md` | in `~/ros2_ws/ORGANIZARE/DOC/ARHIVA/src_docs_c1_benchmark/paper/` (E-ORDINE-2) |
 | `paper/campaign_summary.csv` | agregatul din care se construiesc tabelele articolului |
 | `paper/main.tex`, `paper/references.bib` | scheletul LaTeX; `paper/main.tex` se auto-declara schelet, cu TODO in text si in bibliografie |
 | `paper/make_figures_c1_en.py` | generatorul figurilor in engleza |
-| `paper/FAPTE_V4.md`, `paper/FRAZE_FINALE_ARTICOL.md`, `paper/SUMAR_FINAL.md` | note de redactare |
+| `paper/FAPTE_V4.md` | note de redactare (`FRAZE_FINALE_ARTICOL.md`, `SUMAR_FINAL.md`: arhivate, E-ORDINE-2) |
 | `paper/README.md` | descrierea directorului |
 | `paper/figuri_en/` | 8 figuri PNG in engleza, generate |
 | `paper/figs/` | gol; urmarit doar prin `.gitkeep`, ca destinatie a figurilor LaTeX |
@@ -104,7 +102,7 @@ ls ~/c1_results_full/analysis/             # campaign_summary.csv + fig_*.png
 python3 paper/make_figures_c1_en.py        # regenereaza paper/figuri_en/ (8 PNG)
 # main.tex e SCHELET (TODO in text si in references.bib); pdflatex are sens
 # doar dupa ce textul e scris. Articolul de referinta este .docx-ul canonic,
-# numit in paper/VERSIUNI.md, sectiunea de descendenta.
+# numit in paper/VERSIUNI.md (arhivat la E-ORDINE-2 in DOC/ARHIVA/src_docs_c1_benchmark/paper/), sectiunea de descendenta.
 cd paper && pdflatex main.tex && bibtex main && pdflatex main.tex && pdflatex main.tex
 ```
 
@@ -154,7 +152,7 @@ Nota metodologica: conditiile `*_burst` sunt EXCLUSE din campania de referinta
 ## 6. Rezultatele campaniei (transport, loopback, N=10)
 
 ATENTIE -- limita de validitate (vezi `NOTA_METODOLOGICA_C1.md` si
-`docs/REZUMAT_CAMPANIE_EXPERIMENTALA.md`): tabelul de mai jos este o referinta de
+`REZUMAT_CAMPANIE_EXPERIMENTALA.md`, arhivat in DOC/ARHIVA/src_docs_c1_benchmark/docs/): tabelul de mai jos este o referinta de
 LOOPBACK (un singur host, netem pe `lo`), nu o comparatie autoritara. O campanie
 initiala arata Zenoh aparent imun la pierdere mica; aceasta s-a dovedit un artefact
 de stare reziduala de mediu (router/proces ramas, conditii de cursa) si NU se
@@ -240,4 +238,4 @@ Codul si documentatia din acest depozit folosesc adrese din blocurile rezervate
 documentatiei (RFC 5737). Datele brute pastreaza adresele inregistrate la
 momentul campaniei si nu se rescriu: provenienta lor nu se atinge.
 
-Formularea in engleza, pentru recenzori: `README_EN.md`, sectiunea 7.
+Formularea in engleza, pentru recenzori: `README_EN.md` (arhivat la E-ORDINE-2 in DOC/ARHIVA/src_docs_c1_benchmark/), sectiunea 7.

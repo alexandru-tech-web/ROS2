@@ -6,7 +6,7 @@ fara diacritice.
 
 > **In English:** doctoral research monorepo, documented in Romanian. For the C1
 > artifact (ROS 2 middleware benchmark under network degradation) see
-> [`c1_benchmark/README_EN.md`](c1_benchmark/README_EN.md).
+> `~/ros2_ws/ORGANIZARE/DOC/ARHIVA/src_docs_c1_benchmark/README_EN.md` (archived 2026-10-04, E-ORDINE-2).
 
 Datele si documentele stau in `../DATE`, `../DOC`, `../GRAFICE` (in afara git; structura in `../README_STRUCTURA.md`).
 
@@ -57,9 +57,9 @@ ulterioara, pastrat pentru istoric.
 
 | Folder | Tip | Rol | Stare | Ultimul commit | README |
 |---|---|---|---|---|---|
-| [`c1_benchmark`](c1_benchmark/README.md) | script | benchmark transport + misiune (C1); `selector_core.py` (selector invatat, ISI) | INGHETAT | 2026-09-01 | da |
+| [`c1_benchmark`](c1_benchmark/README.md) | script | benchmark transport + misiune (C1); selectorul ML: arhivat (E-ORDINE-2) | INGHETAT | 2026-09-01 | da |
 | `c2_analysis` | script | analiza campaniei C2: metrici de rafala, figuri, tabele, audit (C2) | INGHETAT | 2026-08-13 | nu (`FAPTE_C2.md`, `MANIFEST_DATE_C2.md`) |
-| `c2_planning` | doc+script | calibrarea Gilbert-Elliott si runbook-ul campaniei C2 | INGHETAT | 2026-08-01 | nu (`RUNBOOK_CAMPANIE_C2.md`) |
+| `c2_planning` | doc+script | calibrarea Gilbert-Elliott si runbook-ul campaniei C2 | INGHETAT | 2026-08-01 | nu (`CALIBRARE_GE_C2.md`; runbook-ul: arhivat, E-ORDINE-2) |
 | [`c3_gateway`](c3_gateway/README.md) | ament | gateway-ul de comutare a caii (C3) | INGHETAT | 2026-09-01 | da |
 | [`c6_safety`](c6_safety/README.md) | ament_python | garda de siguranta DT-CBF: core-uri pure + noduri subtiri (C6) | VIU | 2026-09-17 | da |
 | [`curs_ml`](curs_ml/README.md) | educational | curs ML, 23 module | ARHIVAT | 2026-06-29 | da |
@@ -78,9 +78,9 @@ ulterioara, pastrat pentru istoric.
 | `stats_out` | -- | figuri/CSV de statistica, NEVERSIONAT (`.gitignore`) | -- | -- | -- |
 | [`teleop_rover`](teleop_rover/README.md) | script | roverul teleoperat (4 roti, perceptie, go-to-goal); plantul imprumutat de C6 | INGHETAT | 2026-06-29 | da |
 
-Fisiere in radacina: `CLAUDE.md` (instructiuni de lucru), `CONTRIBUTING.md`, ghiduri
-(`GHID_INTERFERENTA_RF.md`, `GHID_INVATARE.md`, `PARAMETRI_SI_TRANSFER_REAL.md`,
-`PROIECT_ECOSISTEM_EDUCATIONAL.md`, `TEHNOLOGII.md`), `check_repo.sh`, `smoke_all.sh`.
+Fisiere in radacina: `CLAUDE.md` (instructiuni de lucru), `CONTRIBUTING.md`, `GHID_INVATARE.md`, `check_repo.sh`,
+`smoke_all.sh`. Ghidurile din iunie (`GHID_INTERFERENTA_RF`, `PARAMETRI_SI_TRANSFER_REAL`, `PROIECT_ECOSISTEM_EDUCATIONAL`,
+`TEHNOLOGII`): arhivate la E-ORDINE-2 in `~/ros2_ws/ORGANIZARE/DOC/ARHIVA/src_docs_radacina/`.
 
 ## Metodologie
 

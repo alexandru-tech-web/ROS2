@@ -117,7 +117,7 @@ rezultate. Daca un push esueaza, prima suspiciune: date brute / fisiere >100 MB.
 
 ## 7. Harta repo-ului (adusa la zi la E7, 22.09.2026, dupa AUDIT -- DOC/RAPOARTE/AUDIT/_INDEX.md; starile din DOC/CAIETE/COLOANA.md)
 - c1_benchmark/  -- C1 INCHIS (88ecc48). Sursa A1 (JIRS, submisie 30.11.2026): bench_core (+test_bench_core, 11 teste),
-  netem, run_campaign, analyze_campaign, reproduce_pdia (ML), ml_dataset.csv,
+  netem, run_campaign, analyze_campaign (reproduce_pdia + ml_dataset.csv: arhivate la E-ORDINE-2, vezi mai jos),
   paper/ (main.tex, ipoteze H1-H4). Verificari fara ROS:
   `python3 test_bench_core.py`; `python3 analyze_campaign.py --selftest`.
   Cifrele citabile: MEDIANE pe repetitii in DOC/BORD/DOVEZI.md sec. 2c (campaign_summary.csv are MEDII; HIL zenoh
@@ -144,8 +144,12 @@ rezultate. Daca un push esueaza, prima suspiciune: date brute / fisiere >100 MB.
 - teleop_rover/   -- roverul teleoperat (robot, operator, link, goto, detector, Gazebo): platforma C4/C5/C7 (VIE in COLOANA);
   eticheta 'tier ARHIVA' din README-ul lui (eb21d82) e DEPASITA. 'Comparatia drona vs robot mobil' nu e in nicio poarta.
 - curs_ros2/, curs_ros2_interfaces/, curs_ml/ (pe main), PROIECT_ECOSISTEM_EDUCATIONAL.md -- educational, arhivat.
-- docs/material_teza/cm_rmw_mismatch, scratchpad/c4_audit_20260818 -- arhivat; 'c4' din scratchpad = numerotarea VECHE
-  (exoschelet), nu C4 rover.
+- docs/material_teza/cm_rmw_mismatch -- arhivat. scratchpad/ a plecat din src la E-ORDINE-2 (04.10.2026).
+- **E-ORDINE-2 (04.10.2026, decizia lui Alexandru):** fiecare pachet pastreaza doar README.md si FAPTE_*.md; documentele
+  vechi (PROGRESS_*, HARTA_*, VERDICT_*, RUNBOOK, CHEATSHEET, ghidurile din iunie, notele articolului v4), selectorul ML
+  (selector_*, reproduce_*, build_selector_dataset.py, ml_dataset.csv) si scratchpad/ au fost scoase din src (git rm;
+  istoricul ramane in git log) si copiate identic in ~/ros2_ws/ORGANIZARE/DOC/ARHIVA/src_docs_<pachet>/
+  (manifest: DOC/BORD/manifeste/E_ORDINE_2_lista3.sha256).
 - C5 (arbitrajul autoritatii) NU are director in src/ (COLOANA: PLANIFICAT, A2).
 - PHSC (compensare de latenta, LQR + predictor Smith) -- NU e pe main. Sta pe
   ramura `phsc-v1-simulation` (4 pachete phsc_*), publicata si pe GitHub,
@@ -155,6 +159,7 @@ rezultate. Daca un push esueaza, prima suspiciune: date brute / fisiere >100 MB.
 - check_repo.sh, smoke_all.sh -- verificare repo / smoke tests.
 
 ## 8. Focus curent (actualizeaza pe masura ce avanseaza)
+(ISTORIC: selectorul ML de mai jos e parcat si arhivat la E-ORDINE-2 in ~/ros2_ws/ORGANIZARE/DOC/ARHIVA/src_docs_c1_benchmark/ml_selector/.)
 ISI-ul selectorului -- IMPLEMENTAT ca fisiere-frate (NU atinge reproduce_pdia.py / figurile
 PDIA): selector_core.py (nucleu pur + _selftest, 30/30 via test_selector_core.py),
 reproduce_selector.py (driver, --objective control|lossaware --penalty D),
