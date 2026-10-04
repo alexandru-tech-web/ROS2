@@ -1,5 +1,5 @@
 import sys, time
-sys.path.insert(0,"/home/ubuntu/ros2_ws/src/rehab_exo_description/scripts")
+sys.path.insert(0,"/home/ubuntu/TEZA/src/rehab_exo_description/scripts")
 import rclpy
 from rclpy.node import Node
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint

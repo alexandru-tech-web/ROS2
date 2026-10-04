@@ -117,7 +117,7 @@ def generate_launch_description():
         DeclareLaunchArgument("contact_angle_deg", default_value="5.0",
                               description="Pragul bilateral al contactului SIM"),
         DeclareLaunchArgument("data_dir",
-                              default_value="/home/ubuntu/Analiza_Teza/ViPRO/DATE",
+                              default_value="/home/ubuntu/REHAB/ViPRO/DATE",
                               description="Directorul pentru export si jurnale CSV"),
         DeclareLaunchArgument(
             "session_id",

@@ -29,7 +29,7 @@ session:
     value: "0d7d864ba85805090d97edcf639586ff27f457c8"
     provenance: "CODE_CONFIG"
     evidence:
-      - source: "/home/ubuntu/ros2_ws/src/.git/HEAD"
+      - source: "/home/ubuntu/TEZA/.git/HEAD"
         locator: "revision inspected by TASK-001"
         sha256: null
     unit: null

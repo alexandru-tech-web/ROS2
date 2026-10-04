@@ -267,7 +267,7 @@ def main():
     import argparse
     parser = argparse.ArgumentParser(description="Exporta o sesiune ViPRO in Excel")
     parser.add_argument("session_id", help="ID-ul comun din numele CSV-urilor")
-    parser.add_argument("--data-dir", default="/home/ubuntu/Analiza_Teza/ViPRO/DATE")
+    parser.add_argument("--data-dir", default="/home/ubuntu/REHAB/ViPRO/DATE")
     args = parser.parse_args()
     print(export_session_xlsx(args.data_dir, args.session_id))
 

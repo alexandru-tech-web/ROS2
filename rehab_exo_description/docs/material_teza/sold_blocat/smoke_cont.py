@@ -1,5 +1,5 @@
 import json, math, sys, time
-sys.path.insert(0,"/home/ubuntu/ros2_ws/src/rehab_exo_description/scripts")
+sys.path.insert(0,"/home/ubuntu/TEZA/src/rehab_exo_description/scripts")
 import rclpy
 from rclpy.node import Node
 from control_msgs.msg import JointTrajectoryControllerState as CS

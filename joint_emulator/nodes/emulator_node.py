@@ -39,7 +39,7 @@ from session_export import (SessionEventLogger, SessionStateLogger,
                             write_config)
 
 
-DEFAULT_DATA_DIR = "/home/ubuntu/Analiza_Teza/ViPRO/DATE"
+DEFAULT_DATA_DIR = "/home/ubuntu/REHAB/ViPRO/DATE"
 
 
 class EmulatorNode(Node):

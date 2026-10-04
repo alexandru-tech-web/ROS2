@@ -23,7 +23,7 @@
 set -euo pipefail
 
 : "${DISPLAY:?DISPLAY nu e setat -- nu exista afisaj catre care sa porneasca fereastra}"
-INSTALL="${REHAB_INSTALL:-$HOME/ros2_ws/install/setup.bash}"
+INSTALL="${REHAB_INSTALL:-$HOME/TEZA/install/setup.bash}"
 if [ ! -f "$INSTALL" ]; then
   echo "Nu gasesc '$INSTALL'. Seteaza REHAB_INSTALL catre setup.bash-ul tau." >&2
   exit 2

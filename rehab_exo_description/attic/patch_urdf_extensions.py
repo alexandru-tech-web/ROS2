@@ -18,7 +18,7 @@ Proprietati:
   * valideaza ca XML-ul ramane well-formed dupa inserare.
 
 Utilizare:
-    python3 patch_urdf_extensions.py ~/ros2_ws/src/rehab_exo_description/urdf/rehab_exo.urdf
+    python3 patch_urdf_extensions.py ~/TEZA/src/rehab_exo_description/urdf/rehab_exo.urdf
 """
 
 import sys

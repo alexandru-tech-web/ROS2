@@ -2,7 +2,7 @@
 """Sincronizare unidirectionala, conservatoare, spre repository-ul RehabRob.
 
 Sursa canonica este directorul pachetului care contine acest script. Destinatia
-implicita este /home/ubuntu/RehabRob/rehab_exo_description. Instrumentul nu sterge
+implicita este /home/ubuntu/REHAB/RehabRob/rehab_exo_description. Instrumentul nu sterge
 fisiere, nu executa Git commit/push si refuza conflictele bilaterale.
 """
 
@@ -20,7 +20,7 @@ import tempfile
 import time
 
 
-DEFAULT_DESTINATION = Path("/home/ubuntu/RehabRob/rehab_exo_description")
+DEFAULT_DESTINATION = Path("/home/ubuntu/REHAB/RehabRob/rehab_exo_description")
 IGNORED_DIRECTORIES = {".git", "__pycache__", ".pytest_cache", ".mypy_cache"}
 IGNORED_SUFFIXES = {".pyc", ".pyo", ".swp", "~"}
 STATE_NAME = "rehab_sync_state_v1.json"

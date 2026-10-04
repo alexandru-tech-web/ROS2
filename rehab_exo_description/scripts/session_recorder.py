@@ -2,7 +2,7 @@
 """session_recorder.py -- fiecare sesiune de simulare lasa in urma date analizabile.
 
 UN CSV per sesiune, implicit in
-~/DATE_TWIN/<AAAALLZZ_HHMMSS>_<exercitiu>/sesiune.csv.
+~/REHAB/DATE_TWIN/<AAAALLZZ_HHMMSS>_<exercitiu>/sesiune.csv.
 
 DE CE UN DIRECTOR PROPRIU, si nu ~/DATE_CAMPANIE: acolo stau datele CANONICE de
 campanie ale tezei, care sunt read-only si nu se amesteca niciodata cu date de
@@ -28,7 +28,7 @@ import recorder_core as rc                                        # noqa: E402
 PARTI = ("left", "right")
 ARTIC = ("hip", "knee", "ankle")
 CU_CUPLU = ("hip", "knee")
-RADACINA = os.path.expanduser("~/DATE_TWIN")
+RADACINA = os.path.expanduser("~/REHAB/DATE_TWIN")
 
 
 def coloane():

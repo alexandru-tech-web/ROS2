@@ -1,6 +1,9 @@
 schema_version: "1.0"
 artifact: "TASK-001 ViPRO evidence inventory"
 audit_date_utc: "2026-09-23"
+migration_note: >-
+  Caile /home/ubuntu/ros2_ws de mai jos sunt dovezi istorice ale auditului
+  TASK-001, anterior migrarii M1. Workspace-ul curent este /home/ubuntu/TEZA.
 repository:
   root: "/home/ubuntu/ros2_ws/src"
   branch: "main"
@@ -15,6 +18,7 @@ repository:
     ambiguity: "Working tree contains the untracked research/ outputs."
 
 artifact_search:
+  path_status: "HISTORICAL_PRE_M1_MIGRATION"
   searched_names:
     - "vipro_inventory.*"
     - "vipo_inventory.*"
@@ -481,7 +485,7 @@ real_interface_implementation:
 
 logging:
   default_data_directory:
-    value: "/home/ubuntu/Analiza_Teza/ViPRO/DATE"
+    value: "/home/ubuntu/REHAB/ViPRO/DATE"
     unit: null
     provenance: CODE_CONFIG
     source:

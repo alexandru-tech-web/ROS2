@@ -5,7 +5,7 @@ FARA joint_state_publisher_gui (glisierele ar intra in conflict cu
 exercise_controller pe /joint_states -- un singur emitator de pozitii!).
 
 Terminal 1:  $ ros2 launch rehab_exo_description demo.launch.py
-Terminal 2:  $ python3 ~/ros2_ws/src/rehab_exo_description/scripts/exercise_controller.py \
+Terminal 2:  $ python3 ~/TEZA/src/rehab_exo_description/scripts/exercise_controller.py \
                  --ros-args -p exercise:=full_extension -p reps:=3
 """
 

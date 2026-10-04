@@ -113,7 +113,7 @@ def generate_launch_description():
                      "postura": LaunchConfiguration("postura"),
                      "use_sim_time": True}])
 
-    # Inregistratorul de sesiune este implicit PORNIT si scrie in ~/DATE_TWIN,
+    # Inregistratorul de sesiune este implicit PORNIT si scrie in ~/REHAB/DATE_TWIN,
     # niciodata in ~/DATE_CAMPANIE, care e arhiva canonica si ramane read-only.
     recorder = Node(
         package="rehab_exo_description",
@@ -175,7 +175,7 @@ def generate_launch_description():
                                           "0 aseaza placa de baza pe podea"),
         DeclareLaunchArgument("inregistrare", default_value="true",
                               description="scrie automat un CSV complet de sesiune"),
-        DeclareLaunchArgument("director_date", default_value="~/DATE_TWIN",
+        DeclareLaunchArgument("director_date", default_value="~/REHAB/DATE_TWIN",
                               description="radacina exportului CSV de simulare"),
         DeclareLaunchArgument("supervizor", default_value="true",
                               description="stratul electric de siguranta (M5). "

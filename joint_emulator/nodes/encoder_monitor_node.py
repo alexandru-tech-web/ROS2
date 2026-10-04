@@ -10,9 +10,9 @@ pentru grafice. Functioneaza identic peste simulare si peste fier
                                 "om_raw":..},...}    (rate_hz, implicit 50)
   pub /joint/motor_kinematics  {"0":{"A":{...},"B":{...},
                                      "delta_th":..},...}
-CSV: /home/ubuntu/Analiza_Teza/ViPRO/DATE/encoders_<session_id>.csv
+CSV: /home/ubuntu/REHAB/ViPRO/DATE/encoders_<session_id>.csv
      (t_s,time_utc,pair,th_raw,th,om,acc; fara suprascriere)
-     /home/ubuntu/Analiza_Teza/ViPRO/DATE/motor_encoders_<session_id>.csv
+     /home/ubuntu/REHAB/ViPRO/DATE/motor_encoders_<session_id>.csv
 Parametri: state_topic, out_topic, rate_hz, data_dir, session_id, csv_path,
            estimator_kind, velocity_tau_s, acceleration_tau_s,
            alpha, beta, gamma, quantize_cpr (0 = pozitia vine deja
@@ -36,7 +36,7 @@ from encoder_core import (EncoderModel, NaiveDiff, KinematicEstimator,
 from session_export import (checked_session_id, session_path, utc_now,
                             write_config)
 
-DEFAULT_DATA_DIR = "/home/ubuntu/Analiza_Teza/ViPRO/DATE"
+DEFAULT_DATA_DIR = "/home/ubuntu/REHAB/ViPRO/DATE"
 
 
 class EncoderMonitor(Node):

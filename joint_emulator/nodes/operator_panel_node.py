@@ -41,7 +41,7 @@ from matplotlib.widgets import Slider, Button, TextBox
 N_PAIRS = 3
 BUF = 600          # ~30 s la 20 Hz
 COL = ["tab:blue", "tab:green", "tab:purple"]
-DEFAULT_DATA_DIR = "/home/ubuntu/Analiza_Teza/ViPRO/DATE"
+DEFAULT_DATA_DIR = "/home/ubuntu/REHAB/ViPRO/DATE"
 
 
 class PanelNode(Node):
