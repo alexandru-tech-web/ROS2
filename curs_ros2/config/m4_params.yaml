@@ -1,4 +1,0 @@
-nod_parametri:
-  ros__parameters:
-    rata: 2.0
-    mesaj: "Salut din fisierul YAML"

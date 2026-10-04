@@ -62,9 +62,7 @@ ulterioara, pastrat pentru istoric.
 | `c2_planning` | doc+script | calibrarea Gilbert-Elliott si runbook-ul campaniei C2 | INGHETAT | 2026-08-01 | nu (`CALIBRARE_GE_C2.md`; runbook-ul: arhivat, E-ORDINE-2) |
 | [`c3_gateway`](c3_gateway/README.md) | ament | gateway-ul de comutare a caii (C3) | INGHETAT | 2026-09-01 | da |
 | [`c6_safety`](c6_safety/README.md) | ament_python | garda de siguranta DT-CBF: core-uri pure + noduri subtiri (C6) | VIU | 2026-09-17 | da |
-| [`curs_ml`](curs_ml/README.md) | educational | curs ML, 23 module | ARHIVAT | 2026-06-29 | da |
-| [`curs_ros2`](curs_ros2/README.md) | educational | curs ROS 2 (11 module cu cod in `curs_ros2/curs_ros2/`) | ARHIVAT | 2026-06-29 | da |
-| [`curs_ros2_interfaces`](curs_ros2_interfaces/README.md) | ament | interfete custom pentru curs | ARHIVAT | 2026-06-29 | da |
+| `curs_ml`, `curs_ros2`, `curs_ros2_interfaces` | educational | cursurile: MUTATE la E-ORDINE-2 (04.10.2026) in `~/ws_cursuri/src/` (istoric pastrat) | -- | -- | acolo |
 | `docs` | dovezi | `material_teza/cm_rmw_mismatch/`: jurnale de dovada pentru clasa "RMW nepotrivit" | ARHIVAT (dovada) | 2026-08-21 | nu (are `cm_rmw_mismatch/README.md`) |
 | [`joint_emulator`](joint_emulator/README.md) | script | emulatorul bancului cu 6 servomotoare (exoschelet, fara rol in teza) | INGHETAT | 2026-06-29 | da |
 | [`link_adaptive`](link_adaptive/README.md) | ament | strat adaptiv la starea legaturii (NOMINAL/DEGRADED/CRITICAL), precursor al C3 | MOSTENIRE | 2026-06-29 | da |

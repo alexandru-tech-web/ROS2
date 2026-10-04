@@ -143,7 +143,8 @@ rezultate. Daca un push esueaza, prima suspiciune: date brute / fisiere >100 MB.
   (commit-urile lui din 19-20.09.2026: ea8e464, ddcb23c, 5d561c9). Claude Code nu le atinge.
 - teleop_rover/   -- roverul teleoperat (robot, operator, link, goto, detector, Gazebo): platforma C4/C5/C7 (VIE in COLOANA);
   eticheta 'tier ARHIVA' din README-ul lui (eb21d82) e DEPASITA. 'Comparatia drona vs robot mobil' nu e in nicio poarta.
-- curs_ros2/, curs_ros2_interfaces/, curs_ml/ (pe main), PROIECT_ECOSISTEM_EDUCATIONAL.md -- educational, arhivat.
+- curs_ros2/, curs_ros2_interfaces/, curs_ml/ -- educational; MUTATE la E-ORDINE-2 (04.10.2026) in ~/ws_cursuri/src/ (depozit git
+  local propriu, istoricul extras cu git subtree split). PROIECT_ECOSISTEM_EDUCATIONAL.md: arhivat (DOC/ARHIVA/src_docs_radacina/).
 - docs/material_teza/cm_rmw_mismatch -- arhivat. scratchpad/ a plecat din src la E-ORDINE-2 (04.10.2026).
 - **E-ORDINE-2 (04.10.2026, decizia lui Alexandru):** fiecare pachet pastreaza doar README.md si FAPTE_*.md; documentele
   vechi (PROGRESS_*, HARTA_*, VERDICT_*, RUNBOOK, CHEATSHEET, ghidurile din iunie, notele articolului v4), selectorul ML
