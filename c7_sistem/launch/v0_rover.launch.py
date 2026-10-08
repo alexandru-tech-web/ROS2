@@ -26,7 +26,7 @@ def generate_launch_description():
         SetEnvironmentVariable("ROS_DOMAIN_ID", L("domain")),
         LogInfo(msg=["ROL=", L("rol"), " pereche(operator)=", L("pereche"), " domain=", L("domain")]),
         Node(package="c4_platforma", executable="confidence_node", name="c4_confidence_rover", output="screen",
-             parameters=[{"T_dead": 0.25, "W": 20, "hz": 10.0, "jurnal": L("jurnal_c4")}]),
+             parameters=[{"T_sonda": 1.0, "W": 50, "hz": 5.0, "jurnal": L("jurnal_c4")}]),   # P0-1: alpha-ul C3 (v2)
         Node(package="c6_safety", executable="rover_node", name="c6_rover", output="screen", prefix=[VENV, " "],
              parameters=[{"brat": "A2", "scenariu": "traversare", "v_o_max": 0.5, "seed": 1, "react": False,
                           "outputs": L("c6_outputs"), "eticheta": "rover_A2", "qos": "reliable", "mod_dt": L("mod_dt")}]),
